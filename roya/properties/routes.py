@@ -1,0 +1,134 @@
+from datetime import date
+import uuid as uuidlib
+from flask import Blueprint, current_app, render_template, request
+from pydantic import BaseModel, Field, ValidationError
+
+from roya.auth.service import current_identity
+from roya.common.db import db_connection, supabase_admin_client
+from roya.common.errors import RoyaError
+from roya.common.response import ok
+from roya.common.slug import slugify
+from roya.organizations.service import require_organization_member
+from .repository import get_property_by_slug, search_properties
+
+bp = Blueprint("properties", __name__)
+
+
+def _date(value):
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise RoyaError("VALIDATION_ERROR", "Dates must use YYYY-MM-DD.", 422) from exc
+
+
+@bp.get("/health")
+def health():
+    return ok({"service":"roya","status":"ok","database_configured":bool(current_app.config.get("DATABASE_URL"))})
+
+
+@bp.get("/")
+def home():
+    return render_template("public/home.html")
+
+
+@bp.get("/search")
+def search_page():
+    city=(request.args.get("city") or "").strip() or None
+    check_in=_date(request.args.get("check_in")); check_out=_date(request.args.get("check_out"))
+    guests=max(int(request.args.get("guests","1")),1)
+    if check_in and check_out and check_out<=check_in:
+        raise RoyaError("VALIDATION_ERROR","Check-out must be after check-in.",422)
+    rows=search_properties(city,check_in,check_out,guests)
+    return render_template("public/search.html",properties=rows,city=city,check_in=check_in,check_out=check_out,guests=guests)
+
+
+@bp.get("/api/v1/properties")
+def search_api():
+    city=(request.args.get("city") or "").strip() or None
+    check_in=_date(request.args.get("check_in")); check_out=_date(request.args.get("check_out"))
+    guests=max(int(request.args.get("guests","1")),1)
+    if check_in and check_out and check_out<=check_in:
+        raise RoyaError("VALIDATION_ERROR","Check-out must be after check-in.",422)
+    return ok(search_properties(city,check_in,check_out,guests))
+
+
+@bp.get("/hotels/<slug>")
+def property_page(slug):
+    check_in=_date(request.args.get("check_in")); check_out=_date(request.args.get("check_out"))
+    guests=max(int(request.args.get("guests","1")),1)
+    prop,images,rooms=get_property_by_slug(slug,check_in,check_out,guests)
+    if not prop:
+        raise RoyaError("PROPERTY_NOT_FOUND","Property not found.",404)
+    return render_template("public/property.html",property=prop,images=images,rooms=rooms,check_in=check_in,check_out=check_out,guests=guests)
+
+
+class PropertyCreate(BaseModel):
+    organization_id: str
+    name: str = Field(min_length=2,max_length=180)
+    description: str = Field(default="",max_length=5000)
+    address: str = Field(min_length=3,max_length=300)
+    city: str = Field(min_length=2,max_length=100)
+    state: str = Field(min_length=2,max_length=100)
+    country: str = Field(default="Nigeria",min_length=2,max_length=100)
+    phone: str|None = Field(default=None,max_length=30)
+    email: str|None = Field(default=None,max_length=200)
+    latitude: float|None=None
+    longitude: float|None=None
+    check_in_time: str="14:00"
+    check_out_time: str="12:00"
+
+
+@bp.post("/api/v1/properties")
+def create_property_api():
+    try:
+        body=PropertyCreate.model_validate(request.get_json(silent=True) or {})
+    except ValidationError as exc:
+        raise RoyaError("VALIDATION_ERROR","Invalid property details.",422,{"errors":exc.errors()}) from exc
+    identity=current_identity(required=True)
+    require_organization_member(identity.user_id,body.organization_id,{"owner","manager"})
+    slug=f"{slugify(body.name)}-{uuidlib.uuid4().hex[:6]}"
+    with db_connection() as conn:
+        row=conn.execute(
+            """insert into properties(organization_id,name,slug,description,address,city,state,country,phone,email,latitude,longitude,location,check_in_time,check_out_time,verification_status,status,created_by_user_id)
+               values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
+                 case when %s is not null and %s is not null then st_setsrid(st_makepoint(%s,%s),4326)::geography else null end,
+                 %s::time,%s::time,'pending','draft',%s) returning *""",
+            (body.organization_id,body.name,slug,body.description,body.address,body.city,body.state,body.country,body.phone,body.email,
+             body.latitude,body.longitude,body.longitude,body.latitude,body.longitude,body.latitude,body.check_in_time,body.check_out_time,identity.user_id),
+        ).fetchone()
+        conn.commit()
+    return ok(row,201)
+
+
+@bp.post("/api/v1/properties/<uuid:property_id>/images")
+def upload_property_image(property_id):
+    identity=current_identity(required=True)
+    with db_connection() as conn:
+        prop=conn.execute("select organization_id from properties where id=%s",(str(property_id),)).fetchone()
+    if not prop:
+        raise RoyaError("PROPERTY_NOT_FOUND","Property not found.",404)
+    require_organization_member(identity.user_id,str(prop["organization_id"]),{"owner","manager"})
+    file=request.files.get("file")
+    if not file or not file.filename:
+        raise RoyaError("VALIDATION_ERROR","An image file is required.",422)
+    allowed={"image/jpeg":".jpg","image/png":".png","image/webp":".webp"}
+    if file.mimetype not in allowed:
+        raise RoyaError("VALIDATION_ERROR","Only JPEG, PNG and WebP images are accepted.",422)
+    raw=file.read(10*1024*1024+1)
+    if len(raw)>10*1024*1024:
+        raise RoyaError("VALIDATION_ERROR","Image must be 10 MB or smaller.",422)
+    path=f"{property_id}/{uuidlib.uuid4().hex}{allowed[file.mimetype]}"
+    client=supabase_admin_client()
+    try:
+        client.storage.from_("property-images").upload(path,raw,{"content-type":file.mimetype,"upsert":"false"})
+    except Exception as exc:
+        raise RoyaError("STORAGE_UPLOAD_FAILED","Image upload failed.",502) from exc
+    public_url=client.storage.from_("property-images").get_public_url(path)
+    with db_connection() as conn:
+        row=conn.execute(
+            "insert into property_images(property_id,path,sort_order) values(%s,%s,coalesce((select max(sort_order)+1 from property_images where property_id=%s),0)) returning *",
+            (str(property_id),public_url,str(property_id)),
+        ).fetchone(); conn.commit()
+    return ok(row,201)
