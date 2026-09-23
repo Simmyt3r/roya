@@ -1,7 +1,17 @@
 {
   "version": 2,
   "builds": [
-    {"src": "app.py", "use": "@vercel/python"}
+    {
+      "src": "app.py",
+      "use": "@vercel/python",
+      "config": {
+        "includeFiles": [
+          "roya/**",
+          "templates/**",
+          "static/**"
+        ]
+      }
+    }
   ],
   "routes": [
     {"src": "/(.*)", "dest": "app.py"}
