@@ -32,9 +32,9 @@ SUPABASE_ANON_KEY remains supported as a legacy fallback. DATABASE_URL should us
 
 ## Supabase
 
-The connected Roya project is ref `uamsdprhbrorobxdyrqo` in `eu-west-1`.
+The current Roya project is ref `nagadxvccyiilowcuruk` in `ap-southeast-1`.
 
-Apply migrations in order from supabase/migrations. The foundation migration creates multi-property tenancy, room types/rates, per-day inventory, reservations, payment records, RLS, storage buckets, PostGIS and atomic inventory functions. Follow-up migrations harden RLS/RPC exposure and move the tenancy helper to a private schema.
+Apply migrations in order from supabase/migrations. The foundation migration creates multi-property tenancy, room types/rates, per-day inventory, reservations, payment records, RLS, storage buckets, PostGIS and atomic inventory functions. Follow-up migrations harden RLS/RPC exposure, move the tenancy helper to a private schema, add operational indexes, schedule hold expiry, and add atomic hotel-approval decisions.
 
 supabase/seed.sql is development-only and must not run automatically in production.
 
@@ -44,7 +44,7 @@ create_reservation(...) lives in PostgreSQL. It locks every requested inventory_
 
 Reservation and payment states are independent. A pay-at-property reservation may be confirmed while unpaid.
 
-A live Supabase lock test against one sellable room was run with two concurrent transactions: one succeeded and the second returned BOOKING_CONFLICT; final available inventory was zero, not negative.
+The booking lock design has been live-tested against a final-room race: one transaction succeeded and the competing transaction returned BOOKING_CONFLICT; inventory never went negative.
 
 ## Tests
 
@@ -54,7 +54,9 @@ The repository also contains scripts/concurrency_check.py for a full reservation
 
 ## Vercel
 
-Connect this repository to a Roya Vercel project and deploy v3-flask as a preview branch. Add the environment values above. vercel.json defines protected Cron routes for hold expiry, payment reconciliation and reminders.
+Production project: `iroya`.
+
+Configure the environment values above. vercel.json routes all traffic into the Flask function and includes templates/static assets in the Python bundle. Reservation hold expiry runs in Supabase Cron; Vercel handles the lower-frequency internal cron routes.
 
 ## Paystack
 
