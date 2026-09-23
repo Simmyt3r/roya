@@ -1,1 +1,61 @@
-{"name":"Roya","short_name":"Roya","start_url":"/","display":"standalone","background_color":"#f4f8f7","theme_color":"#0f766e","description":"Live hotel inventory and direct booking."}
+{
+  "name": "iRoya",
+  "short_name": "iRoya",
+  "description": "Thoughtful stays, clearer booking. Discover independent hotels with live availability and direct reservations.",
+  "id": "/",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone"
+  ],
+  "orientation": "portrait-primary",
+  "background_color": "#fdfdfa",
+  "theme_color": "#081f68",
+  "categories": [
+    "travel",
+    "lifestyle"
+  ],
+  "lang": "en",
+  "icons": [
+    {
+      "src": "/static/brand/iroya-logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/brand/iroya-logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Find a stay",
+      "short_name": "Search",
+      "url": "/search",
+      "icons": [
+        {
+          "src": "/static/brand/iroya-logo.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Hotel partner",
+      "short_name": "Partner",
+      "url": "/partner",
+      "icons": [
+        {
+          "src": "/static/brand/iroya-logo.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
+  ]
+}
