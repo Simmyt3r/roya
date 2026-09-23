@@ -25,3 +25,34 @@ if(bookingForm){bookingForm.addEventListener('submit',async function(e){
   }
   window.location.href='/reservation/'+r.reservation_id;
 });}
+
+
+document.querySelectorAll('[data-reservation-approval]').forEach(function(row){
+  row.querySelectorAll('[data-reservation-decision]').forEach(function(button){
+    button.addEventListener('click',async function(){
+      const msg=row.querySelector('.form-message');
+      const decision=button.dataset.reservationDecision;
+      const reservationId=row.dataset.reservationApproval;
+      let reason=null;
+      if(decision==='reject'){
+        reason=window.prompt('Reason for declining this reservation:','Declined by property');
+        if(reason===null)return;
+      }
+      msg.textContent=decision==='approve'?'Approving reservation…':'Declining reservation…';
+      row.querySelectorAll('button').forEach(function(btn){btn.disabled=true;});
+      const res=await fetch('/api/v1/partner/reservations/'+reservationId+'/decision',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({decision:decision,reason:reason})
+      });
+      const data=await res.json().catch(function(){return {};});
+      if(!res.ok){
+        msg.textContent=(data.error&&data.error.message)||'Reservation decision failed.';
+        row.querySelectorAll('button').forEach(function(btn){btn.disabled=false;});
+        return;
+      }
+      msg.textContent=decision==='approve'?'Reservation approved.':'Reservation declined.';
+      window.location.reload();
+    });
+  });
+});
