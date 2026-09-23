@@ -1,11 +1,12 @@
 import logging
 import uuid
-from flask import Flask, request
+from flask import Flask, request, session
 from flask_wtf.csrf import CSRFProtect
 
 from .config import Config
 from .common.errors import register_error_handlers
 from .common.logging import JsonFormatter
+from .common.security import enforce_same_origin_for_cookie_mutations
 
 csrf = CSRFProtect()
 
@@ -25,8 +26,9 @@ def create_app(test_config=None):
     app.logger.setLevel(logging.INFO)
 
     @app.before_request
-    def attach_request_id():
+    def attach_request_context():
         request.request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+        enforce_same_origin_for_cookie_mutations()
 
     @app.after_request
     def response_headers(response):
@@ -34,6 +36,9 @@ def create_app(test_config=None):
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=(self)")
+        if session.get("access_token") or request.path.startswith("/api/v1/auth/"):
+            response.headers["Cache-Control"] = "private, no-store"
+            response.headers["Pragma"] = "no-cache"
         return response
 
     from .properties.routes import bp as properties_bp
