@@ -13,12 +13,15 @@
 - [x] Paystack provider and signed webhook flow
 - [x] Public search/property/booking scaffolding
 - [x] Partner/admin dashboard scaffolding
-- [x] Vercel Cron configuration
+- [x] Move high-frequency hold expiry to Supabase Cron
+- [x] Make Vercel Cron configuration Hobby-compatible
+- [x] Declare explicit Flask Vercel entrypoint
+- [x] Create/connect Vercel project iroya
+- [x] Deploy v3-flask preview successfully to Vercel
 - [x] Unit tests and PostgreSQL concurrency acceptance script
 - [x] Run live last-room inventory locking test against Supabase
-- [ ] Configure Supabase service-role key and Supavisor DATABASE_URL in Vercel
-- [ ] Run authenticated RLS isolation test with two real test users
-- [ ] Create/connect a Roya Vercel project
+- [ ] Configure Vercel runtime environment values
+- [ ] Run authenticated two-user RLS isolation test with two real test users
+- [ ] Run protected-preview smoke test for / and /health
 - [ ] Configure Paystack test credentials and webhook
-- [ ] Run Vercel preview smoke test
 - [ ] Production UX polish and full partner inventory calendar
