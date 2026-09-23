@@ -65,3 +65,20 @@ def test_cookie_mutations_require_same_origin():
     )
     assert allowed.status_code==200
     assert allowed.get_json()["success"] is True
+
+
+def test_landing_page_renders_without_database():
+    app=create_app({
+        "TESTING":True,
+        "WTF_CSRF_ENABLED":False,
+        "DATABASE_URL":"",
+        "SUPABASE_URL":"",
+        "SUPABASE_PUBLISHABLE_KEY":"",
+        "SUPABASE_SERVICE_ROLE_KEY":"",
+    })
+    response=app.test_client().get("/")
+    assert response.status_code==200
+    html=response.get_data(as_text=True)
+    assert "A warmer way to find your" in html
+    assert "data-home-search" in html
+    assert "Pending reservation approvals" not in html
