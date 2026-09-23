@@ -26,13 +26,15 @@ The public home page and /health can load without a database. Search, authentica
 
 ## Environment
 
-Configure FLASK_SECRET_KEY, APP_URL, SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, DATABASE_URL, PAYSTACK_SECRET_KEY and CRON_SECRET.
+Configure FLASK_SECRET_KEY, APP_URL, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, SUPABASE_SERVICE_ROLE_KEY, DATABASE_URL, PAYSTACK_SECRET_KEY and CRON_SECRET.
 
-DATABASE_URL should use the Supabase/Supavisor transaction pooler for serverless application traffic. Never expose the Supabase service-role key or Paystack secret to browser code.
+SUPABASE_ANON_KEY remains supported as a legacy fallback. DATABASE_URL should use the Supabase/Supavisor transaction pooler for serverless application traffic. Never expose the Supabase service-role key, database password, Flask secret, cron secret or Paystack secret to browser code.
 
 ## Supabase
 
-Apply migrations in order from supabase/migrations. The foundation migration creates multi-property tenancy, room types/rates, per-day inventory, reservations, payment records, RLS, storage buckets, PostGIS and atomic inventory functions.
+The connected Roya project is ref `uamsdprhbrorobxdyrqo` in `eu-west-1`.
+
+Apply migrations in order from supabase/migrations. The foundation migration creates multi-property tenancy, room types/rates, per-day inventory, reservations, payment records, RLS, storage buckets, PostGIS and atomic inventory functions. Follow-up migrations harden RLS/RPC exposure and move the tenancy helper to a private schema.
 
 supabase/seed.sql is development-only and must not run automatically in production.
 
@@ -42,11 +44,13 @@ create_reservation(...) lives in PostgreSQL. It locks every requested inventory_
 
 Reservation and payment states are independent. A pay-at-property reservation may be confirmed while unpaid.
 
+A live Supabase lock test against one sellable room was run with two concurrent transactions: one succeeded and the second returned BOOKING_CONFLICT; final available inventory was zero, not negative.
+
 ## Tests
 
 Run pytest for unit tests.
 
-The real final-room race test requires a disposable Supabase/PostgreSQL database with the v3 migration applied. Set TEST_DATABASE_URL and the ROYA_TEST_* fixture IDs, then run python scripts/concurrency_check.py. With exactly one sellable room, two simultaneous attempts must produce one success and one BOOKING_CONFLICT.
+The repository also contains scripts/concurrency_check.py for a full reservation-function race test once a disposable Auth fixture and TEST_DATABASE_URL are available. Do not weaken or bypass Supabase Auth merely to manufacture that fixture.
 
 ## Vercel
 
