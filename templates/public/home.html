@@ -1,4 +1,140 @@
-{% extends "base.html" %}{% block title %}Roya · Find rooms that are actually available{% endblock %}{% block content %}
-<section class="hero shell"><div class="eyebrow">Verified availability · Flexible reservations</div><h1>Book the room that is actually there.</h1><p>Search independent hotels using live room inventory, clear rates and straightforward reservation options.</p><form class="searchbar" action="/search" method="get"><label>Where?<input name="city" placeholder="Ikeja, Lagos" required></label><label>Check in<input type="date" name="check_in" required></label><label>Check out<input type="date" name="check_out" required></label><label>Guests<input type="number" min="1" max="20" value="1" name="guests"></label><button class="button" type="submit">Search stays</button></form></section>
-<section class="shell split"><article class="card"><h2>For guests</h2><p>Verified properties, live room inventory and the real rate before checkout.</p></article><article class="card"><h2>For hotels</h2><p>One inventory source for direct links, Roya and future distribution channels.</p><a href="/partner">Open partner dashboard →</a></article></section>
+{% extends "base.html" %}
+{% block title %}Roya · A warmer way to book a stay{% endblock %}
+{% block content %}
+<div class="landing-page">
+  <section class="landing-hero">
+    <div class="landing-glow landing-glow-one" aria-hidden="true"></div>
+    <div class="landing-glow landing-glow-two" aria-hidden="true"></div>
+
+    <div class="shell landing-hero-grid">
+      <div class="landing-copy" data-reveal>
+        <div class="welcome-pill"><span class="welcome-dot"></span> Thoughtful stays, clearer booking</div>
+        <h1>A warmer way to find your <span>next stay.</span></h1>
+        <p class="landing-lead">Roya brings independent hotels, real room availability and clear reservation options into one calm booking experience.</p>
+
+        <form class="landing-search" action="/search" method="get" data-home-search>
+          <div class="landing-field landing-field-wide">
+            <span class="field-icon" aria-hidden="true">⌖</span>
+            <label>Where would you like to stay?
+              <input name="city" placeholder="Lagos, Abuja, Jos…" autocomplete="address-level2" required>
+            </label>
+          </div>
+          <div class="landing-field">
+            <span class="field-icon" aria-hidden="true">↗</span>
+            <label>Check in
+              <input type="date" name="check_in" data-check-in required>
+            </label>
+          </div>
+          <div class="landing-field">
+            <span class="field-icon" aria-hidden="true">↘</span>
+            <label>Check out
+              <input type="date" name="check_out" data-check-out required>
+            </label>
+          </div>
+          <div class="landing-field landing-guests">
+            <span class="field-icon" aria-hidden="true">◌</span>
+            <label>Guests
+              <input type="number" min="1" max="20" value="1" name="guests" inputmode="numeric">
+            </label>
+          </div>
+          <button class="button landing-search-button" type="submit">Find a stay <span aria-hidden="true">→</span></button>
+        </form>
+
+        <div class="landing-trust" aria-label="Roya booking principles">
+          <span><b>✓</b> Verified properties</span>
+          <span><b>✓</b> Clear pricing</span>
+          <span><b>✓</b> Flexible confirmation</span>
+        </div>
+      </div>
+
+      <div class="hospitality-scene" data-reveal data-reveal-delay="1" aria-label="A calm hotel stay illustration">
+        <div class="scene-sun" aria-hidden="true"></div>
+        <div class="scene-window">
+          <div class="scene-sky"></div>
+          <div class="scene-hill scene-hill-back"></div>
+          <div class="scene-hill scene-hill-front"></div>
+          <div class="scene-building">
+            <span></span><span></span><span></span>
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+        <div class="scene-table">
+          <div class="scene-vase"><i></i><i></i><i></i></div>
+          <div class="scene-cup"></div>
+        </div>
+        <div class="floating-stay-card">
+          <div class="stay-card-icon">R</div>
+          <div>
+            <small>Your stay, simply handled</small>
+            <strong>Room confirmed</strong>
+          </div>
+          <span class="stay-card-check">✓</span>
+        </div>
+        <div class="floating-note">A good stay should feel easy before you even arrive.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="landing-proof shell" data-reveal>
+    <div class="proof-intro">
+      <span class="eyebrow">Built for peace of mind</span>
+      <h2>Less uncertainty. More welcome.</h2>
+    </div>
+    <p>Roya is designed around one simple idea: guests should know what they are booking, and hotels should control what they are selling.</p>
+  </section>
+
+  <section class="shell landing-benefits">
+    <article class="hospitality-card" data-reveal>
+      <div class="benefit-icon">01</div>
+      <div>
+        <span class="eyebrow">Know before you go</span>
+        <h3>Availability you can trust</h3>
+        <p>Room inventory is designed to come from the hotel’s live source, so the promise shown to a guest matches what the property can actually honour.</p>
+      </div>
+    </article>
+    <article class="hospitality-card" data-reveal data-reveal-delay="1">
+      <div class="benefit-icon">02</div>
+      <div>
+        <span class="eyebrow">No checkout theatre</span>
+        <h3>Clear rates, calmly explained</h3>
+        <p>See the stay, the rate and how it will be guaranteed before committing. Because surprise belongs in birthday cakes, not hotel bills.</p>
+      </div>
+    </article>
+    <article class="hospitality-card" data-reveal data-reveal-delay="2">
+      <div class="benefit-icon">03</div>
+      <div>
+        <span class="eyebrow">Made for independent hotels</span>
+        <h3>Direct hospitality, digitally</h3>
+        <p>Hotels get a cleaner path to manage rooms, rates and reservations while keeping their own identity and guest relationship.</p>
+      </div>
+    </article>
+  </section>
+
+  <section class="shell welcome-panel" data-reveal>
+    <div class="welcome-panel-copy">
+      <span class="eyebrow eyebrow-light">For hotel partners</span>
+      <h2>Your rooms. Your rates. One source of truth.</h2>
+      <p>Manage availability once, receive reservations clearly, and build a direct digital presence that feels like your property rather than a crowded marketplace shelf.</p>
+      <div class="welcome-actions">
+        <a class="button button-warm" href="/partner">Open partner dashboard <span aria-hidden="true">→</span></a>
+        <a class="text-link-light" href="/register">Create a partner account</a>
+      </div>
+    </div>
+    <div class="welcome-panel-badges" aria-label="Partner capabilities">
+      <span>Daily inventory</span>
+      <span>Rate plans</span>
+      <span>Reservation approvals</span>
+      <span>Direct booking</span>
+    </div>
+  </section>
+
+  <section class="shell landing-close" data-reveal>
+    <div>
+      <span class="eyebrow">Roya</span>
+      <h2>Arrive with fewer questions.</h2>
+      <p>Search when you are ready. The welcome starts here.</p>
+    </div>
+    <a class="button" href="#top" data-scroll-top>Start your search <span aria-hidden="true">↑</span></a>
+  </section>
+</div>
 {% endblock %}
