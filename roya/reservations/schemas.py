@@ -1,5 +1,7 @@
 from datetime import date
+from typing import Literal
 from uuid import UUID
+
 from pydantic import BaseModel, EmailStr, Field, model_validator
 
 
@@ -26,3 +28,8 @@ class ReservationCreate(BaseModel):
         if self.guarantee_type not in {"pay_now","deposit","pay_at_property","hotel_approval"}:
             raise ValueError("unsupported guarantee_type")
         return self
+
+
+class PartnerReservationDecision(BaseModel):
+    decision: Literal["approve","reject"]
+    reason: str | None = Field(default=None,max_length=1000)
