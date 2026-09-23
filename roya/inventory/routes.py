@@ -7,8 +7,6 @@ from roya.auth.service import current_identity, login_required
 from roya.common.db import db_connection
 from roya.common.errors import RoyaError
 from roya.common.response import ok
-from roya.common.security import require_cron_secret
-from roya.payments.service import PaymentService
 
 bp=Blueprint("inventory",__name__)
 
@@ -58,37 +56,3 @@ def update_inventory():
                     (str(body.room_type_id),item.date,item.total_inventory,item.price_override_minor,item.stop_sell,item.closed_to_arrival,item.closed_to_departure,item.min_stay),
                 )
     return ok({"updated":len(body.days)})
-
-
-@bp.get("/api/internal/cron/expire-holds")
-@require_cron_secret
-def expire_holds():
-    with db_connection() as conn:
-        row=conn.execute("select * from expire_reservation_holds()").fetchone(); conn.commit()
-    return ok(row or {"expired":0})
-
-
-@bp.get("/api/internal/cron/payment-reconcile")
-@require_cron_secret
-def reconcile_payments():
-    return ok(PaymentService().reconcile_pending())
-
-
-@bp.get("/api/internal/cron/send-reminders")
-@require_cron_secret
-def reminder_scan():
-    from roya.notifications.service import NotificationService
-    from roya.notifications.smtp import SmtpNotificationAdapter
-    with db_connection() as conn:
-        rows=list(conn.execute(
-            """select id,reference,guest_email,check_in from reservations
-               where status='confirmed' and check_in=current_date+1 and reminder_sent_at is null limit 100"""
-        ).fetchall())
-    service=NotificationService(SmtpNotificationAdapter()); sent=0
-    for r in rows:
-        result=service.send(recipient=r["guest_email"],subject=f"Your Roya stay {r['reference']} is tomorrow",body=f"Reminder: your reservation {r['reference']} checks in on {r['check_in']}.")
-        if result.get("sent"):
-            with db_connection() as conn:
-                conn.execute("update reservations set reminder_sent_at=now() where id=%s and reminder_sent_at is null",(r["id"],)); conn.commit()
-            sent+=1
-    return ok({"pending_reminders":len(rows),"sent":sent})
