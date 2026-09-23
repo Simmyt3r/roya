@@ -7,6 +7,7 @@ from roya.common.db import db_connection
 from roya.common.errors import RoyaError
 from roya.common.response import ok
 from roya.common.slug import slugify
+from roya.reservations.service import ReservationService
 
 bp = Blueprint("organizations", __name__)
 
@@ -54,4 +55,13 @@ def partner_dashboard():
                where om.user_id=%s and om.status='active' order by p.created_at desc""",
             (user.user_id,),
         ).fetchall())
-    return render_template("partner/dashboard.html", organizations=organizations, properties=properties)
+
+    partner_reservations = ReservationService().list_for_partner(user.user_id, limit=50)
+    pending_reservations = [r for r in partner_reservations if r["status"] == "pending_confirmation"][:20]
+
+    return render_template(
+        "partner/dashboard.html",
+        organizations=organizations,
+        properties=properties,
+        pending_reservations=pending_reservations,
+    )
