@@ -56,3 +56,69 @@ document.querySelectorAll('[data-reservation-approval]').forEach(function(row){
     });
   });
 });
+
+
+(function initLanding(){
+  const revealItems=document.querySelectorAll('[data-reveal]');
+  if(revealItems.length){
+    if('IntersectionObserver' in window && !window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+      const observer=new IntersectionObserver(function(entries){
+        entries.forEach(function(entry){
+          if(entry.isIntersecting){
+            entry.target.classList.add('is-visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      },{threshold:0.12,rootMargin:'0px 0px -30px'});
+      revealItems.forEach(function(item){observer.observe(item);});
+    }else{
+      revealItems.forEach(function(item){item.classList.add('is-visible');});
+    }
+  }
+
+  const form=document.querySelector('[data-home-search]');
+  if(form){
+    const checkIn=form.querySelector('[data-check-in]');
+    const checkOut=form.querySelector('[data-check-out]');
+    const formatDate=function(date){
+      const y=date.getFullYear();
+      const m=String(date.getMonth()+1).padStart(2,'0');
+      const d=String(date.getDate()).padStart(2,'0');
+      return y+'-'+m+'-'+d;
+    };
+    const addDays=function(date,days){
+      const copy=new Date(date.getFullYear(),date.getMonth(),date.getDate());
+      copy.setDate(copy.getDate()+days);
+      return copy;
+    };
+    const today=new Date();
+    const tomorrow=addDays(today,1);
+    const dayAfter=addDays(today,2);
+    const todayValue=formatDate(today);
+
+    if(checkIn){
+      checkIn.min=todayValue;
+      if(!checkIn.value)checkIn.value=formatDate(tomorrow);
+    }
+    if(checkOut){
+      checkOut.min=checkIn&&checkIn.value?checkIn.value:todayValue;
+      if(!checkOut.value)checkOut.value=formatDate(dayAfter);
+    }
+
+    if(checkIn&&checkOut){
+      checkIn.addEventListener('change',function(){
+        const selected=new Date(checkIn.value+'T00:00:00');
+        const next=formatDate(addDays(selected,1));
+        checkOut.min=next;
+        if(!checkOut.value||checkOut.value<=checkIn.value)checkOut.value=next;
+      });
+    }
+  }
+
+  document.querySelectorAll('[data-scroll-top]').forEach(function(link){
+    link.addEventListener('click',function(event){
+      event.preventDefault();
+      window.scrollTo({top:0,behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+    });
+  });
+})();
