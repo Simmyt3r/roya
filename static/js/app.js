@@ -7,7 +7,51 @@ async function authSubmit(form,mode){
   window.location.href=mode==='login'?'/partner':'/';
 }
 document.querySelectorAll('[data-auth-form]').forEach(function(form){form.addEventListener('submit',function(e){e.preventDefault();authSubmit(form,form.dataset.authForm);});});
-if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/js/sw.js').catch(function(){});}
+if('serviceWorker' in navigator){
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('/static/js/sw.js',{scope:'/'}).catch(function(){});
+  });
+}
+
+(function initInstallWorkflow(){
+  const button=document.querySelector('[data-install-app]');
+  if(!button)return;
+
+  let deferredPrompt=null;
+  const isStandalone=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;
+  const isIOS=/iphone|ipad|ipod/i.test(window.navigator.userAgent);
+
+  if(isStandalone)return;
+
+  window.addEventListener('beforeinstallprompt',function(event){
+    event.preventDefault();
+    deferredPrompt=event;
+    button.hidden=false;
+  });
+
+  if(isIOS){
+    button.hidden=false;
+    button.textContent='Add to Home Screen';
+  }
+
+  button.addEventListener('click',async function(){
+    if(deferredPrompt){
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      deferredPrompt=null;
+      button.hidden=true;
+      return;
+    }
+    if(isIOS){
+      window.alert('On iPhone or iPad: tap Share, then choose “Add to Home Screen”.');
+    }
+  });
+
+  window.addEventListener('appinstalled',function(){
+    deferredPrompt=null;
+    button.hidden=true;
+  });
+})();
 const bookingForm=document.getElementById('booking-form');
 if(bookingForm){bookingForm.addEventListener('submit',async function(e){
   e.preventDefault(); const msg=bookingForm.querySelector('.form-message'); msg.textContent='Creating a live inventory hold…';
