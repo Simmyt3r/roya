@@ -572,7 +572,7 @@ Release gate: no launch if booking concurrency tests fail.
 
 ---
 
-## 15) Out of Scope for MVP (Explicit)
+## 15) to continue Scope for MVP (Explicit)
 
 - Multi-currency settlement engine
 - Loyalty points/wallet
