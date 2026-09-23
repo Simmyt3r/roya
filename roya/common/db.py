@@ -25,7 +25,7 @@ def db_connection():
 
 def supabase_anon_client():
     url = current_app.config.get("SUPABASE_URL", "")
-    key = current_app.config.get("SUPABASE_ANON_KEY", "")
+    key = current_app.config.get("SUPABASE_PUBLISHABLE_KEY", "")
     if not url or not key:
         raise RoyaError("SUPABASE_NOT_CONFIGURED", "Supabase is not configured.", 503)
     return create_client(url, key)
