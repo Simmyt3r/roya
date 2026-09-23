@@ -6,7 +6,7 @@ class Config:
     APP_URL = os.getenv("APP_URL", "http://localhost:5000")
 
     SUPABASE_URL = os.getenv("SUPABASE_URL", "")
-    SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
+    SUPABASE_PUBLISHABLE_KEY = os.getenv("SUPABASE_PUBLISHABLE_KEY", "") or os.getenv("SUPABASE_ANON_KEY", "")
     SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
     DATABASE_URL = os.getenv("DATABASE_URL", "")
 
@@ -32,13 +32,9 @@ class Config:
     @classmethod
     def validate_production(cls):
         missing = []
-        for name in (
-            "FLASK_SECRET_KEY",
-            "SUPABASE_URL",
-            "SUPABASE_ANON_KEY",
-            "DATABASE_URL",
-            "CRON_SECRET",
-        ):
+        for name in ("FLASK_SECRET_KEY", "SUPABASE_URL", "DATABASE_URL", "CRON_SECRET"):
             if not os.getenv(name):
                 missing.append(name)
+        if not (os.getenv("SUPABASE_PUBLISHABLE_KEY") or os.getenv("SUPABASE_ANON_KEY")):
+            missing.append("SUPABASE_PUBLISHABLE_KEY")
         return missing
