@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Partner dashboard · Roya{% endblock %}
+{% block content %}
+<section class="shell page-head">
+  <div>
+    <div class="eyebrow">Hotel partner</div>
+    <h1>Partner dashboard</h1>
+    <p>Inventory, rates and reservations start with a clean property structure.</p>
+  </div>
+</section>
+
+<section class="shell split">
+  <article class="card">
+    <h2>Organizations</h2>
+    {% for o in organizations %}
+      <p><strong>{{ o.name }}</strong><br><span class="muted">{{ o.role }}</span></p>
+    {% else %}
+      <p>No hotel organization yet.</p>
+    {% endfor %}
+  </article>
+
+  <article class="card">
+    <h2>Properties</h2>
+    {% for p in properties %}
+      <p><strong>{{ p.name }}</strong><br><span class="muted">{{ p.city }} · {{ p.verification_status }} · {{ p.status }}</span></p>
+    {% else %}
+      <p>No properties yet.</p>
+    {% endfor %}
+  </article>
+</section>
+
+<section class="shell partner-approvals">
+  <article class="card">
+    <div class="approval-head">
+      <div>
+        <div class="eyebrow">Action required</div>
+        <h2>Pending reservation approvals</h2>
+      </div>
+      <span class="muted">{{ pending_reservations|length }} pending</span>
+    </div>
+
+    <div class="approval-list">
+      {% for r in pending_reservations %}
+        <div class="approval-row" data-reservation-approval="{{ r.id }}">
+          <div>
+            <strong>{{ r.reference }} · {{ r.guest_name }}</strong>
+            <div class="muted">{{ r.property_name }} · {{ r.check_in }} to {{ r.check_out }} · {{ r.currency }} {{ '%.2f'|format(r.total_price_minor / 100) }}</div>
+            {% if r.expires_at %}<div class="muted">Approval hold expires {{ r.expires_at }}</div>{% endif %}
+          </div>
+          <div class="approval-actions">
+            <button class="button button-small" type="button" data-reservation-decision="approve">Approve</button>
+            <button class="button button-small button-secondary" type="button" data-reservation-decision="reject">Reject</button>
+          </div>
+          <p class="form-message"></p>
+        </div>
+      {% else %}
+        <p class="muted">No hotel-approval reservations are waiting right now.</p>
+      {% endfor %}
+    </div>
+  </article>
+</section>
+{% endblock %}

@@ -1,26 +1,27 @@
-# Hotel Booking Platform Development
+# Roya v3 implementation status
 
-## Planning Phase
-- [x] Extract and analyze requirements from the uploaded document
-- [x] Create project structure and directory layout
-- [x] Design database schema for hotel booking system
-- [x] Plan frontend components and user interface
-
-## Implementation Phase
-- [x] Create database structure using MySQL
-- [x] Develop backend API using PHP
-- [x] Build frontend interface using HTML, CSS, and JavaScript
-- [x] Implement user authentication and authorization
-- [x] Create hotel listing and search functionality
-- [x] Implement booking management system
-- [x] Add payment processing integration
-
-## Testing Phase
-- [ ] Test database connectivity and operations
-- [ ] Verify backend API endpoints
-- [ ] Test frontend functionality and responsiveness
-- [ ] Perform end-to-end booking flow testing
-
-## Deployment Phase
-- [ ] Package application for deployment
-- [ ] Prepare documentation and user guide
+- [x] Preserve legacy branch
+- [x] Create v3-flask migration branch
+- [x] Flask modular scaffold
+- [x] Organization/property tenancy
+- [x] Create dedicated Roya Supabase project
+- [x] Apply Supabase foundation migration
+- [x] Harden RLS and internal RPC permissions
+- [x] Create Supabase Storage buckets
+- [x] Room types, rate plans and daily inventory
+- [x] Atomic reservation, cancellation and expiry functions
+- [x] Paystack provider and signed webhook flow
+- [x] Public search/property/booking scaffolding
+- [x] Partner/admin dashboard scaffolding
+- [x] Move high-frequency hold expiry to Supabase Cron
+- [x] Make Vercel Cron configuration Hobby-compatible
+- [x] Declare explicit Flask Vercel entrypoint
+- [x] Create/connect Vercel project iroya
+- [x] Deploy v3-flask preview successfully to Vercel
+- [x] Unit tests and PostgreSQL concurrency acceptance script
+- [x] Run live last-room inventory locking test against Supabase
+- [ ] Configure Vercel runtime environment values
+- [ ] Run authenticated two-user RLS isolation test with two real test users
+- [ ] Run protected-preview smoke test for / and /health
+- [ ] Configure Paystack test credentials and webhook
+- [ ] Production UX polish and full partner inventory calendar

@@ -1,51 +1,13 @@
-# Hotel Booking Platform - Project Structure
+# Roya v3 project structure
 
-## Technology Stack
-- Backend: PHP
-- Database: MySQL
-- Frontend: HTML, CSS, JavaScript
-- Payment Processing: Stripe API
-- Authentication: PHP sessions with secure password handling
+Roya v3 is a Flask modular monolith.
 
-## Directory Structure
-```
-hotel_booking_platform/
-│
-├── assets/
-│   ├── css/
-│   ├── js/
-│   └── images/
-│
-├── includes/
-│   ├── config.php
-│   ├── database.php
-│   ├── auth.php
-│   └── functions.php
-│
-├── admin/
-│   ├── dashboard.php
-│   ├── approve_hotels.php
-│   ├── manage_commissions.php
-│   └── reports.php
-│
-├── hotel/
-│   ├── register.php
-│   ├── login.php
-│   ├── profile.php
-│   ├── profile_builder.php
-│   ├── reservation_dashboard.php
-│   └── payment_reports.php
-│
-├── user/
-│   ├── search.php
-│   ├── hotel_profile.php
-│   ├── booking.php
-│   ├── checkout.php
-│   ├── confirmation.php
-│   └── account.php
-│
-├── database/
-│   └── schema.sql
-│
-└── index.php
-```
+- app.py: Vercel/WSGI entry point
+- roya/: domain modules
+- templates/: server-rendered guest, partner and admin screens
+- static/: PWA and lightweight UI assets
+- supabase/: versioned schema, RLS and seed material
+- tests/: unit and integration contracts
+- scripts/: acceptance utilities such as final-room concurrency checking
+
+The old procedural PHP layout is preserved on legacy-php-prototype and is not the v3 runtime.
