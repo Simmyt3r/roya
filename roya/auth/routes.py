@@ -11,7 +11,9 @@ bp = Blueprint("auth", __name__)
 
 
 def _payload(model):
-    data = request.get_json(silent=True) if request.is_json else request.form.to_dict()
+    if not request.is_json:
+        raise RoyaError("UNSUPPORTED_MEDIA_TYPE", "JSON request body required.", 415)
+    data = request.get_json(silent=True)
     try:
         return model.model_validate(data or {})
     except ValidationError as exc:
@@ -56,6 +58,8 @@ def login():
 
 @bp.post("/api/v1/auth/logout")
 def logout():
+    if not request.is_json:
+        raise RoyaError("UNSUPPORTED_MEDIA_TYPE", "JSON request body required.", 415)
     session.clear()
     return ok({})
 
