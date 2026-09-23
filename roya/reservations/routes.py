@@ -5,7 +5,7 @@ from pydantic import ValidationError
 from roya.auth.service import current_identity, login_required
 from roya.common.errors import RoyaError
 from roya.common.response import ok
-from .schemas import ReservationCreate
+from .schemas import PartnerReservationDecision, ReservationCreate
 from .service import ReservationService
 
 bp=Blueprint("reservations",__name__)
@@ -36,6 +36,25 @@ def cancel_reservation_route(reservation_id):
     identity=current_identity(required=True)
     body=request.get_json(silent=True) or {}
     return ok(service.cancel(str(reservation_id),identity.user_id,body.get("reason")))
+
+
+@bp.get("/api/v1/partner/reservations")
+@login_required
+def partner_reservations():
+    identity=current_identity(required=True)
+    property_id=request.args.get("property_id") or None
+    return ok(service.list_for_partner(identity.user_id,property_id=property_id))
+
+
+@bp.post("/api/v1/partner/reservations/<uuid:reservation_id>/decision")
+@login_required
+def partner_reservation_decision(reservation_id):
+    try:
+        body=PartnerReservationDecision.model_validate(request.get_json(silent=True) or {})
+    except ValidationError as exc:
+        raise RoyaError("VALIDATION_ERROR","Invalid reservation decision.",422,{"errors":exc.errors()}) from exc
+    identity=current_identity(required=True)
+    return ok(service.partner_decide(str(reservation_id),identity.user_id,body.decision,body.reason))
 
 
 @bp.get("/book")
