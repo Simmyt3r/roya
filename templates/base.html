@@ -1,3 +1,35 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0f766e"><link rel="manifest" href="/static/manifest.json"><link rel="stylesheet" href="/static/css/app.css"><title>{% block title %}Roya{% endblock %}</title></head>
-<body><header class="topbar"><a class="brand" href="/">Roya</a><nav><a href="/search">Find a stay</a><a href="/partner">Hotel partner</a><a class="button button-small" href="/login">Sign in</a></nav></header><main>{% block content %}{% endblock %}</main><footer class="footer">Roya · Live hotel inventory, direct booking, fewer surprises.</footer><script src="/static/js/app.js" defer></script></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#081f68">
+  <meta name="description" content="iRoya helps guests discover welcoming independent hotels with clearer availability, rates and reservation options.">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="iRoya">
+  <link rel="manifest" href="/static/manifest.json">
+  <link rel="icon" href="/static/brand/iroya-logo.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/static/brand/iroya-logo.svg">
+  <link rel="stylesheet" href="/static/css/app.css">
+  <title>{% block title %}iRoya{% endblock %}</title>
+</head>
+<body id="top">
+  <header class="topbar">
+    <a class="brand brand-lockup" href="/" aria-label="iRoya home">
+      <img src="/static/brand/iroya-logo.svg" alt="" width="44" height="44">
+      <span>iRoya</span>
+    </a>
+    <nav aria-label="Primary navigation">
+      <a href="/search">Find a stay</a>
+      <a href="/partner">Hotel partner</a>
+      <button class="install-app-button" type="button" data-install-app hidden>Install app</button>
+      <a class="button button-small" href="/login">Sign in</a>
+    </nav>
+  </header>
+  <main>{% block content %}{% endblock %}</main>
+  <footer class="footer">iRoya · Thoughtful stays, clearer booking.</footer>
+  <script src="/static/js/app.js" defer></script>
+</body>
+</html>
