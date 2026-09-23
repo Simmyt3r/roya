@@ -4,19 +4,21 @@
 - [x] Create v3-flask migration branch
 - [x] Flask modular scaffold
 - [x] Organization/property tenancy
-- [x] Supabase schema migration and RLS
+- [x] Create dedicated Roya Supabase project
+- [x] Apply Supabase foundation migration
+- [x] Harden RLS and internal RPC permissions
+- [x] Create Supabase Storage buckets
 - [x] Room types, rate plans and daily inventory
 - [x] Atomic reservation, cancellation and expiry functions
 - [x] Paystack provider and signed webhook flow
 - [x] Public search/property/booking scaffolding
 - [x] Partner/admin dashboard scaffolding
-- [x] Supabase Storage property-image path
 - [x] Vercel Cron configuration
 - [x] Unit tests and PostgreSQL concurrency acceptance script
-- [ ] Create/select a Roya Supabase project and apply migration
-- [ ] Configure Supabase keys and Supavisor DATABASE_URL
+- [x] Run live last-room inventory locking test against Supabase
+- [ ] Configure Supabase service-role key and Supavisor DATABASE_URL in Vercel
+- [ ] Run authenticated RLS isolation test with two real test users
 - [ ] Create/connect a Roya Vercel project
 - [ ] Configure Paystack test credentials and webhook
-- [ ] Run RLS isolation and concurrency tests against Supabase
 - [ ] Run Vercel preview smoke test
 - [ ] Production UX polish and full partner inventory calendar
