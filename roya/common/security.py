@@ -1,6 +1,8 @@
 import hmac
 from functools import wraps
-from flask import current_app, request
+from urllib.parse import urlsplit
+
+from flask import current_app, request, session
 
 from .errors import RoyaError
 
@@ -16,3 +18,25 @@ def require_cron_secret(view):
         return view(*args, **kwargs)
 
     return wrapped
+
+
+def enforce_same_origin_for_cookie_mutations():
+    if request.method in {"GET", "HEAD", "OPTIONS"}:
+        return
+    if request.headers.get("Authorization", "").startswith("Bearer "):
+        return
+    if not session.get("access_token"):
+        return
+
+    forwarded_proto = request.headers.get("X-Forwarded-Proto", "").split(",")[0].strip()
+    forwarded_host = request.headers.get("X-Forwarded-Host", "").split(",")[0].strip()
+    expected = f"{forwarded_proto or request.scheme}://{forwarded_host or request.host}".rstrip("/")
+
+    source = request.headers.get("Origin") or request.headers.get("Referer")
+    if not source:
+        raise RoyaError("FORBIDDEN", "A same-origin browser request is required.", 403)
+
+    parsed = urlsplit(source)
+    source_origin = f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
+    if not hmac.compare_digest(source_origin, expected):
+        raise RoyaError("FORBIDDEN", "Cross-origin mutation rejected.", 403)
