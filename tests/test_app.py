@@ -29,3 +29,39 @@ def test_internal_cron_routes_require_secret():
         payload=response.get_json()
         assert payload["success"] is False
         assert payload["error"]["code"]=="FORBIDDEN"
+
+
+def test_auth_mutations_require_json():
+    app=create_app({"TESTING":True,"WTF_CSRF_ENABLED":False})
+    response=app.test_client().post(
+        "/api/v1/auth/login",
+        data={"email":"test@example.com","password":"password123"},
+    )
+    assert response.status_code==415
+    payload=response.get_json()
+    assert payload["error"]["code"]=="UNSUPPORTED_MEDIA_TYPE"
+
+
+def test_cookie_mutations_require_same_origin():
+    app=create_app({
+        "TESTING":True,
+        "WTF_CSRF_ENABLED":False,
+        "SERVER_NAME":"localhost",
+    })
+    client=app.test_client()
+
+    with client.session_transaction() as sess:
+        sess["access_token"]="test-access-token"
+        sess["refresh_token"]="test-refresh-token"
+
+    blocked=client.post("/api/v1/auth/logout",json={})
+    assert blocked.status_code==403
+    assert blocked.get_json()["error"]["code"]=="FORBIDDEN"
+
+    allowed=client.post(
+        "/api/v1/auth/logout",
+        json={},
+        headers={"Origin":"http://localhost"},
+    )
+    assert allowed.status_code==200
+    assert allowed.get_json()["success"] is True
