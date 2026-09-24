@@ -10,6 +10,7 @@ from roya.common.errors import RoyaError
 from roya.common.response import ok
 from roya.common.slug import slugify
 from roya.reservations.service import ReservationService
+from .invites import accept_invite, issue_invite, preview_invite, revoke_invite
 
 bp = Blueprint("organizations", __name__)
 
@@ -26,6 +27,10 @@ class OrganizationMemberAdd(BaseModel):
 class OrganizationMemberUpdate(BaseModel):
     role: Literal["manager", "reservations", "finance", "staff"]
     status: Literal["active", "suspended"]
+
+
+class InviteAccept(BaseModel):
+    token: str = Field(min_length=20,max_length=256)
 
 
 
@@ -84,36 +89,55 @@ def add_organization_member(organization_id):
                 (str(body.email),),
             ).fetchone()
             if not target:
-                raise RoyaError(
-                    "USER_NOT_FOUND",
-                    "That email does not have an iRoya account yet. Ask them to create an account first.",
-                    404,
+                invite=issue_invite(
+                    conn,
+                    organization_id=str(organization_id),
+                    email=str(body.email),
+                    role=body.role,
+                    actor_user_id=actor.user_id,
+                    actor_role=actor_membership["role"],
                 )
+                member=None
+            else:
+                invite=None
 
-            existing=conn.execute(
+            if target:
+                existing=conn.execute(
                 """select role from organization_members
                    where organization_id=%s and user_id=%s
                    for update""",
                 (str(organization_id),str(target["id"])),
             ).fetchone()
-            if existing and existing["role"]=="owner":
-                raise RoyaError("OWNER_ROLE_PROTECTED","The organization owner role cannot be changed here.",409)
+                if existing and existing["role"]=="owner":
+                    raise RoyaError("OWNER_ROLE_PROTECTED","The organization owner role cannot be changed here.",409)
 
-            member=conn.execute(
-                """insert into organization_members(organization_id,user_id,role,status)
-                   values(%s,%s,%s,'active')
-                   on conflict(organization_id,user_id)
-                   do update set role=excluded.role,status='active'
-                   returning organization_id,user_id,role,status""",
-                (str(organization_id),str(target["id"]),body.role),
-            ).fetchone()
-            conn.execute(
-                "update profiles set account_type='hotel',updated_at=now() where id=%s",
-                (str(target["id"]),),
-            )
+                member=conn.execute(
+                    """insert into organization_members(organization_id,user_id,role,status)
+                       values(%s,%s,%s,'active')
+                       on conflict(organization_id,user_id)
+                       do update set role=excluded.role,status='active'
+                       returning organization_id,user_id,role,status""",
+                    (str(organization_id),str(target["id"]),body.role),
+                ).fetchone()
+                conn.execute(
+                    "update profiles set account_type='hotel',updated_at=now() where id=%s",
+                    (str(target["id"]),),
+                )
+
+    if invite:
+        return ok({
+            "invited":True,
+            "invite_id":str(invite["id"]),
+            "email":invite["email"],
+            "role":invite["role"],
+            "expires_at":invite["expires_at"],
+            "invite_url":invite["invite_url"],
+            "message":"Invitation created.",
+        },202)
 
     return ok({
         **dict(member),
+        "invited":False,
         "email":target["email"],
         "message":"Team member added.",
     },201)
@@ -184,6 +208,38 @@ def update_organization_member(organization_id,member_user_id):
         "name":target["name"],
         "message":"Team access updated.",
     })
+
+
+
+
+@bp.get("/invite/<token>")
+def invite_page(token):
+    invite=preview_invite(token)
+    return render_template("auth/invite.html",invite=invite,token=token)
+
+
+@bp.post("/api/v1/invites/accept")
+@login_required
+def accept_hotel_invite():
+    try:
+        body=InviteAccept.model_validate(request.get_json(silent=True) or {})
+    except ValidationError as exc:
+        raise RoyaError("VALIDATION_ERROR","Invalid hotel invitation.",422,{"errors":exc.errors()}) from exc
+    user=current_identity(required=True)
+    result=accept_invite(body.token,user_id=user.user_id,user_email=user.email)
+    session["account_type"]="hotel"
+    return ok(result)
+
+
+@bp.delete("/api/v1/organizations/<uuid:organization_id>/invites/<uuid:invite_id>")
+@login_required
+def revoke_hotel_invite(organization_id,invite_id):
+    user=current_identity(required=True)
+    return ok(revoke_invite(
+        str(invite_id),
+        organization_id=str(organization_id),
+        actor_user_id=user.user_id,
+    ))
 
 
 @bp.get("/partner/start")
@@ -263,6 +319,22 @@ def partner_dashboard():
             ).fetchall()
         )
 
+        pending_invites = list(
+            conn.execute(
+                """select oi.id,oi.organization_id,o.name organization_name,oi.email,oi.role,
+                          oi.expires_at,actor_om.role actor_role
+                   from organization_invites oi
+                   join organizations o on o.id=oi.organization_id
+                   join organization_members actor_om
+                     on actor_om.organization_id=o.id
+                    and actor_om.user_id=%s
+                    and actor_om.status='active'
+                   where oi.status='pending' and oi.expires_at>now()
+                   order by oi.created_at desc""",
+                (user.user_id,),
+            ).fetchall()
+        )
+
     if not organizations:
         return redirect("/partner/start")
 
@@ -279,5 +351,6 @@ def partner_dashboard():
         partner_reservations=partner_reservations,
         partner_refunds=partner_refunds,
         team_members=team_members,
+        pending_invites=pending_invites,
         manageable_organizations=[o for o in organizations if o["role"] in {"owner","manager"}],
     )
