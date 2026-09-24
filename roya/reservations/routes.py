@@ -82,7 +82,7 @@ def booking_page():
         raise RoyaError("VALIDATION_ERROR","Check-out must be after check-in.",422)
     with db_connection() as conn:
         row=conn.execute(
-            """select rt.*,p.name property_name,p.id property_id,rp.id rate_id,rp.name rate_name,rp.base_price_minor,rp.guarantee_type
+            """select rt.*,p.name property_name,p.id property_id,rp.id rate_id,rp.name rate_name,rp.base_price_minor,rp.guarantee_type,\n                      rp.refundable,rp.cancellation_policy
                from room_types rt join properties p on p.id=rt.property_id join rate_plans rp on rp.room_type_id=rt.id
                where rt.id=%s and rp.id=%s and rt.status='active' and rp.status='active' and p.status='active' and p.verification_status='verified'""",
             (room_type_id,rate_plan_id),
@@ -91,7 +91,7 @@ def booking_page():
     if not row:
         raise RoyaError("RATE_NOT_FOUND","Selected room/rate is unavailable.",404)
     prop={"id":row["property_id"],"name":row["property_name"]}; room={"id":row["id"],"name":row["name"]}
-    rate={"id":row["rate_id"],"name":row["rate_name"],"base_price_minor":row["base_price_minor"],"guarantee_type":row["guarantee_type"]}
+    rate={"id":row["rate_id"],"name":row["rate_name"],"base_price_minor":row["base_price_minor"],"guarantee_type":row["guarantee_type"],"refundable":row["refundable"],"cancellation_policy":row["cancellation_policy"] or {}}
     guest={"name":(profile["name"] if profile else "") or "","email":identity.email or "","phone":(profile["phone"] if profile else "") or ""}
     return render_template("guest/booking.html",property=prop,room=room,rate=rate,check_in=check_in,check_out=check_out,nights=(check_out-check_in).days,guest=guest)
 
