@@ -108,6 +108,24 @@
   </div>
 </section>
 
+
+<section class="shell partner-section" id="refunds">
+  <div class="section-heading"><div><div class="eyebrow">Money operations</div><h2>Refund requests</h2></div></div>
+  <div class="card reservation-table-wrap"><div class="reservation-table">
+    <div class="reservation-table-row reservation-table-head"><span>Reservation</span><span>Guest</span><span>Property</span><span>Status</span><span>Amount</span><span>Action</span></div>
+    {% for rf in partner_refunds %}
+      <div class="reservation-table-row">
+        <strong>{{ rf.reservation_reference }}</strong>
+        <span>{{ rf.guest_name }}<small>{{ rf.guest_email }}</small></span>
+        <span>{{ rf.property_name }}</span>
+        <span class="status-pill">{{ rf.status|title }}</span>
+        <strong>{{ rf.currency }} {{ '%.2f'|format(rf.amount_minor/100) }}</strong>
+        <span>{% if rf.status == "requested" and rf.member_role in ["owner","manager","finance"] %}<button class="button button-small" type="button" data-refund-process="{{ rf.id }}">Process refund</button>{% else %}<small class="muted">Awaiting Paystack</small>{% endif %}</span>
+      </div>
+    {% else %}<div class="empty"><p>No refund requests are waiting.</p></div>{% endfor %}
+  </div></div>
+</section>
+
 <section class="shell partner-section" id="recent-reservations"><div class="section-heading"><div><div class="eyebrow">Booking activity</div><h2>Recent reservations</h2></div></div><div class="card reservation-table-wrap"><div class="reservation-table"><div class="reservation-table-row reservation-table-head"><span>Reference</span><span>Guest</span><span>Stay</span><span>Status</span><span>Payment</span><span>Total</span></div>{% for r in partner_reservations %}<div class="reservation-table-row"><strong>{{ r.reference }}</strong><span>{{ r.guest_name }}<small>{{ r.property_name }}</small></span><span>{{ r.check_in }}<small>to {{ r.check_out }}</small></span><span><span class="status-pill">{{ r.status|replace("_"," ")|title }}</span>{% if r.status == "confirmed" %}<div class="approval-actions"><button class="button button-small" type="button" data-reservation-status="checked_in" data-reservation-id="{{ r.id }}">Check in</button><button class="button button-small button-secondary" type="button" data-reservation-status="no_show" data-reservation-id="{{ r.id }}">No-show</button></div>{% elif r.status == "checked_in" %}<div class="approval-actions"><button class="button button-small" type="button" data-reservation-status="checked_out" data-reservation-id="{{ r.id }}">Check out</button></div>{% endif %}</span><span>{{ r.payment_status|replace("_"," ")|title }}</span><strong>{{ r.currency }} {{ '%.2f'|format(r.total_price_minor / 100) }}</strong></div>{% else %}<div class="empty"><p>No reservations yet.</p></div>{% endfor %}</div></div></section>
 <section class="shell partner-section partner-approvals" id="reservations">
   <article class="card">

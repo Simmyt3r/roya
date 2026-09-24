@@ -1,25 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Reservation {{ reservation.reference }} · iRoya{% endblock %}
 {% block content %}
-<section class="shell page-head reservation-head">
-  <div><div class="eyebrow">Reservation {{ reservation.reference }}</div><h1>{{ reservation.property_name }}</h1><p>{{ reservation.room_type_name }} · {{ reservation.rate_plan_name }}</p></div>
-  <span class="reservation-status reservation-status-{{ reservation.status }}">{{ reservation.status|replace('_',' ')|title }}</span>
-</section>
+<section class="shell page-head reservation-head"><div><div class="eyebrow">Reservation {{ reservation.reference }}</div><h1>{{ reservation.property_name }}</h1><p>{{ reservation.room_type_name }} · {{ reservation.rate_plan_name }}</p></div><span class="reservation-status reservation-status-{{ reservation.status }}">{{ reservation.status|replace('_',' ')|title }}</span></section>
 <section class="shell reservation-layout">
-  <article class="card reservation-card">
-    <div class="eyebrow">Stay</div>
-    <h2>{{ reservation.check_in }} → {{ reservation.check_out }}</h2>
-    <p>{{ reservation.nights }} night{% if reservation.nights != 1 %}s{% endif %} · {{ reservation.adults }} adult{% if reservation.adults != 1 %}s{% endif %}{% if reservation.children %} · {{ reservation.children }} child{% if reservation.children != 1 %}ren{% endif %}{% endif %}</p>
-    <p class="muted">{{ reservation.guest_name }} · {{ reservation.guest_email }} · {{ reservation.guest_phone }}</p>
-    <div class="reservation-meta"><span>Guarantee</span><strong>{{ reservation.guarantee_type|replace('_',' ')|title }}</strong><span>Reservation</span><strong>{{ reservation.status|replace('_',' ')|title }}</strong></div>
-    {% if reservation.status == "pending_confirmation" %}<div class="notice-card"><strong>Waiting for hotel approval.</strong><span>The room is held while the property reviews your request.</span></div>{% elif reservation.status == "held" %}<div class="notice-card"><strong>Room temporarily held.</strong><span>Complete the required payment before the hold expires.</span></div>{% endif %}
-  </article>
-  <aside class="card reservation-payment-card">
-    <div class="eyebrow">Payment</div><h2>{{ reservation.payment_status|replace('_',' ')|title }}</h2>
-    <div class="price-breakdown"><span>Total stay</span><strong>{{ reservation.currency }} {{ '%.2f'|format(reservation.total_price_minor/100) }}</strong><span>Required online</span><strong>{{ reservation.currency }} {{ '%.2f'|format(reservation.amount_due_minor/100) }}</strong><span>Recorded paid</span><strong>{{ reservation.currency }} {{ '%.2f'|format(reservation.amount_paid_minor/100) }}</strong></div>
-    {% if reservation.amount_due_minor > reservation.amount_paid_minor and reservation.status not in ["cancelled","expired","checked_out"] %}<button class="button" type="button" data-pay-reservation="{{ reservation.id }}">Continue payment</button>{% endif %}
-    {% if reservation.status in ["held","pending_confirmation","confirmed"] and reservation.amount_paid_minor == 0 %}<button class="button button-secondary" type="button" data-cancel-reservation="{{ reservation.id }}">Cancel reservation</button>{% elif reservation.status in ["held","pending_confirmation","confirmed"] and reservation.amount_paid_minor > 0 %}<p class="muted reservation-note">This booking has a recorded payment. Cancellation requires refund review rather than an automatic cancellation.</p>{% endif %}
-    <p class="form-message" data-reservation-message aria-live="polite"></p>
-  </aside>
+<article class="card reservation-card"><div class="eyebrow">Stay</div><h2>{{ reservation.check_in }} → {{ reservation.check_out }}</h2><p>{{ reservation.nights }} night{% if reservation.nights != 1 %}s{% endif %} · {{ reservation.adults }} adult{% if reservation.adults != 1 %}s{% endif %}{% if reservation.children %} · {{ reservation.children }} child{% if reservation.children != 1 %}ren{% endif %}{% endif %}</p><p class="muted">{{ reservation.guest_name }} · {{ reservation.guest_email }} · {{ reservation.guest_phone }}</p><div class="reservation-meta"><span>Guarantee</span><strong>{{ reservation.guarantee_type|replace('_',' ')|title }}</strong><span>Reservation</span><strong>{{ reservation.status|replace('_',' ')|title }}</strong></div>{% if reservation.status == "pending_confirmation" %}<div class="notice-card"><strong>Waiting for hotel approval.</strong><span>The room is held while the property reviews your request.</span></div>{% elif reservation.status == "held" %}<div class="notice-card"><strong>Room temporarily held.</strong><span>Complete the required payment before the hold expires.</span></div>{% endif %}</article>
+<aside class="card reservation-payment-card"><div class="eyebrow">Payment</div><h2>{{ reservation.payment_status|replace('_',' ')|title }}</h2><div class="price-breakdown"><span>Total stay</span><strong>{{ reservation.currency }} {{ '%.2f'|format(reservation.total_price_minor/100) }}</strong><span>Required online</span><strong>{{ reservation.currency }} {{ '%.2f'|format(reservation.amount_due_minor/100) }}</strong><span>Recorded paid</span><strong>{{ reservation.currency }} {{ '%.2f'|format(reservation.amount_paid_minor/100) }}</strong>{% if reservation.refund_status %}<span>Refund</span><strong>{{ reservation.refund_status|title }}{% if reservation.refund_amount_minor %} · {{ reservation.currency }} {{ '%.2f'|format(reservation.refund_amount_minor/100) }}{% endif %}</strong>{% endif %}</div>
+{% if reservation.amount_due_minor > reservation.amount_paid_minor and reservation.status not in ["cancelled","expired","checked_out"] %}<button class="button" type="button" data-pay-reservation="{{ reservation.id }}">Continue payment</button>{% endif %}
+{% if reservation.status in ["held","pending_confirmation","confirmed"] and reservation.amount_paid_minor == 0 %}<button class="button button-secondary" type="button" data-cancel-reservation="{{ reservation.id }}">Cancel reservation</button>
+{% elif reservation.status in ["held","pending_confirmation","confirmed"] and reservation.amount_paid_minor > 0 %}
+  {% if reservation.refund_status in ["requested","processing"] %}<div class="notice-card"><strong>Cancellation refund in progress.</strong><span>Your reservation remains active until the refund is completed safely.</span></div>
+  {% elif reservation.refund_status == "successful" %}<p class="muted reservation-note">Refund processed.</p>
+  {% else %}<button class="button button-secondary" type="button" data-refund-request="{{ reservation.id }}">Request cancellation & refund</button>{% endif %}
+{% endif %}
+<p class="form-message" data-reservation-message aria-live="polite"></p></aside>
 </section>
 {% endblock %}

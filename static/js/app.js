@@ -1,4 +1,20 @@
 
+document.querySelectorAll('[data-refund-request]').forEach(function(button){
+  button.addEventListener('click',async function(){
+    const msg=document.querySelector('[data-reservation-message]');const reason=window.prompt('Reason for cancellation and refund:','Plans changed');if(reason===null)return;button.disabled=true;if(msg)msg.textContent='Submitting refund request…';
+    const res=await fetch('/api/v1/refunds',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reservation_id:button.dataset.refundRequest,reason:reason})});
+    const data=await res.json().catch(function(){return {};});if(!res.ok){if(msg)msg.textContent=(data.error&&data.error.message)||'Refund request could not be submitted.';button.disabled=false;return;}window.location.reload();
+  });
+});
+document.querySelectorAll('[data-refund-process]').forEach(function(button){
+  button.addEventListener('click',async function(){
+    if(!window.confirm('Initiate this refund through Paystack?'))return;button.disabled=true;
+    const res=await fetch('/api/v1/partner/refunds/'+button.dataset.refundProcess+'/process',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+    const data=await res.json().catch(function(){return {};});if(!res.ok){window.alert((data.error&&data.error.message)||'Refund could not be initiated.');button.disabled=false;return;}window.location.reload();
+  });
+});
+
+
 document.querySelectorAll('[data-room-edit-form]').forEach(function(form){
   form.addEventListener('submit',async function(event){
     event.preventDefault();const msg=form.querySelector('.form-message');const submit=form.querySelector('button[type="submit"]');const raw=Object.fromEntries(new FormData(form).entries());const body={name:raw.name,description:raw.description||'',capacity_adults:Number(raw.capacity_adults),capacity_children:Number(raw.capacity_children),base_occupancy:Number(raw.base_occupancy),total_inventory:Number(raw.total_inventory),bed_configuration:raw.bed_configuration||'',status:raw.status};msg.textContent='Saving room type…';submit.disabled=true;

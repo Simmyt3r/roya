@@ -117,6 +117,10 @@ class PaymentService:
                     ).fetchone()
                     conn.execute("update payment_webhook_events set processing_status='processed',processed_at=now() where id=%s",(inserted["id"],))
                     return {"processed":True,"reference":reference,"result":row}
+                if event in {"refund.pending","refund.processing","refund.needs-attention","refund.failed","refund.processed"}:
+                    result=self.apply_refund_webhook(conn,event,data)
+                    conn.execute("update payment_webhook_events set processing_status='processed',processed_at=now() where id=%s",(inserted["id"],))
+                    return {"processed":True,"event":event,"result":result}
                 conn.execute("update payment_webhook_events set processing_status='ignored',processed_at=now() where id=%s",(inserted["id"],))
                 return {"processed":False,"ignored":True,"event":event}
 
@@ -139,3 +143,219 @@ class PaymentService:
                     ); conn.commit()
                 reconciled+=1
         return {"checked":len(rows),"reconciled":reconciled}
+
+
+    def request_refund(self,reservation_id,user_id,reason):
+        reason=(reason or "Guest requested cancellation and refund").strip()[:1000]
+        with db_connection() as conn:
+            with conn.transaction():
+                reservation=conn.execute(
+                    """select id,user_id,organization_id,property_id,status,payment_status,
+                              amount_paid_minor,currency
+                       from reservations where id=%s and user_id=%s for update""",
+                    (reservation_id,user_id),
+                ).fetchone()
+                if not reservation:
+                    raise RoyaError("NOT_FOUND","Reservation not found.",404)
+                if reservation["status"] not in {"held","pending_confirmation","confirmed"}:
+                    raise RoyaError("RESERVATION_NOT_CANCELLABLE","This reservation can no longer be cancelled online.",409)
+                if int(reservation["amount_paid_minor"] or 0)<=0:
+                    raise RoyaError("REFUND_NOT_REQUIRED","This reservation has no recorded payment to refund.",409)
+
+                active=conn.execute(
+                    """select id,status from refunds
+                       where reservation_id=%s and status in ('requested','processing','successful')
+                       order by created_at desc limit 1""",
+                    (reservation_id,),
+                ).fetchone()
+                if active:
+                    raise RoyaError("REFUND_ALREADY_REQUESTED","A refund request already exists for this reservation.",409)
+
+                transactions=list(conn.execute(
+                    """select id,provider_reference,amount_minor,currency
+                       from payment_transactions
+                       where reservation_id=%s and provider='paystack' and status='successful'
+                       order by paid_at,created_at""",
+                    (reservation_id,),
+                ).fetchall())
+                if not transactions:
+                    raise RoyaError("PAYMENT_NOT_FOUND","No successful Paystack payment was found for this reservation.",409)
+
+                remaining=int(reservation["amount_paid_minor"])
+                created=[]
+                for tx in transactions:
+                    if remaining<=0:
+                        break
+                    amount=min(int(tx["amount_minor"]),remaining)
+                    row=conn.execute(
+                        """insert into refunds(reservation_id,payment_transaction_id,amount_minor,currency,status,reason,created_by_user_id)
+                           values(%s,%s,%s,%s,'requested',%s,%s)
+                           returning id,reservation_id,payment_transaction_id,amount_minor,currency,status,reason,created_at""",
+                        (reservation_id,tx["id"],amount,tx["currency"],reason,user_id),
+                    ).fetchone()
+                    created.append(dict(row))
+                    remaining-=amount
+
+                if remaining>0:
+                    raise RoyaError("REFUND_AMOUNT_MISMATCH","Recorded payments do not cover the refundable amount.",409)
+
+                conn.execute(
+                    """insert into audit_logs(actor_user_id,organization_id,property_id,action,entity_type,entity_id,after_json)
+                       values(%s,%s,%s,'refund.requested','reservation',%s,%s::jsonb)""",
+                    (user_id,reservation["organization_id"],reservation["property_id"],reservation_id,
+                     json.dumps({"reason":reason,"amount_minor":int(reservation["amount_paid_minor"])})),
+                )
+        return {"reservation_id":reservation_id,"status":"requested","refunds":created}
+
+    def list_for_partner(self,user_id,limit=50):
+        with db_connection() as conn:
+            return list(conn.execute(
+                """select rf.id,rf.reservation_id,rf.amount_minor,rf.currency,rf.status,rf.reason,rf.created_at,
+                          r.reference reservation_reference,r.guest_name,r.guest_email,p.name property_name,
+                          om.role member_role
+                   from refunds rf
+                   join reservations r on r.id=rf.reservation_id
+                   join properties p on p.id=r.property_id
+                   join organization_members om on om.organization_id=r.organization_id
+                   where om.user_id=%s and om.status='active'
+                     and rf.status in ('requested','processing')
+                   order by case when rf.status='requested' then 0 else 1 end,rf.created_at asc
+                   limit %s""",
+                (user_id,limit),
+            ).fetchall())
+
+    def process_refund(self,refund_id,user_id):
+        with db_connection() as conn:
+            with conn.transaction():
+                refund=conn.execute(
+                    """select rf.*,pt.provider,pt.provider_reference transaction_reference,
+                              r.organization_id,r.property_id,r.reference reservation_reference,
+                              om.role member_role
+                       from refunds rf
+                       join payment_transactions pt on pt.id=rf.payment_transaction_id
+                       join reservations r on r.id=rf.reservation_id
+                       join organization_members om on om.organization_id=r.organization_id
+                       where rf.id=%s and om.user_id=%s and om.status='active'
+                       for update of rf""",
+                    (refund_id,user_id),
+                ).fetchone()
+                if not refund:
+                    raise RoyaError("NOT_FOUND","Refund request not found.",404)
+                if refund["member_role"] not in {"owner","manager","finance"}:
+                    raise RoyaError("FORBIDDEN","Only hotel owners, managers or finance staff can process refunds.",403)
+                if refund["status"]!="requested":
+                    raise RoyaError("REFUND_NOT_PROCESSABLE","This refund is not awaiting processing.",409)
+                if refund["provider"]!="paystack":
+                    raise RoyaError("REFUND_PROVIDER_UNSUPPORTED","This payment provider is not supported for automated refunds.",409)
+                conn.execute("update refunds set status='processing',updated_at=now() where id=%s",(refund_id,))
+
+        try:
+            data=PaystackProvider().refund_payment(refund["transaction_reference"],int(refund["amount_minor"]))
+        except Exception:
+            # Keep processing: an indeterminate network failure must not create a duplicate refund on retry.
+            raise
+
+        provider_ref=str(data.get("id") or data.get("refund_reference") or "")
+        provider_status=str(data.get("status") or "pending").lower()
+        with db_connection() as conn:
+            with conn.transaction():
+                conn.execute(
+                    "update refunds set provider_reference=%s,updated_at=now() where id=%s",
+                    (provider_ref or None,refund_id),
+                )
+                if provider_status=="processed":
+                    self._finalize_refund(conn,refund_id,True,data)
+                elif provider_status=="failed":
+                    self._finalize_refund(conn,refund_id,False,data)
+                conn.execute(
+                    """insert into audit_logs(actor_user_id,organization_id,property_id,action,entity_type,entity_id,after_json)
+                       values(%s,%s,%s,'refund.processing','refund',%s,%s::jsonb)""",
+                    (user_id,refund["organization_id"],refund["property_id"],refund_id,
+                     json.dumps({"provider_status":provider_status,"provider_reference":provider_ref},default=str)),
+                )
+        return {"refund_id":refund_id,"status":"successful" if provider_status=="processed" else ("failed" if provider_status=="failed" else "processing"),"provider_status":provider_status}
+
+    def _finalize_refund(self,conn,refund_id,successful,payload):
+        refund=conn.execute(
+            """select rf.*,pt.provider_reference transaction_reference,
+                      r.user_id,r.organization_id,r.property_id,r.status reservation_status,
+                      r.amount_paid_minor
+               from refunds rf
+               join payment_transactions pt on pt.id=rf.payment_transaction_id
+               join reservations r on r.id=rf.reservation_id
+               where rf.id=%s for update of rf""",
+            (refund_id,),
+        ).fetchone()
+        if not refund:
+            return None
+
+        if not successful:
+            conn.execute("update refunds set status='failed',updated_at=now() where id=%s",(refund_id,))
+            return {"refund_id":refund_id,"status":"failed"}
+
+        conn.execute(
+            "update refunds set status='successful',updated_at=now() where id=%s",
+            (refund_id,),
+        )
+        total_refunded=conn.execute(
+            "select coalesce(sum(amount_minor),0) total from refunds where reservation_id=%s and status='successful'",
+            (refund["reservation_id"],),
+        ).fetchone()["total"]
+
+        payment=conn.execute(
+            "select amount_captured_minor from payments where reservation_id=%s for update",
+            (refund["reservation_id"],),
+        ).fetchone()
+        captured=int(payment["amount_captured_minor"] if payment else refund["amount_paid_minor"])
+        total_refunded=int(total_refunded or 0)
+        payment_status="refunded" if captured>0 and total_refunded>=captured else "partially_refunded"
+
+        conn.execute(
+            """update payments set amount_refunded_minor=%s,status=%s,updated_at=now()
+               where reservation_id=%s""",
+            (min(total_refunded,captured),payment_status,refund["reservation_id"]),
+        )
+        conn.execute(
+            "update reservations set payment_status=%s,updated_at=now() where id=%s",
+            (payment_status,refund["reservation_id"]),
+        )
+
+        if payment_status=="refunded" and refund["reservation_status"] in {"held","pending_confirmation","confirmed"}:
+            conn.execute(
+                "select * from cancel_reservation(%s::uuid,%s::uuid,%s::text)",
+                (refund["reservation_id"],refund["user_id"],"Cancellation completed after refund"),
+            )
+            conn.execute(
+                "update reservations set payment_status='refunded',updated_at=now() where id=%s",
+                (refund["reservation_id"],),
+            )
+        return {"refund_id":refund_id,"status":"successful","payment_status":payment_status}
+
+    def apply_refund_webhook(self,conn,event,data):
+        tx_reference=data.get("transaction_reference")
+        if not tx_reference:
+            return {"processed":False,"reason":"missing_transaction_reference"}
+        amount=int(data.get("amount") or 0)
+        refund=conn.execute(
+            """select rf.id
+               from refunds rf join payment_transactions pt on pt.id=rf.payment_transaction_id
+               where pt.provider='paystack' and pt.provider_reference=%s
+                 and rf.status in ('requested','processing') and (%s=0 or rf.amount_minor=%s)
+               order by rf.created_at asc limit 1
+               for update of rf""",
+            (tx_reference,amount,amount),
+        ).fetchone()
+        if not refund:
+            return {"processed":False,"reason":"refund_not_found"}
+
+        provider_ref=data.get("refund_reference")
+        if provider_ref:
+            conn.execute("update refunds set provider_reference=%s,updated_at=now() where id=%s",(str(provider_ref),refund["id"]))
+
+        if event=="refund.processed":
+            return self._finalize_refund(conn,str(refund["id"]),True,data)
+        if event=="refund.failed":
+            return self._finalize_refund(conn,str(refund["id"]),False,data)
+
+        conn.execute("update refunds set status='processing',updated_at=now() where id=%s",(refund["id"],))
+        return {"refund_id":refund["id"],"status":"processing"}

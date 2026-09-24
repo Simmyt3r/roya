@@ -29,7 +29,9 @@ class ReservationService:
     def get_for_user(self,reservation_id,user_id):
         with db_connection() as conn:
             row=conn.execute(
-                """select r.*,p.name property_name,rt.name room_type_name,rp.name rate_plan_name
+                """select r.*,p.name property_name,rt.name room_type_name,rp.name rate_plan_name,
+                          (select rf.status from refunds rf where rf.reservation_id=r.id order by rf.created_at desc limit 1) refund_status,
+                          (select rf.amount_minor from refunds rf where rf.reservation_id=r.id order by rf.created_at desc limit 1) refund_amount_minor
                    from reservations r join properties p on p.id=r.property_id
                    join reservation_items ri on ri.reservation_id=r.id
                    join room_types rt on rt.id=ri.room_type_id join rate_plans rp on rp.id=ri.rate_plan_id

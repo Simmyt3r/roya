@@ -195,6 +195,8 @@ def partner_dashboard():
 
     partner_reservations = ReservationService().list_for_partner(user.user_id, limit=50)
     pending_reservations = [r for r in partner_reservations if r["status"] == "pending_confirmation"][:20]
+    from roya.payments.service import PaymentService
+    partner_refunds = PaymentService().list_for_partner(user.user_id, limit=50)
 
     return render_template(
         "partner/dashboard.html",
@@ -202,6 +204,7 @@ def partner_dashboard():
         properties=properties,
         pending_reservations=pending_reservations,
         partner_reservations=partner_reservations,
+        partner_refunds=partner_refunds,
         team_members=team_members,
         manageable_organizations=[o for o in organizations if o["role"] in {"owner","manager"}],
     )

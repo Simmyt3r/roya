@@ -23,6 +23,21 @@ def verify_payment():
     return ok(service.verify_and_reconcile(request.args.get("reference",""),identity.user_id))
 
 
+@bp.post("/api/v1/refunds")
+@login_required
+def request_refund():
+    body=request.get_json(silent=True) or {}
+    identity=current_identity(required=True)
+    return ok(service.request_refund(body.get("reservation_id",""),identity.user_id,body.get("reason")),201)
+
+
+@bp.post("/api/v1/partner/refunds/<uuid:refund_id>/process")
+@login_required
+def process_refund(refund_id):
+    identity=current_identity(required=True)
+    return ok(service.process_refund(str(refund_id),identity.user_id))
+
+
 @bp.post("/api/webhooks/paystack")
 def paystack_webhook():
     return ok(service.process_paystack_webhook(request.get_data(cache=True),request.headers.get("x-paystack-signature","")))
