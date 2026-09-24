@@ -5,6 +5,7 @@ from flask import current_app
 
 from roya.common.db import db_connection
 from roya.common.errors import RoyaError
+from roya.notifications.service import NotificationService
 from roya.reservations.policy import cancellation_policy_view
 from .paystack import PaystackProvider
 
@@ -76,6 +77,7 @@ class PaymentService:
         if not tx:
             raise RoyaError("PAYMENT_NOT_FOUND","Payment transaction not found.",404)
         if tx["status"]=="successful":
+            NotificationService().notify_payment_success(str(tx["reservation_id"]))
             return {"verified":True,"reservation_id":tx["reservation_id"],
                     "reservation_reference":tx["reservation_reference"],"payment_status":tx["payment_status"]}
 
@@ -91,6 +93,7 @@ class PaymentService:
                 (reference,int(data.get("amount") or 0),json.dumps(data)),
             ).fetchone()
             conn.commit()
+        NotificationService().notify_payment_success(str(row["reservation_id"]))
         return {"verified":True,"reservation_id":row["reservation_id"],
                 "reservation_reference":tx["reservation_reference"],
                 "reservation_status":row["reservation_status"],"payment_status":row["payment_status"]}
@@ -138,10 +141,13 @@ class PaymentService:
             data=provider.verify_payment(row["provider_reference"])
             if data.get("status")=="success":
                 with db_connection() as conn:
-                    conn.execute(
+                    settled=conn.execute(
                         "select * from record_successful_payment(%s::text,%s::bigint,%s::jsonb)",
                         (row["provider_reference"],int(data.get("amount") or 0),json.dumps(data)),
-                    ); conn.commit()
+                    ).fetchone()
+                    conn.commit()
+                if settled:
+                    NotificationService().notify_payment_success(str(settled["reservation_id"]))
                 reconciled+=1
         return {"checked":len(rows),"reconciled":reconciled}
 
@@ -228,6 +234,7 @@ class PaymentService:
                     (user_id,reservation["organization_id"],reservation["property_id"],reservation_id,
                      json.dumps({"reason":reason,"amount_minor":int(reservation["amount_paid_minor"])})),
                 )
+        NotificationService().notify_refund_requested(str(reservation_id))
         return {"reservation_id":reservation_id,"status":"requested","refunds":created}
 
     def list_for_partner(self,user_id,limit=50):
@@ -280,6 +287,7 @@ class PaymentService:
 
         provider_ref=str(data.get("id") or data.get("refund_reference") or "")
         provider_status=str(data.get("status") or "pending").lower()
+        finalized=None
         with db_connection() as conn:
             with conn.transaction():
                 conn.execute(
@@ -287,16 +295,22 @@ class PaymentService:
                     (provider_ref or None,refund_id),
                 )
                 if provider_status=="processed":
-                    self._finalize_refund(conn,refund_id,True,data)
+                    finalized=self._finalize_refund(conn,refund_id,True,data)
                 elif provider_status=="failed":
-                    self._finalize_refund(conn,refund_id,False,data)
+                    finalized=self._finalize_refund(conn,refund_id,False,data)
                 conn.execute(
                     """insert into audit_logs(actor_user_id,organization_id,property_id,action,entity_type,entity_id,after_json)
                        values(%s,%s,%s,'refund.processing','refund',%s,%s::jsonb)""",
                     (user_id,refund["organization_id"],refund["property_id"],refund_id,
                      json.dumps({"provider_status":provider_status,"provider_reference":provider_ref},default=str)),
                 )
-        return {"refund_id":refund_id,"status":"successful" if provider_status=="processed" else ("failed" if provider_status=="failed" else "processing"),"provider_status":provider_status}
+        notification_status="successful" if provider_status=="processed" else ("failed" if provider_status=="failed" else "processing")
+        NotificationService().notify_refund_status(
+            str(refund["reservation_id"]),
+            notification_status,
+            (finalized or {}).get("payment_status"),
+        )
+        return {"refund_id":refund_id,"status":notification_status,"provider_status":provider_status}
 
     def _finalize_refund(self,conn,refund_id,successful,payload):
         refund=conn.execute(
