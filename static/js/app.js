@@ -1,4 +1,26 @@
 
+document.querySelectorAll('[data-reservation-status]').forEach(function(button){
+  button.addEventListener('click',async function(){
+    const target=button.dataset.reservationStatus;
+    const label=target.replace('_',' ');
+    if(!window.confirm('Mark this reservation as '+label+'?'))return;
+    button.disabled=true;
+    const res=await fetch('/api/v1/partner/reservations/'+button.dataset.reservationId+'/status',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({status:target})
+    });
+    const data=await res.json().catch(function(){return {};});
+    if(!res.ok){
+      window.alert((data.error&&data.error.message)||'Reservation status could not be updated.');
+      button.disabled=false;
+      return;
+    }
+    window.location.reload();
+  });
+});
+
+
 document.querySelectorAll('[data-profile-form]').forEach(function(form){
   form.addEventListener('submit',async function(event){
     event.preventDefault();const msg=form.querySelector('.form-message');const submit=form.querySelector('button[type="submit"]');const body=Object.fromEntries(new FormData(form).entries());if(!body.phone)body.phone=null;msg.textContent='Saving profile…';submit.disabled=true;

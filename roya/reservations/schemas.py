@@ -33,3 +33,7 @@ class ReservationCreate(BaseModel):
 class PartnerReservationDecision(BaseModel):
     decision: Literal["approve","reject"]
     reason: str | None = Field(default=None,max_length=1000)
+
+
+class PartnerReservationStatusChange(BaseModel):
+    status: Literal["checked_in","checked_out","no_show"]

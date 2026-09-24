@@ -122,3 +122,68 @@ class ReservationService:
                 raise RoyaError("BOOKING_CONFLICT","Held inventory is no longer available.",409) from exc
             raise
         return row
+
+
+    def partner_transition(self,reservation_id,user_id,target_status):
+        allowed={
+            "confirmed":{"checked_in","no_show"},
+            "checked_in":{"checked_out"},
+        }
+        with db_connection() as conn:
+            with conn.transaction():
+                access=conn.execute(
+                    """select r.id,r.organization_id,r.property_id,r.reference,r.status,r.check_in,r.check_out,
+                              om.role,current_date today
+                       from reservations r
+                       join organization_members om on om.organization_id=r.organization_id
+                       where r.id=%s and om.user_id=%s and om.status='active'
+                       for update of r""",
+                    (reservation_id,user_id),
+                ).fetchone()
+                if not access:
+                    raise RoyaError("NOT_FOUND","Reservation not found.",404)
+                if access["role"] not in {"owner","manager","reservations"}:
+                    raise RoyaError("FORBIDDEN","Your organization role cannot manage this stay.",403)
+                if target_status not in allowed.get(access["status"],set()):
+                    raise RoyaError(
+                        "INVALID_RESERVATION_TRANSITION",
+                        f"Reservation cannot move from {access['status']} to {target_status}.",
+                        409,
+                    )
+                if target_status in {"checked_in","no_show"} and access["today"]<access["check_in"]:
+                    raise RoyaError(
+                        "STAY_NOT_STARTED",
+                        "This stay cannot be checked in or marked no-show before its check-in date.",
+                        409,
+                    )
+
+                if target_status=="checked_in":
+                    row=conn.execute(
+                        """update reservations set status='checked_in',checked_in_at=coalesce(checked_in_at,now()),
+                                  updated_at=now() where id=%s returning *""",
+                        (reservation_id,),
+                    ).fetchone()
+                elif target_status=="checked_out":
+                    row=conn.execute(
+                        """update reservations set status='checked_out',checked_out_at=coalesce(checked_out_at,now()),
+                                  updated_at=now() where id=%s returning *""",
+                        (reservation_id,),
+                    ).fetchone()
+                else:
+                    row=conn.execute(
+                        """update reservations set status='no_show',updated_at=now()
+                           where id=%s returning *""",
+                        (reservation_id,),
+                    ).fetchone()
+
+                conn.execute(
+                    """insert into audit_logs(actor_user_id,organization_id,property_id,action,entity_type,entity_id,before_json,after_json)
+                       values(%s,%s,%s,%s,'reservation',%s,%s::jsonb,%s::jsonb)""",
+                    (
+                        user_id,access["organization_id"],access["property_id"],
+                        "reservation."+target_status,reservation_id,
+                        json.dumps({"status":access["status"]}),
+                        json.dumps({"status":target_status},default=str),
+                    ),
+                )
+        return row
