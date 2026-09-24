@@ -1,10 +1,97 @@
+
+
+(function initNavigation(){
+  const toggle=document.querySelector('[data-nav-toggle]');
+  const nav=document.querySelector('[data-main-nav]');
+  if(toggle&&nav){
+    toggle.addEventListener('click',function(){
+      const open=nav.classList.toggle('is-open');
+      toggle.setAttribute('aria-expanded',String(open));
+    });
+    nav.querySelectorAll('a,button').forEach(function(item){
+      item.addEventListener('click',function(){
+        if(window.innerWidth<=860){
+          nav.classList.remove('is-open');
+          toggle.setAttribute('aria-expanded','false');
+        }
+      });
+    });
+  }
+
+  const logout=document.querySelector('[data-logout]');
+  if(logout){
+    logout.addEventListener('click',async function(){
+      logout.disabled=true;
+      try{
+        const res=await fetch('/api/v1/auth/logout',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:'{}'
+        });
+        if(res.ok){window.location.href='/';return;}
+      }catch(_error){}
+      logout.disabled=false;
+    });
+  }
+})();
+
+const organizationForm=document.querySelector('[data-organization-form]');
+if(organizationForm){
+  organizationForm.addEventListener('submit',async function(event){
+    event.preventDefault();
+    const msg=organizationForm.querySelector('.form-message');
+    const submit=organizationForm.querySelector('button[type="submit"]');
+    msg.textContent='Creating your hotel workspace…';
+    submit.disabled=true;
+    const body=Object.fromEntries(new FormData(organizationForm).entries());
+    const res=await fetch('/api/v1/organizations',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    });
+    const data=await res.json().catch(function(){return {};});
+    if(!res.ok){
+      msg.textContent=(data.error&&data.error.message)||'Hotel workspace could not be created.';
+      submit.disabled=false;
+      return;
+    }
+    window.location.href=(data.data&&data.data.redirect_to)||'/partner';
+  });
+}
+
+const propertyForm=document.querySelector('[data-property-form]');
+if(propertyForm){
+  propertyForm.addEventListener('submit',async function(event){
+    event.preventDefault();
+    const msg=propertyForm.querySelector('.form-message');
+    const submit=propertyForm.querySelector('button[type="submit"]');
+    msg.textContent='Creating property…';
+    submit.disabled=true;
+    const raw=Object.fromEntries(new FormData(propertyForm).entries());
+    Object.keys(raw).forEach(function(key){
+      if(raw[key]==='')raw[key]=null;
+    });
+    const res=await fetch('/api/v1/properties',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(raw)
+    });
+    const data=await res.json().catch(function(){return {};});
+    if(!res.ok){
+      msg.textContent=(data.error&&data.error.message)||'Property could not be created.';
+      submit.disabled=false;
+      return;
+    }
+    window.location.href=(data.data&&data.data.redirect_to)||'/partner#properties';
+  });
+}
 async function authSubmit(form,mode){
   const msg=form.querySelector('.form-message'); msg.textContent='';
   const body=Object.fromEntries(new FormData(form).entries());
   const res=await fetch('/api/v1/auth/'+mode,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   const data=await res.json().catch(function(){return {};});
   if(!res.ok){msg.textContent=(data.error&&data.error.message)||'Request failed.';return;}
-  window.location.href=mode==='login'?'/partner':'/';
+  window.location.href=(data.data&&data.data.redirect_to)||(mode==='login'?'/account':'/');
 }
 document.querySelectorAll('[data-auth-form]').forEach(function(form){form.addEventListener('submit',function(e){e.preventDefault();authSubmit(form,form.dataset.authForm);});});
 if('serviceWorker' in navigator){
