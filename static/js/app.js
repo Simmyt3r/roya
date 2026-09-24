@@ -1,4 +1,59 @@
 
+(function initSearchLocation(){
+  const form=document.querySelector('[data-search-filters]');
+  if(!form)return;
+  const button=form.querySelector('[data-search-location]');
+  const lat=form.querySelector('[data-search-lat]');
+  const lng=form.querySelector('[data-search-lng]');
+  const city=form.querySelector('input[name="city"]');
+  const sort=form.querySelector('[data-search-sort]');
+  const distanceOption=form.querySelector('[data-distance-option]');
+  const msg=form.querySelector('[data-location-message]');
+
+  if(city){
+    city.addEventListener('input',function(){
+      if(city.value.trim()){
+        if(lat)lat.value='';
+        if(lng)lng.value='';
+        if(distanceOption)distanceOption.disabled=true;
+        if(sort&&sort.value==='distance')sort.value='recommended';
+      }
+    });
+  }
+
+  if(!button)return;
+  button.addEventListener('click',function(){
+    if(!navigator.geolocation){
+      if(msg)msg.textContent='Location search is not supported by this browser.';
+      return;
+    }
+    button.disabled=true;
+    if(msg)msg.textContent='Requesting your location…';
+    navigator.geolocation.getCurrentPosition(
+      function(position){
+        if(lat)lat.value=position.coords.latitude.toFixed(6);
+        if(lng)lng.value=position.coords.longitude.toFixed(6);
+        if(city)city.value='';
+        if(distanceOption)distanceOption.disabled=false;
+        if(sort)sort.value='distance';
+        if(msg)msg.textContent='Location received. Searching nearby hotels…';
+        form.submit();
+      },
+      function(error){
+        const messages={
+          1:'Location permission was not granted.',
+          2:'Your location could not be determined.',
+          3:'Location request timed out.'
+        };
+        if(msg)msg.textContent=messages[error.code]||'Location search could not start.';
+        button.disabled=false;
+      },
+      {enableHighAccuracy:false,timeout:8000,maximumAge:300000}
+    );
+  });
+})();
+
+
 const inviteAccept=document.querySelector('[data-invite-accept]');
 if(inviteAccept){
   inviteAccept.addEventListener('click',async function(){
