@@ -33,11 +33,27 @@
     <summary>Hotel photos</summary>
     <div class="compact-form">
       <div class="property-photo-grid">
-        {% for image in images %}<figure class="property-photo"><img src="{{ image.path }}" alt="{{ image.alt_text or property.name }}"><figcaption>Photo {{ loop.index }}</figcaption></figure>{% else %}<div class="empty"><p>No hotel photos yet.</p></div>{% endfor %}
+        {% for image in images %}
+        <figure class="property-photo media-editor-card" data-property-image data-property="{{ property.id }}" data-image="{{ image.id }}">
+          <img src="{{ image.path }}" alt="{{ image.alt_text or property.name }}">
+          {% if can_edit_property %}
+          <figcaption class="media-editor-controls">
+            <label>Alt text<input data-image-alt maxlength="300" value="{{ image.alt_text or '' }}" placeholder="Describe this hotel photo"></label>
+            <label>Order<input data-image-order type="number" min="0" max="10000" value="{{ image.sort_order }}"></label>
+            <div class="media-editor-actions">
+              <button class="button button-small" type="button" data-image-save>Save</button>
+              <button class="button button-small button-secondary" type="button" data-image-delete>Delete</button>
+            </div>
+            <p class="form-message"></p>
+          </figcaption>
+          {% else %}<figcaption>Photo {{ loop.index }}</figcaption>{% endif %}
+        </figure>
+        {% else %}<div class="empty"><p>No hotel photos yet.</p></div>{% endfor %}
       </div>
       {% if can_edit_property %}
       <form class="photo-upload-form" data-property-photo-form data-property="{{ property.id }}" enctype="multipart/form-data">
         <label>Upload hotel photo<input name="file" type="file" accept="image/jpeg,image/png,image/webp" required></label>
+        <label>Alt text<input name="alt_text" maxlength="300" placeholder="e.g. Pool and garden at sunset"></label>
         <small class="muted">JPEG, PNG or WebP. Maximum 10 MB.</small>
         <button class="button button-secondary" type="submit">Upload photo</button><p class="form-message"></p>
       </form>
@@ -81,6 +97,36 @@
 <button class="button button-small" type="submit">Save room type</button><p class="form-message"></p>
 </form></details>
 {% endif %}
+<details class="setup-disclosure inner-disclosure"><summary>Room photos</summary>
+  <div class="compact-form">
+    <div class="property-photo-grid room-photo-grid">
+      {% for image in room.images %}
+      <figure class="property-photo media-editor-card" data-room-image data-room="{{ room.id }}" data-image="{{ image.id }}">
+        <img src="{{ image.path }}" alt="{{ image.alt_text or room.name }}">
+        {% if can_edit_property %}
+        <figcaption class="media-editor-controls">
+          <label>Alt text<input data-image-alt maxlength="300" value="{{ image.alt_text or '' }}" placeholder="Describe this room photo"></label>
+          <label>Order<input data-image-order type="number" min="0" max="10000" value="{{ image.sort_order }}"></label>
+          <div class="media-editor-actions">
+            <button class="button button-small" type="button" data-image-save>Save</button>
+            <button class="button button-small button-secondary" type="button" data-image-delete>Delete</button>
+          </div>
+          <p class="form-message"></p>
+        </figcaption>
+        {% else %}<figcaption>Photo {{ loop.index }}</figcaption>{% endif %}
+      </figure>
+      {% else %}<div class="empty"><p>No room photos yet.</p></div>{% endfor %}
+    </div>
+    {% if can_edit_property %}
+    <form class="photo-upload-form" data-room-photo-form data-room="{{ room.id }}" enctype="multipart/form-data">
+      <label>Upload room photo<input name="file" type="file" accept="image/jpeg,image/png,image/webp" required></label>
+      <label>Alt text<input name="alt_text" maxlength="300" placeholder="e.g. Deluxe room with king bed"></label>
+      <small class="muted">JPEG, PNG or WebP. Maximum 10 MB.</small>
+      <button class="button button-secondary" type="submit">Upload room photo</button><p class="form-message"></p>
+    </form>
+    {% endif %}
+  </div>
+</details>
 <div class="rate-admin-list">{% for rate in room.rates %}<div class="rate-admin-row"><div><strong>{{ rate.name }}</strong><span class="muted">{{ rate.guarantee_type|replace("_"," ")|title }} · {{ rate.meal_plan|replace("_"," ")|title }}</span></div><strong>{{ rate.currency }} {{ '%.2f'|format(rate.base_price_minor / 100) }}</strong></div>
 {% if can_manage %}<details class="setup-disclosure inner-disclosure"><summary>Edit {{ rate.name }}</summary><form class="partner-form compact-form" data-rate-edit-form data-rate="{{ rate.id }}"><div class="form-grid"><label>Rate name<input name="name" value="{{ rate.name }}" required minlength="2" maxlength="120"></label><label>Nightly price (NGN)<input name="base_price_ngn" type="number" min="1" step="0.01" value="{{ '%.2f'|format(rate.base_price_minor / 100) }}" required></label><label>Guarantee<select name="guarantee_type"><option value="pay_at_property" {% if rate.guarantee_type == "pay_at_property" %}selected{% endif %}>Pay at property</option><option value="pay_now" {% if rate.guarantee_type == "pay_now" %}selected{% endif %}>Pay now</option><option value="deposit" {% if rate.guarantee_type == "deposit" %}selected{% endif %}>Deposit</option><option value="hotel_approval" {% if rate.guarantee_type == "hotel_approval" %}selected{% endif %}>Hotel approval</option></select></label><label>Meal plan<input name="meal_plan" value="{{ rate.meal_plan }}"></label><label>Minimum stay<input name="min_stay" type="number" min="1" max="90" value="{{ rate.min_stay }}"></label><label>Deposit %<input name="deposit_percent" type="number" min="0" max="100" value="{{ rate.deposit_percent }}"></label><label>Free cancellation before check-in (hours)<input name="free_cancellation_hours" type="number" min="0" max="720" value="{{ rate.cancellation_policy.get('free_cancellation_hours',24) if rate.cancellation_policy else 24 }}"></label><label>Status<select name="status"><option value="active" {% if rate.status == "active" %}selected{% endif %}>Active</option><option value="inactive" {% if rate.status == "inactive" %}selected{% endif %}>Inactive</option></select></label></div><label class="check-label"><input type="checkbox" name="refundable" {% if rate.refundable %}checked{% endif %}> Refundable rate</label><button class="button button-small" type="submit">Save rate plan</button><p class="form-message"></p></form></details>{% endif %}{% else %}<p class="muted">No rate plan yet. Guests cannot book this room until at least one active rate exists.</p>{% endfor %}</div>
 
