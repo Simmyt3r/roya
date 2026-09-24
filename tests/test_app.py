@@ -44,17 +44,17 @@ def test_auth_mutations_require_json():
     assert payload["error"]["code"]=="UNSUPPORTED_MEDIA_TYPE"
 
 
-def test_cookie_mutations_require_same_origin():
+def test_cookie_mutations_require_same_origin(monkeypatch):
     app=create_app({
         "TESTING":True,
         "WTF_CSRF_ENABLED":False,
         "SERVER_NAME":"localhost",
     })
     client=app.test_client()
+    monkeypatch.setattr("roya.auth.routes.revoke_server_session",lambda _sid: None)
 
     with client.session_transaction() as sess:
-        sess["access_token"]="test-access-token"
-        sess["refresh_token"]="test-refresh-token"
+        sess["sid"]="test-session-id"
 
     blocked=client.post("/api/v1/auth/logout",json={})
     assert blocked.status_code==403
