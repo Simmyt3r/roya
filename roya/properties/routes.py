@@ -87,6 +87,70 @@ def new_property_page():
     return render_template("partner/property_new.html",organizations=organizations)
 
 
+@bp.get("/partner/properties/<uuid:property_id>")
+@login_required
+def manage_property_page(property_id):
+    identity=current_identity(required=True)
+
+    with db_connection() as conn:
+        access=conn.execute(
+            """select p.*,o.name organization_name,om.role member_role
+               from properties p
+               join organizations o on o.id=p.organization_id
+               join organization_members om on om.organization_id=o.id
+               where p.id=%s and om.user_id=%s and om.status='active'""",
+            (str(property_id),identity.user_id),
+        ).fetchone()
+        if not access:
+            raise RoyaError("FORBIDDEN","You do not have access to this property.",403)
+
+        rooms=[dict(row) for row in conn.execute(
+            """select id,name,description,capacity_adults,capacity_children,base_occupancy,
+                      total_inventory,bed_configuration,status
+               from room_types
+               where property_id=%s
+               order by created_at""",
+            (str(property_id),),
+        ).fetchall()]
+
+        rates=list(conn.execute(
+            """select rp.*,rt.name room_type_name
+               from rate_plans rp
+               join room_types rt on rt.id=rp.room_type_id
+               where rt.property_id=%s
+               order by rt.created_at,rp.base_price_minor""",
+            (str(property_id),),
+        ).fetchall())
+
+        inventory_rows=list(conn.execute(
+            """select room_type_id,
+                      count(*) filter(where date>=current_date and date<current_date+30) days_loaded,
+                      min(total_inventory-held_inventory-sold_inventory)
+                        filter(where date>=current_date and date<current_date+30 and stop_sell=false) min_available,
+                      max(date) max_date
+               from inventory_days
+               where room_type_id in (select id from room_types where property_id=%s)
+               group by room_type_id""",
+            (str(property_id),),
+        ).fetchall())
+
+    rates_by_room={}
+    for rate in rates:
+        rates_by_room.setdefault(str(rate["room_type_id"]),[]).append(rate)
+    inventory_by_room={str(row["room_type_id"]):row for row in inventory_rows}
+
+    for room in rooms:
+        room["rates"]=rates_by_room.get(str(room["id"]),[])
+        room["inventory_summary"]=inventory_by_room.get(str(room["id"]))
+
+    return render_template(
+        "partner/property_manage.html",
+        property=access,
+        rooms=rooms,
+        can_manage=access["member_role"] in {"owner","manager","reservations"},
+    )
+
+
 class PropertyCreate(BaseModel):
     organization_id: str
     name: str = Field(min_length=2,max_length=180)
@@ -122,7 +186,7 @@ def create_property_api():
              body.latitude,body.longitude,body.longitude,body.latitude,body.longitude,body.latitude,body.check_in_time,body.check_out_time,identity.user_id),
         ).fetchone()
         conn.commit()
-    return ok({**dict(row),"redirect_to":"/partner#properties"},201)
+    return ok({**dict(row),"redirect_to":f"/partner/properties/{row['id']}"},201)
 
 
 @bp.post("/api/v1/properties/<uuid:property_id>/images")
