@@ -1,4 +1,4 @@
-const CACHE='iroya-shell-v4';
+const CACHE='iroya-shell-v5';
 const SHELL=[
   '/',
   '/static/css/app.css',
