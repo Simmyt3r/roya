@@ -3,16 +3,17 @@
 {% block content %}
 <section class="shell auth-shell">
   <form class="card auth-card" data-auth-form="login">
+    {% if request.args.get("invite") %}<input type="hidden" name="invite_token" value="{{ request.args.get('invite') }}">{% endif %}
     <div>
-      <div class="eyebrow">Welcome back</div>
+      <div class="eyebrow">{% if request.args.get("invite") %}Hotel team invitation{% else %}Welcome back{% endif %}</div>
       <h1>Sign in to iRoya</h1>
       <p class="muted">One sign-in for personal stays and hotel workspaces. We route you to the right place.</p>
     </div>
-    <label>Email<input type="email" name="email" autocomplete="email" required></label>
+    <label>Email<input type="email" name="email" autocomplete="email" value="{{ request.args.get('email','') }}" required></label>
     <label>Password<input type="password" name="password" autocomplete="current-password" minlength="8" required></label>
     <button class="button" type="submit">Sign in</button>
     <p class="form-message" aria-live="polite"></p>
-    <p class="auth-switch">New to iRoya? <a href="/register">Create an account</a></p>
+    <p class="auth-switch">New to iRoya? <a href="{% if request.args.get('invite') %}/register?invite={{ request.args.get('invite') }}&email={{ request.args.get('email','') }}&account_type=hotel{% else %}/register{% endif %}">Create an account</a></p>
   </form>
 </section>
 {% endblock %}
