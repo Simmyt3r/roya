@@ -1,1 +1,18 @@
-{% extends "base.html" %}{% block title %}Sign in · Roya{% endblock %}{% block content %}<section class="shell auth-shell"><form class="card auth-card" data-auth-form="login"><h1>Welcome back</h1><label>Email<input type="email" name="email" required></label><label>Password<input type="password" name="password" minlength="8" required></label><button class="button" type="submit">Sign in</button><p class="form-message"></p><a href="/register">Create an account</a></form></section>{% endblock %}
+{% extends "base.html" %}
+{% block title %}Sign in · iRoya{% endblock %}
+{% block content %}
+<section class="shell auth-shell">
+  <form class="card auth-card" data-auth-form="login">
+    <div>
+      <div class="eyebrow">Welcome back</div>
+      <h1>Sign in to iRoya</h1>
+      <p class="muted">One sign-in for personal stays and hotel workspaces. We route you to the right place.</p>
+    </div>
+    <label>Email<input type="email" name="email" autocomplete="email" required></label>
+    <label>Password<input type="password" name="password" autocomplete="current-password" minlength="8" required></label>
+    <button class="button" type="submit">Sign in</button>
+    <p class="form-message" aria-live="polite"></p>
+    <p class="auth-switch">New to iRoya? <a href="/register">Create an account</a></p>
+  </form>
+</section>
+{% endblock %}
