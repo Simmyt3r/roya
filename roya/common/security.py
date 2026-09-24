@@ -25,7 +25,7 @@ def enforce_same_origin_for_cookie_mutations():
         return
     if request.headers.get("Authorization", "").startswith("Bearer "):
         return
-    if not session.get("access_token"):
+    if not session.get("sid"):
         return
 
     forwarded_proto = request.headers.get("X-Forwarded-Proto", "").split(",")[0].strip()
