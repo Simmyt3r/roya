@@ -23,7 +23,7 @@ document.querySelectorAll('[data-room-edit-form]').forEach(function(form){
 });
 document.querySelectorAll('[data-rate-edit-form]').forEach(function(form){
   form.addEventListener('submit',async function(event){
-    event.preventDefault();const msg=form.querySelector('.form-message');const submit=form.querySelector('button[type="submit"]');const raw=Object.fromEntries(new FormData(form).entries());const body={name:raw.name,base_price_minor:Math.round(Number(raw.base_price_ngn)*100),currency:'NGN',guarantee_type:raw.guarantee_type,refundable:new FormData(form).has('refundable'),meal_plan:raw.meal_plan||'room_only',deposit_percent:Number(raw.deposit_percent||0),min_stay:Number(raw.min_stay||1),status:raw.status};msg.textContent='Saving rate plan…';submit.disabled=true;
+    event.preventDefault();const msg=form.querySelector('.form-message');const submit=form.querySelector('button[type="submit"]');const raw=Object.fromEntries(new FormData(form).entries());const body={name:raw.name,base_price_minor:Math.round(Number(raw.base_price_ngn)*100),currency:'NGN',guarantee_type:raw.guarantee_type,refundable:new FormData(form).has('refundable'),meal_plan:raw.meal_plan||'room_only',deposit_percent:Number(raw.deposit_percent||0),min_stay:Number(raw.min_stay||1),free_cancellation_hours:Number(raw.free_cancellation_hours||24),status:raw.status};msg.textContent='Saving rate plan…';submit.disabled=true;
     const res=await fetch('/api/v1/rate-plans/'+form.dataset.rate,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const data=await res.json().catch(function(){return {};});if(!res.ok){msg.textContent=(data.error&&data.error.message)||'Rate plan could not be saved.';submit.disabled=false;return;}window.location.reload();
   });
 });
@@ -251,7 +251,8 @@ document.querySelectorAll('[data-rate-form]').forEach(function(form){
       refundable:new FormData(form).has('refundable'),
       meal_plan:raw.meal_plan,
       deposit_percent:Number(raw.deposit_percent||0),
-      min_stay:Number(raw.min_stay||1)
+      min_stay:Number(raw.min_stay||1),
+      free_cancellation_hours:Number(raw.free_cancellation_hours||24)
     };
     msg.textContent='Adding rate plan…';
     submit.disabled=true;
