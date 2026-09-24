@@ -1,40 +1,68 @@
 {% extends "base.html" %}
-{% block title %}Partner dashboard · Roya{% endblock %}
+{% block title %}Hotel dashboard · iRoya{% endblock %}
 {% block content %}
-<section class="shell page-head">
+<section class="shell page-head partner-page-head">
   <div>
-    <div class="eyebrow">Hotel partner</div>
+    <div class="eyebrow">Hotel workspace</div>
     <h1>Partner dashboard</h1>
-    <p>Inventory, rates and reservations start with a clean property structure.</p>
+    <p>Manage the hotel information guests actually depend on: availability, rates and reservations.</p>
+  </div>
+  <a class="button" href="/partner/properties/new">Add property</a>
+</section>
+
+<section class="shell partner-overview">
+  <article class="card">
+    <div class="eyebrow">Organization</div>
+    {% for o in organizations %}
+      <h2>{{ o.name }}</h2>
+      <p class="muted">Your role: {{ o.role|title }}</p>
+    {% endfor %}
+  </article>
+  <article class="card">
+    <div class="eyebrow">Portfolio</div>
+    <strong class="dashboard-number">{{ properties|length }}</strong>
+    <p class="muted">propert{% if properties|length == 1 %}y{% else %}ies{% endif %} in this workspace</p>
+  </article>
+  <article class="card">
+    <div class="eyebrow">Needs attention</div>
+    <strong class="dashboard-number">{{ pending_reservations|length }}</strong>
+    <p class="muted">reservation approval{% if pending_reservations|length != 1 %}s{% endif %}</p>
+  </article>
+</section>
+
+<section class="shell partner-section" id="properties">
+  <div class="section-heading">
+    <div><div class="eyebrow">Properties</div><h2>Your hotels</h2></div>
+    <a class="button button-secondary" href="/partner/properties/new">Add property</a>
+  </div>
+  <div class="partner-property-grid">
+    {% for p in properties %}
+      <article class="card partner-property-card">
+        <div>
+          <strong>{{ p.name }}</strong>
+          <p class="muted">{{ p.city }} · {{ p.organization_name }}</p>
+        </div>
+        <div class="status-row">
+          <span class="status-pill">{{ p.verification_status|title }}</span>
+          <span class="status-pill status-muted">{{ p.status|title }}</span>
+        </div>
+      </article>
+    {% else %}
+      <div class="empty">
+        <h3>Add your first property</h3>
+        <p class="muted">A property holds the rooms, rates, inventory and reservation rules guests will see.</p>
+        <a class="button" href="/partner/properties/new">Add property</a>
+      </div>
+    {% endfor %}
   </div>
 </section>
 
-<section class="shell split">
-  <article class="card">
-    <h2>Organizations</h2>
-    {% for o in organizations %}
-      <p><strong>{{ o.name }}</strong><br><span class="muted">{{ o.role }}</span></p>
-    {% else %}
-      <p>No hotel organization yet.</p>
-    {% endfor %}
-  </article>
-
-  <article class="card">
-    <h2>Properties</h2>
-    {% for p in properties %}
-      <p><strong>{{ p.name }}</strong><br><span class="muted">{{ p.city }} · {{ p.verification_status }} · {{ p.status }}</span></p>
-    {% else %}
-      <p>No properties yet.</p>
-    {% endfor %}
-  </article>
-</section>
-
-<section class="shell partner-approvals">
+<section class="shell partner-section partner-approvals" id="reservations">
   <article class="card">
     <div class="approval-head">
       <div>
-        <div class="eyebrow">Action required</div>
-        <h2>Pending reservation approvals</h2>
+        <div class="eyebrow">Reservations</div>
+        <h2>Pending approvals</h2>
       </div>
       <span class="muted">{{ pending_reservations|length }} pending</span>
     </div>
