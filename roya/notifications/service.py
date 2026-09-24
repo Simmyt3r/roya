@@ -150,7 +150,7 @@ class NotificationService:
                 with db_connection() as conn:
                     conn.execute(
                         """update notifications
-                           set status='sent',sent_at=now(),last_error=null,updated_at=coalesce(updated_at,created_at)
+                           set status='sent',sent_at=now(),last_error=null
                            where id=%s""",
                         (notification_id,),
                     )
