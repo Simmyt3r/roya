@@ -1,9 +1,9 @@
 from datetime import date
 import uuid as uuidlib
-from flask import Blueprint, current_app, render_template, request
+from flask import Blueprint, current_app, redirect, render_template, request
 from pydantic import BaseModel, Field, ValidationError
 
-from roya.auth.service import current_identity
+from roya.auth.service import account_type_for_user, current_identity, login_required
 from roya.common.db import db_connection, supabase_admin_client
 from roya.common.errors import RoyaError
 from roya.common.response import ok
@@ -64,6 +64,29 @@ def property_page(slug):
     return render_template("public/property.html",property=prop,images=images,rooms=rooms,check_in=check_in,check_out=check_out,guests=guests)
 
 
+@bp.get("/partner/properties/new")
+@login_required
+def new_property_page():
+    identity=current_identity(required=True)
+    if account_type_for_user(identity.user_id)!="hotel":
+        return redirect("/partner/start")
+
+    with db_connection() as conn:
+        organizations=list(conn.execute(
+            """select o.id,o.name,om.role
+               from organizations o
+               join organization_members om on om.organization_id=o.id
+               where om.user_id=%s and om.status='active' and om.role in ('owner','manager')
+               order by o.name""",
+            (identity.user_id,),
+        ).fetchall())
+
+    if not organizations:
+        return redirect("/partner/start")
+
+    return render_template("partner/property_new.html",organizations=organizations)
+
+
 class PropertyCreate(BaseModel):
     organization_id: str
     name: str = Field(min_length=2,max_length=180)
@@ -99,7 +122,7 @@ def create_property_api():
              body.latitude,body.longitude,body.longitude,body.latitude,body.longitude,body.latitude,body.check_in_time,body.check_out_time,identity.user_id),
         ).fetchone()
         conn.commit()
-    return ok(row,201)
+    return ok({**dict(row),"redirect_to":"/partner#properties"},201)
 
 
 @bp.post("/api/v1/properties/<uuid:property_id>/images")
