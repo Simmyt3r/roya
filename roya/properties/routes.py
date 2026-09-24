@@ -34,7 +34,20 @@ def health():
                 reachable=bool(conn.execute("select 1 as ok").fetchone())
         except Exception:
             reachable=False
-    return ok({"service":"roya","status":"ok" if reachable or not configured else "degraded","database_configured":configured,"database_reachable":reachable})
+    return ok({
+        "service":"iroya",
+        "status":"ok" if reachable or not configured else "degraded",
+        "database_configured":configured,
+        "database_reachable":reachable,
+        "integrations":{
+            "storage_admin_configured":bool(current_app.config.get("SUPABASE_SERVICE_ROLE_KEY")),
+            "payments_configured":bool(current_app.config.get("PAYSTACK_SECRET_KEY")),
+            "notifications_configured":bool(
+                current_app.config.get("SMTP_HOST")
+                and current_app.config.get("SMTP_FROM")
+            ),
+        },
+    })
 
 
 @bp.get("/")
