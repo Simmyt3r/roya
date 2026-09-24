@@ -5,6 +5,7 @@ from flask import current_app
 
 from roya.common.db import db_connection
 from roya.common.errors import RoyaError
+from roya.reservations.policy import cancellation_policy_view
 from .paystack import PaystackProvider
 
 
@@ -150,9 +151,17 @@ class PaymentService:
         with db_connection() as conn:
             with conn.transaction():
                 reservation=conn.execute(
-                    """select id,user_id,organization_id,property_id,status,payment_status,
-                              amount_paid_minor,currency
-                       from reservations where id=%s and user_id=%s for update""",
+                    """select r.id,r.user_id,r.organization_id,r.property_id,r.status,r.payment_status,
+                              r.amount_paid_minor,r.currency,r.check_in,p.check_in_time,
+                              rp.refundable,rp.cancellation_policy
+                       from reservations r
+                       join properties p on p.id=r.property_id
+                       join reservation_items ri on ri.reservation_id=r.id
+                       join rate_plans rp on rp.id=ri.rate_plan_id
+                       where r.id=%s and r.user_id=%s
+                       order by ri.id
+                       limit 1
+                       for update of r""",
                     (reservation_id,user_id),
                 ).fetchone()
                 if not reservation:
@@ -161,6 +170,20 @@ class PaymentService:
                     raise RoyaError("RESERVATION_NOT_CANCELLABLE","This reservation can no longer be cancelled online.",409)
                 if int(reservation["amount_paid_minor"] or 0)<=0:
                     raise RoyaError("REFUND_NOT_REQUIRED","This reservation has no recorded payment to refund.",409)
+
+                policy_view=cancellation_policy_view(
+                    refundable=bool(reservation["refundable"]),
+                    policy=reservation["cancellation_policy"] or {},
+                    check_in=reservation["check_in"],
+                    check_in_time=reservation["check_in_time"],
+                )
+                if not policy_view["refund_eligible"]:
+                    raise RoyaError(
+                        "REFUND_NOT_ELIGIBLE",
+                        policy_view["summary"]+" Automatic refunds are unavailable for this cancellation.",
+                        409,
+                        {"policy":policy_view},
+                    )
 
                 active=conn.execute(
                     """select id,status from refunds
