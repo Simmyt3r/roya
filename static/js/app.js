@@ -1,4 +1,35 @@
 
+document.querySelectorAll('[data-notification-id]').forEach(function(card){
+  const button=card.querySelector('[data-notification-read]');
+  const open=card.querySelector('[data-notification-open]');
+  async function markRead(){
+    if(!card.classList.contains('notification-unread'))return true;
+    const res=await fetch('/api/v1/notifications/'+card.dataset.notificationId+'/read',{
+      method:'POST',headers:{'Content-Type':'application/json'},body:'{}'
+    });
+    if(res.ok){
+      card.classList.remove('notification-unread');
+      if(button)button.remove();
+      return true;
+    }
+    return false;
+  }
+  if(button)button.addEventListener('click',markRead);
+  if(open)open.addEventListener('click',function(){markRead();});
+});
+const readAll=document.querySelector('[data-read-all-notifications]');
+if(readAll){
+  readAll.addEventListener('click',async function(){
+    readAll.disabled=true;
+    const res=await fetch('/api/v1/notifications/read-all',{
+      method:'POST',headers:{'Content-Type':'application/json'},body:'{}'
+    });
+    if(res.ok)window.location.reload();
+    else readAll.disabled=false;
+  });
+}
+
+
 document.querySelectorAll('[data-team-member]').forEach(function(row){
   const save=row.querySelector('[data-team-save]');
   const statusButton=row.querySelector('[data-team-status]');

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Notifications · iRoya{% endblock %}
+{% block content %}
+<section class="shell page-head notification-head">
+  <div>
+    <div class="eyebrow">Updates</div>
+    <h1>Notifications</h1>
+    <p>{{ unread }} unread</p>
+  </div>
+  {% if unread %}<button class="button button-secondary" type="button" data-read-all-notifications>Mark all read</button>{% endif %}
+</section>
+<section class="shell notification-list">
+  {% for item in notifications %}
+    <article class="card notification-card {% if not item.read_at %}notification-unread{% endif %}" data-notification-id="{{ item.id }}">
+      <div class="notification-dot" aria-hidden="true"></div>
+      <div class="notification-copy">
+        <div class="eyebrow">{{ item.event_type|replace("_"," ")|replace("."," · ")|title }}</div>
+        <h2>{{ item.payload.get("title","iRoya update") }}</h2>
+        <p>{{ item.payload.get("body","") }}</p>
+        <small class="muted">{{ item.created_at }}</small>
+      </div>
+      <div class="notification-actions">
+        {% if item.payload.get("href") %}<a class="button button-small" href="{{ item.payload.get('href') }}" data-notification-open>Open</a>{% endif %}
+        {% if not item.read_at %}<button class="button button-small button-secondary" type="button" data-notification-read>Mark read</button>{% endif %}
+      </div>
+    </article>
+  {% else %}
+    <div class="empty"><h2>No notifications yet</h2><p class="muted">Reservation and hotel-operation updates will appear here.</p></div>
+  {% endfor %}
+</section>
+{% endblock %}

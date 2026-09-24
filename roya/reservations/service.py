@@ -2,6 +2,7 @@ import json
 
 from roya.common.db import db_connection
 from roya.common.errors import RoyaError
+from roya.notifications.service import NotificationService
 from .policy import cancellation_policy_view
 
 
@@ -25,6 +26,8 @@ class ReservationService:
             if "CAPACITY_EXCEEDED" in message:
                 raise RoyaError("VALIDATION_ERROR","Guest count exceeds the room capacity.",422) from exc
             raise
+        if row and not row.get("idempotent"):
+            NotificationService().notify_reservation_created(str(row["reservation_id"]))
         return row
 
     def get_for_user(self,reservation_id,user_id):
@@ -133,6 +136,7 @@ class ReservationService:
             if "BOOKING_CONFLICT" in message:
                 raise RoyaError("BOOKING_CONFLICT","Held inventory is no longer available.",409) from exc
             raise
+        NotificationService().notify_guest_decision(reservation_id,row["status"])
         return row
 
 
@@ -198,4 +202,5 @@ class ReservationService:
                         json.dumps({"status":target_status},default=str),
                     ),
                 )
+        NotificationService().notify_guest_status(reservation_id,target_status)
         return row
