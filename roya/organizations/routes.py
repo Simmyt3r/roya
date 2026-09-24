@@ -201,6 +201,7 @@ def partner_dashboard():
         organizations=organizations,
         properties=properties,
         pending_reservations=pending_reservations,
+        partner_reservations=partner_reservations,
         team_members=team_members,
         manageable_organizations=[o for o in organizations if o["role"] in {"owner","manager"}],
     )

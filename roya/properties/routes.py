@@ -25,7 +25,15 @@ def _date(value):
 
 @bp.get("/health")
 def health():
-    return ok({"service":"roya","status":"ok","database_configured":bool(current_app.config.get("DATABASE_URL"))})
+    configured=bool(current_app.config.get("DATABASE_URL"))
+    reachable=False
+    if configured:
+        try:
+            with db_connection() as conn:
+                reachable=bool(conn.execute("select 1 as ok").fetchone())
+        except Exception:
+            reachable=False
+    return ok({"service":"roya","status":"ok" if reachable or not configured else "degraded","database_configured":configured,"database_reachable":reachable})
 
 
 @bp.get("/")

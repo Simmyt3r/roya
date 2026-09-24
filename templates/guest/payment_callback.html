@@ -1,1 +1,10 @@
-{% extends "base.html" %}{% block title %}Payment received · Roya{% endblock %}{% block content %}<section class="shell auth-shell"><article class="card auth-card"><div class="eyebrow">Payment return</div><h1>We're confirming your payment.</h1><p>Your bank redirect is not treated as proof of payment. Roya confirms the reservation only after Paystack verification/webhook processing.</p><a class="button" href="/">Return to Roya</a></article></section>{% endblock %}
+{% extends "base.html" %}
+{% block title %}Payment status · iRoya{% endblock %}
+{% block content %}
+<section class="shell auth-shell"><article class="card auth-card payment-return-card"><div class="eyebrow">Paystack return</div>
+{% if state == "confirmed" %}<div class="payment-result-icon">✓</div><h1>Payment verified.</h1><p>iRoya verified the transaction with Paystack and updated your reservation record.</p><a class="button" href="/reservation/{{ result.reservation_id }}">View reservation</a>
+{% elif state == "pending" %}<div class="payment-result-icon payment-result-pending">…</div><h1>Payment is still being confirmed.</h1><p>The browser redirect is not treated as proof of payment. Your reservation will update after Paystack verification or the signed webhook arrives.</p>{% if result and result.reservation_id %}<a class="button" href="/reservation/{{ result.reservation_id }}">Check reservation</a>{% else %}<a class="button" href="/account">My stays</a>{% endif %}
+{% elif state == "login_required" %}<h1>Sign in to check this payment.</h1><p>Your payment reference is not enough to expose reservation details. Sign in with the account that made the booking.</p><a class="button" href="/login">Sign in</a>
+{% else %}<h1>We could not verify this payment.</h1><p>{{ error or "The returned payment details could not be matched safely." }}</p><a class="button" href="/account">My stays</a>{% endif %}
+{% if reference %}<small class="muted">Reference: {{ reference }}</small>{% endif %}</article></section>
+{% endblock %}
