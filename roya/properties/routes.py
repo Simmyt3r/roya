@@ -1,4 +1,6 @@
 from datetime import date
+from decimal import Decimal
+from typing import Literal
 import json
 import uuid as uuidlib
 from flask import Blueprint, current_app, redirect, render_template, request
@@ -23,6 +25,58 @@ def _date(value):
         return date.fromisoformat(value)
     except ValueError as exc:
         raise RoyaError("VALIDATION_ERROR", "Dates must use YYYY-MM-DD.", 422) from exc
+
+
+class SearchQuery(BaseModel):
+    city: str|None = Field(default=None,max_length=120)
+    check_in: date|None = None
+    check_out: date|None = None
+    guests: int = Field(default=1,ge=1,le=20)
+    min_price_ngn: Decimal|None = Field(default=None,ge=0,le=100000000)
+    max_price_ngn: Decimal|None = Field(default=None,ge=0,le=100000000)
+    refundable: bool = False
+    meal_plan: str|None = Field(default=None,max_length=50)
+    guarantee_type: Literal["pay_now","deposit","pay_at_property","hotel_approval"]|None = None
+    sort: Literal["recommended","price_asc","price_desc","rating","distance"] = "recommended"
+    lat: float|None = Field(default=None,ge=-90,le=90)
+    lng: float|None = Field(default=None,ge=-180,le=180)
+    radius_km: float = Field(default=25,ge=1,le=200)
+
+
+def _search_query():
+    raw={key:value for key,value in request.args.items() if value not in ("",None)}
+    try:
+        query=SearchQuery.model_validate(raw)
+    except ValidationError as exc:
+        raise RoyaError("VALIDATION_ERROR","Invalid search filters.",422,{"errors":exc.errors()}) from exc
+
+    if query.check_in and query.check_out and query.check_out<=query.check_in:
+        raise RoyaError("VALIDATION_ERROR","Check-out must be after check-in.",422)
+    if (query.lat is None)!=(query.lng is None):
+        raise RoyaError("VALIDATION_ERROR","Latitude and longitude must be provided together.",422)
+    if query.min_price_ngn is not None and query.max_price_ngn is not None and query.min_price_ngn>query.max_price_ngn:
+        raise RoyaError("VALIDATION_ERROR","Minimum price cannot exceed maximum price.",422)
+    if query.sort=="distance" and query.lat is None:
+        query.sort="recommended"
+    return query
+
+
+def _search_rows(query):
+    return search_properties(
+        query.city,
+        query.check_in,
+        query.check_out,
+        query.guests,
+        min_price_minor=int(query.min_price_ngn*100) if query.min_price_ngn is not None else None,
+        max_price_minor=int(query.max_price_ngn*100) if query.max_price_ngn is not None else None,
+        refundable_only=query.refundable,
+        meal_plan=query.meal_plan,
+        guarantee_type=query.guarantee_type,
+        latitude=query.lat,
+        longitude=query.lng,
+        radius_km=query.radius_km,
+        sort=query.sort,
+    )
 
 
 @bp.get("/health")
@@ -58,23 +112,23 @@ def home():
 
 @bp.get("/search")
 def search_page():
-    city=(request.args.get("city") or "").strip() or None
-    check_in=_date(request.args.get("check_in")); check_out=_date(request.args.get("check_out"))
-    guests=max(int(request.args.get("guests","1")),1)
-    if check_in and check_out and check_out<=check_in:
-        raise RoyaError("VALIDATION_ERROR","Check-out must be after check-in.",422)
-    rows=search_properties(city,check_in,check_out,guests)
-    return render_template("public/search.html",properties=rows,city=city,check_in=check_in,check_out=check_out,guests=guests)
+    query=_search_query()
+    rows=_search_rows(query)
+    return render_template(
+        "public/search.html",
+        properties=rows,
+        query=query,
+        city=query.city,
+        check_in=query.check_in,
+        check_out=query.check_out,
+        guests=query.guests,
+    )
 
 
 @bp.get("/api/v1/properties")
 def search_api():
-    city=(request.args.get("city") or "").strip() or None
-    check_in=_date(request.args.get("check_in")); check_out=_date(request.args.get("check_out"))
-    guests=max(int(request.args.get("guests","1")),1)
-    if check_in and check_out and check_out<=check_in:
-        raise RoyaError("VALIDATION_ERROR","Check-out must be after check-in.",422)
-    return ok(search_properties(city,check_in,check_out,guests))
+    query=_search_query()
+    return ok(_search_rows(query))
 
 
 @bp.get("/hotels/<slug>")
