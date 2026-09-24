@@ -75,7 +75,11 @@ class NotificationService:
                              and role in ('owner','manager','reservations')""",
                         (r["organization_id"],),
                     ).fetchall())
-                    hotel_title="Reservation needs approval" if r["status"]=="pending_confirmation" else "New reservation"
+                    hotel_title={
+                        "pending_confirmation":"Reservation needs approval",
+                        "held":"Payment hold created",
+                        "confirmed":"New reservation",
+                    }.get(r["status"],"Reservation update")
                     hotel_body=f"{r['reference']} for {r['property_name']} is {r['status'].replace('_',' ')}."
                     for member in members:
                         self._insert(
