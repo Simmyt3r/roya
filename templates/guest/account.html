@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}My stays · iRoya{% endblock %}
+{% block content %}
+<section class="shell page-head account-head">
+  <div>
+    <div class="eyebrow">Guest account</div>
+    <h1>My stays</h1>
+    <p>{{ profile.name or email }} · {{ email }}</p>
+  </div>
+  <a class="button" href="/search">Find a stay</a>
+</section>
+
+<section class="shell account-layout">
+  <aside class="card account-summary">
+    <span class="account-role {% if profile.account_type == 'hotel' %}account-role-hotel{% endif %}">
+      {{ "Hotel" if profile.account_type == "hotel" else "Guest" }}
+    </span>
+    <h2>{{ profile.name or "Your account" }}</h2>
+    <p class="muted">{{ email }}</p>
+    {% if profile.account_type == "hotel" %}
+      <a class="button button-secondary" href="/partner">Open hotel dashboard</a>
+    {% else %}
+      <a class="button button-secondary" href="/partner/start">List your hotel</a>
+    {% endif %}
+  </aside>
+
+  <section class="stay-list">
+    {% for r in reservations %}
+      <a class="card stay-card" href="/reservation/{{ r.id }}">
+        <div>
+          <div class="eyebrow">{{ r.reference }}</div>
+          <h2>{{ r.property_name }}</h2>
+          <p class="muted">{{ r.check_in }} → {{ r.check_out }} · {{ r.nights }} night{% if r.nights != 1 %}s{% endif %}</p>
+        </div>
+        <div class="stay-status">
+          <span>{{ r.status|replace("_"," ")|title }}</span>
+          <strong>{{ r.currency }} {{ '%.2f'|format(r.total_price_minor / 100) }}</strong>
+          <small>{{ r.payment_status|replace("_"," ")|title }}</small>
+        </div>
+      </a>
+    {% else %}
+      <div class="empty">
+        <h2>No stays yet</h2>
+        <p class="muted">When you reserve a room, it will appear here with its confirmation and payment status.</p>
+        <a class="button" href="/search">Explore stays</a>
+      </div>
+    {% endfor %}
+  </section>
+</section>
+{% endblock %}
