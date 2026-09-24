@@ -1,4 +1,5 @@
 from datetime import date
+import json
 import uuid as uuidlib
 from flask import Blueprint, current_app, redirect, render_template, request
 from pydantic import BaseModel, Field, ValidationError
@@ -69,7 +70,14 @@ def property_page(slug):
     prop,images,rooms=get_property_by_slug(slug,check_in,check_out,guests)
     if not prop:
         raise RoyaError("PROPERTY_NOT_FOUND","Property not found.",404)
-    return render_template("public/property.html",property=prop,images=images,rooms=rooms,check_in=check_in,check_out=check_out,guests=guests)
+    with db_connection() as conn:
+        amenities=list(conn.execute(
+            """select a.code,a.name,a.category
+               from amenities a join property_amenities pa on pa.amenity_id=a.id
+               where pa.property_id=%s order by coalesce(a.category,''),a.name""",
+            (prop["id"],),
+        ).fetchall())
+    return render_template("public/property.html",property=prop,images=images,rooms=rooms,amenities=amenities,check_in=check_in,check_out=check_out,guests=guests)
 
 
 @bp.get("/partner/properties/new")
@@ -152,6 +160,13 @@ def manage_property_page(property_id):
                           and i.stop_sell=false and (i.total_inventory-i.held_inventory-i.sold_inventory)>0) has_inventory""",
             (str(property_id),str(property_id),str(property_id)),
         ).fetchone()
+        amenities=list(conn.execute(
+            """select a.id,a.code,a.name,a.category,
+                      exists(select 1 from property_amenities pa where pa.property_id=%s and pa.amenity_id=a.id) selected
+               from amenities a
+               order by coalesce(a.category,''),a.name""",
+            (str(property_id),),
+        ).fetchall())
 
     rates_by_room={}
     for rate in rates:
@@ -167,6 +182,8 @@ def manage_property_page(property_id):
         property=access,
         rooms=rooms,
         can_manage=access["member_role"] in {"owner","manager","reservations"},
+        can_edit_property=access["member_role"] in {"owner","manager"},
+        amenities=amenities,
         readiness={
             "has_room":bool(readiness_row["has_room"]),
             "has_rate":bool(readiness_row["has_rate"]),
@@ -192,6 +209,23 @@ class PropertyCreate(BaseModel):
     check_out_time: str="12:00"
 
 
+class PropertyUpdate(BaseModel):
+    name: str = Field(min_length=2,max_length=180)
+    description: str = Field(default="",max_length=5000)
+    address: str = Field(min_length=3,max_length=300)
+    city: str = Field(min_length=2,max_length=100)
+    state: str = Field(min_length=2,max_length=100)
+    country: str = Field(default="Nigeria",min_length=2,max_length=100)
+    phone: str|None = Field(default=None,max_length=30)
+    email: str|None = Field(default=None,max_length=200)
+    check_in_time: str="14:00"
+    check_out_time: str="12:00"
+
+
+class AmenityUpdate(BaseModel):
+    codes: list[str] = Field(default_factory=list,max_length=50)
+
+
 @bp.post("/api/v1/properties")
 def create_property_api():
     try:
@@ -212,6 +246,117 @@ def create_property_api():
         ).fetchone()
         conn.commit()
     return ok({**dict(row),"redirect_to":f"/partner/properties/{row['id']}"},201)
+
+
+@bp.put("/api/v1/properties/<uuid:property_id>")
+@login_required
+def update_property_api(property_id):
+    try:
+        body=PropertyUpdate.model_validate(request.get_json(silent=True) or {})
+    except ValidationError as exc:
+        raise RoyaError("VALIDATION_ERROR","Invalid property details.",422,{"errors":exc.errors()}) from exc
+
+    identity=current_identity(required=True)
+    with db_connection() as conn:
+        with conn.transaction():
+            before=conn.execute(
+                """select p.*,om.role member_role
+                   from properties p
+                   join organization_members om on om.organization_id=p.organization_id
+                   where p.id=%s and om.user_id=%s and om.status='active'
+                   for update of p""",
+                (str(property_id),identity.user_id),
+            ).fetchone()
+            if not before:
+                raise RoyaError("PROPERTY_NOT_FOUND","Property not found or access denied.",404)
+            if before["member_role"] not in {"owner","manager"}:
+                raise RoyaError("FORBIDDEN","Only hotel owners and managers can edit property details.",403)
+
+            identity_changed=any([
+                before["name"]!=body.name,
+                before["address"]!=body.address,
+                before["city"]!=body.city,
+                before["state"]!=body.state,
+                before["country"]!=body.country,
+            ])
+            needs_reverify=bool(before["verification_status"]=="verified" and identity_changed)
+
+            row=conn.execute(
+                """update properties set
+                     name=%s,description=%s,address=%s,city=%s,state=%s,country=%s,
+                     phone=%s,email=%s,check_in_time=%s::time,check_out_time=%s::time,
+                     verification_status=case when %s then 'pending' else verification_status end,
+                     status=case when %s then 'draft' else status end,
+                     updated_at=now()
+                   where id=%s returning *""",
+                (body.name,body.description,body.address,body.city,body.state,body.country,
+                 body.phone,body.email,body.check_in_time,body.check_out_time,
+                 needs_reverify,needs_reverify,str(property_id)),
+            ).fetchone()
+            conn.execute(
+                """insert into audit_logs(actor_user_id,organization_id,property_id,action,entity_type,entity_id,before_json,after_json)
+                   values(%s,%s,%s,'property.updated','property',%s,%s::jsonb,%s::jsonb)""",
+                (identity.user_id,before["organization_id"],str(property_id),str(property_id),
+                 json.dumps(dict(before),default=str),json.dumps(dict(row),default=str)),
+            )
+
+    return ok({**dict(row),"requires_reverification":needs_reverify})
+
+
+@bp.put("/api/v1/properties/<uuid:property_id>/amenities")
+@login_required
+def update_property_amenities(property_id):
+    try:
+        body=AmenityUpdate.model_validate(request.get_json(silent=True) or {})
+    except ValidationError as exc:
+        raise RoyaError("VALIDATION_ERROR","Invalid amenity selection.",422,{"errors":exc.errors()}) from exc
+
+    identity=current_identity(required=True)
+    codes=list(dict.fromkeys(body.codes))
+    with db_connection() as conn:
+        with conn.transaction():
+            access=conn.execute(
+                """select p.organization_id,om.role
+                   from properties p join organization_members om on om.organization_id=p.organization_id
+                   where p.id=%s and om.user_id=%s and om.status='active'
+                   for update of p""",
+                (str(property_id),identity.user_id),
+            ).fetchone()
+            if not access:
+                raise RoyaError("PROPERTY_NOT_FOUND","Property not found or access denied.",404)
+            if access["role"] not in {"owner","manager"}:
+                raise RoyaError("FORBIDDEN","Only hotel owners and managers can edit amenities.",403)
+
+            previous=[row["code"] for row in conn.execute(
+                """select a.code from amenities a join property_amenities pa on pa.amenity_id=a.id
+                   where pa.property_id=%s order by a.code""",
+                (str(property_id),),
+            ).fetchall()]
+            selected=[]
+            if codes:
+                selected=list(conn.execute(
+                    "select id,code from amenities where code=any(%s::text[]) order by code",
+                    (codes,),
+                ).fetchall())
+                found={row["code"] for row in selected}
+                unknown=[code for code in codes if code not in found]
+                if unknown:
+                    raise RoyaError("VALIDATION_ERROR","One or more amenities are not supported.",422,{"unknown":unknown})
+
+            conn.execute("delete from property_amenities where property_id=%s",(str(property_id),))
+            for amenity in selected:
+                conn.execute(
+                    "insert into property_amenities(property_id,amenity_id) values(%s,%s) on conflict do nothing",
+                    (str(property_id),amenity["id"]),
+                )
+            conn.execute(
+                """insert into audit_logs(actor_user_id,organization_id,property_id,action,entity_type,entity_id,before_json,after_json)
+                   values(%s,%s,%s,'property.amenities_updated','property',%s,%s::jsonb,%s::jsonb)""",
+                (identity.user_id,access["organization_id"],str(property_id),str(property_id),
+                 json.dumps({"amenities":previous}),json.dumps({"amenities":[row["code"] for row in selected]})),
+            )
+
+    return ok({"property_id":str(property_id),"amenities":[row["code"] for row in selected]})
 
 
 @bp.post("/api/v1/properties/<uuid:property_id>/images")

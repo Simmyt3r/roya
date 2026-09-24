@@ -4,6 +4,46 @@
 <section class="shell page-head partner-page-head"><div><a class="back-link" href="/partner">← Hotel dashboard</a><div class="eyebrow">{{ property.organization_name }}</div><h1>{{ property.name }}</h1><p>{{ property.city }}, {{ property.state }} · Your role: {{ property.member_role|title }}</p></div><div class="status-row"><span class="status-pill">{{ property.verification_status|title }}</span><span class="status-pill status-muted">{{ property.status|title }}</span></div></section>
 <section class="shell"><div class="card readiness-card"><div><div class="eyebrow">Go-live readiness</div><h2>{{ "Ready for review" if readiness.ready else "Finish the sellable setup" }}</h2><p class="muted">iRoya verifies that a hotel can actually sell a stay before it becomes public.</p></div><div class="setup-checks setup-checks-large"><span class="{% if readiness.has_room %}ready{% endif %}">Room type</span><span class="{% if readiness.has_rate %}ready{% endif %}">Rate plan</span><span class="{% if readiness.has_inventory %}ready{% endif %}">Future inventory</span></div></div></section>
 {% if property.verification_status == "pending" %}<section class="shell"><div class="notice-card"><strong>Property verification is pending.</strong><span>{% if readiness.ready %}Your sellable setup is complete and the property can be verified by iRoya operations.{% else %}Complete the missing setup above. The property will not appear publicly until it is ready and verified.{% endif %}</span></div></section>{% endif %}
+
+<section class="shell partner-section property-details-section">
+  <div class="section-heading"><div><div class="eyebrow">Property profile</div><h2>Guest-facing details</h2></div></div>
+  {% if can_edit_property %}
+  <details class="card setup-disclosure" open>
+    <summary>Edit property details</summary>
+    <form class="partner-form compact-form" data-property-details-form data-property="{{ property.id }}">
+      {% if property.verification_status == "verified" %}<div class="notice-card"><strong>Verified property.</strong><span>Changing the hotel name or physical location will return it to verification before it becomes public again.</span></div>{% endif %}
+      <div class="form-grid">
+        <label>Property name<input name="name" value="{{ property.name }}" required minlength="2" maxlength="180"></label>
+        <label>Phone<input name="phone" value="{{ property.phone or '' }}" maxlength="30" type="tel"></label>
+        <label>Email<input name="email" value="{{ property.email or '' }}" maxlength="200" type="email"></label>
+        <label>Address<input name="address" value="{{ property.address }}" required minlength="3" maxlength="300"></label>
+        <label>City<input name="city" value="{{ property.city }}" required minlength="2" maxlength="100"></label>
+        <label>State<input name="state" value="{{ property.state }}" required minlength="2" maxlength="100"></label>
+        <label>Country<input name="country" value="{{ property.country }}" required minlength="2" maxlength="100"></label>
+        <label>Check-in<input name="check_in_time" value="{{ property.check_in_time }}" type="time" required></label>
+        <label>Check-out<input name="check_out_time" value="{{ property.check_out_time }}" type="time" required></label>
+      </div>
+      <label>Description<textarea name="description" maxlength="5000" rows="5">{{ property.description }}</textarea></label>
+      <button class="button" type="submit">Save property details</button><p class="form-message"></p>
+    </form>
+  </details>
+
+  <details class="card setup-disclosure">
+    <summary>Amenities</summary>
+    <form class="partner-form compact-form" data-amenities-form data-property="{{ property.id }}">
+      <div class="amenity-editor">
+        {% for amenity in amenities %}
+          <label class="amenity-option"><input type="checkbox" name="amenities" value="{{ amenity.code }}" {% if amenity.selected %}checked{% endif %}><span><strong>{{ amenity.name }}</strong>{% if amenity.category %}<small>{{ amenity.category|title }}</small>{% endif %}</span></label>
+        {% endfor %}
+      </div>
+      <button class="button" type="submit">Save amenities</button><p class="form-message"></p>
+    </form>
+  </details>
+  {% else %}
+    <div class="card"><p class="muted">Your hotel role can view this property but cannot change its identity or amenities.</p></div>
+  {% endif %}
+</section>
+
 <section class="shell partner-section"><div class="section-heading"><div><div class="eyebrow">Room inventory</div><h2>Rooms, rates & availability</h2></div></div>
 {% if can_manage %}<details class="card setup-disclosure" {% if not rooms %}open{% endif %}><summary>Add room type</summary><form class="partner-form compact-form" data-room-form data-property="{{ property.id }}"><div class="form-grid"><label>Room type name<input name="name" required minlength="2" maxlength="120" placeholder="Deluxe King"></label><label>Total rooms of this type<input name="total_inventory" type="number" min="1" max="1000" value="1" required></label><label>Adult capacity<input name="capacity_adults" type="number" min="1" max="20" value="2" required></label><label>Child capacity<input name="capacity_children" type="number" min="0" max="20" value="0" required></label><label>Base occupancy<input name="base_occupancy" type="number" min="1" max="20" value="1" required></label><label>Bed configuration<input name="bed_configuration" maxlength="200" placeholder="1 King Bed"></label></div><label>Description<textarea name="description" maxlength="3000" rows="3"></textarea></label><button class="button" type="submit">Add room type</button><p class="form-message" aria-live="polite"></p></form></details>{% endif %}
 <div class="room-admin-list">{% for room in rooms %}<article class="card room-admin-card"><div class="room-admin-head"><div><div class="eyebrow">{{ room.total_inventory }} room{% if room.total_inventory != 1 %}s{% endif %}</div><h3>{{ room.name }}</h3><p class="muted">{{ room.capacity_adults }} adults · {{ room.capacity_children }} children{% if room.bed_configuration %} · {{ room.bed_configuration }}{% endif %}</p></div>{% if room.inventory_summary %}<div class="inventory-chip">{{ room.inventory_summary.days_loaded or 0 }}/30 days loaded</div>{% else %}<div class="inventory-chip inventory-chip-warn">No inventory loaded</div>{% endif %}</div>

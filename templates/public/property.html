@@ -1,6 +1,16 @@
-{% extends "base.html" %}{% block title %}{{ property.name }} · Roya{% endblock %}{% block content %}
+{% extends "base.html" %}
+{% block title %}{{ property.name }} · iRoya{% endblock %}
+{% block content %}
 <section class="shell page-head"><div><div class="eyebrow">Verified hotel</div><h1>{{ property.name }}</h1><p>{{ property.address }}, {{ property.city }}, {{ property.state }}</p></div><div class="rating">★ {{ property.rating }}</div></section>
-<section class="shell gallery">{% for image in images[:4] %}<img src="{{ image.path }}" alt="{{ image.alt_text or property.name }}">{% else %}<div class="gallery-placeholder">Roya</div>{% endfor %}</section>
-<section class="shell property-layout"><article><h2>About this stay</h2><p>{{ property.description }}</p><p class="muted">Check-in {{ property.check_in_time }} · Check-out {{ property.check_out_time }}</p></article><aside class="card"><h3>Stay dates</h3><form action="/hotels/{{ property.slug }}" method="get"><label>Check in<input type="date" name="check_in" value="{{ check_in or '' }}" required></label><label>Check out<input type="date" name="check_out" value="{{ check_out or '' }}" required></label><label>Guests<input type="number" name="guests" min="1" value="{{ guests }}"></label><button class="button" type="submit">Check live availability</button></form></aside></section>
-<section class="shell"><h2>Rooms & rates</h2><div class="room-list">{% for room in rooms %}<article class="room-card"><div><div class="muted">{{ room.rate_plan_name }} · {{ room.meal_plan|replace('_',' ')|title }}</div><h3>{{ room.name }}</h3><p>{{ room.description }}</p><small>Up to {{ room.capacity_adults }} adults · {{ room.guarantee_type|replace('_',' ')|title }}</small></div><div class="room-price"><strong>₦{{ '%.0f'|format(room.base_price_minor/100) }}</strong><span>per night</span>{% if check_in and check_out %}<a class="button button-small" href="/book?room_type_id={{ room.id }}&rate_plan_id={{ room.rate_plan_id }}&check_in={{ check_in }}&check_out={{ check_out }}">Reserve</a>{% endif %}</div></article>{% else %}<div class="empty">Choose dates to see live sellable room rates.</div>{% endfor %}</div></section>
+<section class="shell gallery">{% for image in images[:4] %}<img src="{{ image.path }}" alt="{{ image.alt_text or property.name }}">{% else %}<div class="gallery-placeholder">iRoya</div>{% endfor %}</section>
+<section class="shell property-layout">
+  <article><h2>About this stay</h2><p>{{ property.description }}</p><p class="muted">Check-in {{ property.check_in_time }} · Check-out {{ property.check_out_time }}</p>
+  {% if amenities %}<div class="public-amenities">{% for amenity in amenities %}<span>{{ amenity.name }}</span>{% endfor %}</div>{% endif %}
+  </article>
+  <aside class="card"><h3>Stay dates</h3><form action="/hotels/{{ property.slug }}" method="get"><label>Check in<input type="date" name="check_in" value="{{ check_in or '' }}" required></label><label>Check out<input type="date" name="check_out" value="{{ check_out or '' }}" required></label><label>Guests<input type="number" name="guests" min="1" value="{{ guests }}"></label><button class="button" type="submit">Check live availability</button></form></aside>
+</section>
+<section class="shell"><h2>Rooms & rates</h2><div class="room-list">
+{% for room in rooms %}<article class="room-card"><div><div class="muted">{{ room.rate_plan_name }} · {{ room.meal_plan|replace('_',' ')|title }}</div><h3>{{ room.name }}</h3><p>{{ room.description }}</p><small>Up to {{ room.capacity_adults }} adults · {{ room.guarantee_type|replace('_',' ')|title }}{% if room.refundable %} · Refundable{% endif %}</small></div><div class="room-price"><strong>{{ room.currency }} {{ '%.2f'|format(room.base_price_minor/100) }}</strong><span>per night</span>{% if check_in and check_out %}<a class="button button-small" href="/book?room_type_id={{ room.id }}&rate_plan_id={{ room.rate_plan_id }}&check_in={{ check_in }}&check_out={{ check_out }}">Reserve</a>{% endif %}</div></article>
+{% else %}<div class="empty">Choose dates to see live sellable room rates.</div>{% endfor %}
+</div></section>
 {% endblock %}
