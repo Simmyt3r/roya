@@ -36,7 +36,7 @@ def create_app(test_config=None):
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=(self)")
-        if session.get("access_token") or request.path.startswith("/api/v1/auth/"):
+        if session.get("sid") or request.path.startswith("/api/v1/auth/"):
             response.headers["Cache-Control"] = "private, no-store"
             response.headers["Pragma"] = "no-cache"
         return response
