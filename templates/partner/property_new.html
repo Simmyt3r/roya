@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Add property · iRoya{% endblock %}
+{% block content %}
+<section class="shell page-head">
+  <div>
+    <div class="eyebrow">Hotel setup</div>
+    <h1>Add a property</h1>
+    <p>Start with the information a guest needs to identify and reach the hotel. Rooms and rates come next.</p>
+  </div>
+</section>
+
+<section class="shell form-shell">
+  <form class="card partner-form" data-property-form>
+    <label>Hotel organization
+      <select name="organization_id" required>
+        {% for o in organizations %}
+          <option value="{{ o.id }}">{{ o.name }} · {{ o.role|title }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Property name<input name="name" minlength="2" maxlength="180" required placeholder="e.g. Royal Palm Hotel Ikeja"></label>
+    <label>Description<textarea name="description" maxlength="5000" rows="4" placeholder="A concise description of the stay and location."></textarea></label>
+    <div class="form-grid">
+      <label>Address<input name="address" minlength="3" maxlength="300" required></label>
+      <label>City<input name="city" minlength="2" maxlength="100" required></label>
+      <label>State<input name="state" minlength="2" maxlength="100" required></label>
+      <label>Country<input name="country" value="Nigeria" minlength="2" maxlength="100" required></label>
+      <label>Phone<input name="phone" maxlength="30" type="tel"></label>
+      <label>Email<input name="email" maxlength="200" type="email"></label>
+      <label>Check-in time<input name="check_in_time" value="14:00" type="time" required></label>
+      <label>Check-out time<input name="check_out_time" value="12:00" type="time" required></label>
+    </div>
+    <button class="button" type="submit">Create property</button>
+    <p class="form-message" aria-live="polite"></p>
+  </form>
+</section>
+{% endblock %}
