@@ -1,4 +1,4 @@
-const CACHE='iroya-shell-v11';
+const CACHE='iroya-shell-v12';
 const SHELL=['/','/static/css/app.css','/static/js/app.js','/static/manifest.json','/static/brand/iroya-logo.svg'];
 self.addEventListener('install',function(event){event.waitUntil(caches.open(CACHE).then(function(cache){return cache.addAll(SHELL);}).then(function(){return self.skipWaiting();}));});
 self.addEventListener('activate',function(event){event.waitUntil(caches.keys().then(function(keys){return Promise.all(keys.filter(function(key){return key!==CACHE;}).map(function(key){return caches.delete(key);}));}).then(function(){return self.clients.claim();}));});
