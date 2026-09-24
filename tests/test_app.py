@@ -8,6 +8,8 @@ def test_health_endpoint():
     payload=response.get_json()
     assert payload["success"] is True
     assert payload["data"]["service"]=="roya"
+    assert payload["data"]["database_configured"] is False
+    assert payload["data"]["database_reachable"] is False
 
 
 def test_internal_cron_routes_require_secret():
@@ -81,4 +83,5 @@ def test_landing_page_renders_without_database():
     html=response.get_data(as_text=True)
     assert "A warmer way to find your" in html
     assert "data-home-search" in html
+    assert 'href="/register?account_type=hotel"' in html
     assert "Pending reservation approvals" not in html
