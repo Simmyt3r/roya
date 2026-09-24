@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Hotel invitation · iRoya{% endblock %}
+{% block content %}
+<section class="shell auth-shell">
+  <article class="card auth-card auth-card-wide invite-card">
+    <div class="eyebrow">Hotel team invitation</div>
+    <h1>Join {{ invite.organization_name }}</h1>
+    <p class="muted">You were invited as <strong>{{ invite.role|title }}</strong> using <strong>{{ invite.email }}</strong>.</p>
+    <div class="notice-card"><strong>Invitation expires</strong><span>{{ invite.expires_at }}</span></div>
+
+    {% if session.get("sid") %}
+      <button class="button" type="button" data-invite-accept data-invite-token="{{ token }}">Accept invitation</button>
+      <p class="form-message" data-invite-message></p>
+      <p class="muted">The signed-in account must use {{ invite.email }}.</p>
+    {% else %}
+      <div class="invite-actions">
+        <a class="button" href="{{ login_url }}">Sign in to accept</a>
+        <a class="button button-secondary" href="{{ register_url }}">Create account</a>
+      </div>
+    {% endif %}
+  </article>
+</section>
+{% endblock %}
