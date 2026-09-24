@@ -1,4 +1,106 @@
 
+document.querySelectorAll('[data-property-image]').forEach(function(card){
+  const save=card.querySelector('[data-image-save]');
+  const remove=card.querySelector('[data-image-delete]');
+  const msg=card.querySelector('.form-message');
+
+  if(save)save.addEventListener('click',async function(){
+    save.disabled=true;
+    if(msg)msg.textContent='Saving photo details…';
+    const res=await fetch('/api/v1/properties/'+card.dataset.property+'/images/'+card.dataset.image,{
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        alt_text:card.querySelector('[data-image-alt]').value||null,
+        sort_order:Number(card.querySelector('[data-image-order]').value||0)
+      })
+    });
+    const data=await res.json().catch(function(){return {};});
+    if(!res.ok){
+      if(msg)msg.textContent=(data.error&&data.error.message)||'Photo details could not be saved.';
+      save.disabled=false;
+      return;
+    }
+    window.location.reload();
+  });
+
+  if(remove)remove.addEventListener('click',async function(){
+    if(!window.confirm('Delete this hotel photo?'))return;
+    remove.disabled=true;
+    if(msg)msg.textContent='Deleting photo…';
+    const res=await fetch('/api/v1/properties/'+card.dataset.property+'/images/'+card.dataset.image,{method:'DELETE'});
+    const data=await res.json().catch(function(){return {};});
+    if(!res.ok){
+      if(msg)msg.textContent=(data.error&&data.error.message)||'Photo could not be deleted.';
+      remove.disabled=false;
+      return;
+    }
+    card.remove();
+  });
+});
+
+document.querySelectorAll('[data-room-photo-form]').forEach(function(form){
+  form.addEventListener('submit',async function(event){
+    event.preventDefault();
+    const msg=form.querySelector('.form-message');
+    const submit=form.querySelector('button[type="submit"]');
+    msg.textContent='Uploading room photo…';
+    submit.disabled=true;
+    const res=await fetch('/api/v1/room-types/'+form.dataset.room+'/images',{
+      method:'POST',
+      body:new FormData(form)
+    });
+    const data=await res.json().catch(function(){return {};});
+    if(!res.ok){
+      msg.textContent=(data.error&&data.error.message)||'Room photo could not be uploaded.';
+      submit.disabled=false;
+      return;
+    }
+    window.location.reload();
+  });
+});
+
+document.querySelectorAll('[data-room-image]').forEach(function(card){
+  const save=card.querySelector('[data-image-save]');
+  const remove=card.querySelector('[data-image-delete]');
+  const msg=card.querySelector('.form-message');
+
+  if(save)save.addEventListener('click',async function(){
+    save.disabled=true;
+    if(msg)msg.textContent='Saving room photo…';
+    const res=await fetch('/api/v1/room-types/'+card.dataset.room+'/images/'+card.dataset.image,{
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        alt_text:card.querySelector('[data-image-alt]').value||null,
+        sort_order:Number(card.querySelector('[data-image-order]').value||0)
+      })
+    });
+    const data=await res.json().catch(function(){return {};});
+    if(!res.ok){
+      if(msg)msg.textContent=(data.error&&data.error.message)||'Room photo details could not be saved.';
+      save.disabled=false;
+      return;
+    }
+    window.location.reload();
+  });
+
+  if(remove)remove.addEventListener('click',async function(){
+    if(!window.confirm('Delete this room photo?'))return;
+    remove.disabled=true;
+    if(msg)msg.textContent='Deleting room photo…';
+    const res=await fetch('/api/v1/room-types/'+card.dataset.room+'/images/'+card.dataset.image,{method:'DELETE'});
+    const data=await res.json().catch(function(){return {};});
+    if(!res.ok){
+      if(msg)msg.textContent=(data.error&&data.error.message)||'Room photo could not be deleted.';
+      remove.disabled=false;
+      return;
+    }
+    card.remove();
+  });
+});
+
+
 document.querySelectorAll('[data-notification-id]').forEach(function(card){
   const button=card.querySelector('[data-notification-read]');
   const open=card.querySelector('[data-notification-open]');
