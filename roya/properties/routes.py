@@ -167,6 +167,12 @@ def manage_property_page(property_id):
                order by coalesce(a.category,''),a.name""",
             (str(property_id),),
         ).fetchall())
+        images=list(conn.execute(
+            """select id,path,alt_text,sort_order,created_at
+               from property_images where property_id=%s
+               order by sort_order,created_at""",
+            (str(property_id),),
+        ).fetchall())
 
     rates_by_room={}
     for rate in rates:
@@ -184,6 +190,7 @@ def manage_property_page(property_id):
         can_manage=access["member_role"] in {"owner","manager","reservations"},
         can_edit_property=access["member_role"] in {"owner","manager"},
         amenities=amenities,
+        images=images,
         readiness={
             "has_room":bool(readiness_row["has_room"]),
             "has_rate":bool(readiness_row["has_rate"]),

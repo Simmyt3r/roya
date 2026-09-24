@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, session
-from pydantic import ValidationError
+from pydantic import BaseModel, Field, ValidationError
 
 from roya.common.db import db_connection, supabase_anon_client
 from roya.common.errors import RoyaError
@@ -8,6 +8,11 @@ from .schemas import LoginInput, RegisterInput
 from .service import account_profile, current_identity, login_required
 
 bp = Blueprint("auth", __name__)
+
+
+class ProfileUpdate(BaseModel):
+    name: str = Field(min_length=2,max_length=120)
+    phone: str | None = Field(default=None,max_length=30)
 
 
 def _payload(model):
@@ -110,10 +115,27 @@ def me():
             "id": identity.user_id,
             "email": identity.email,
             "name": profile["name"],
+            "phone": profile["phone"],
             "account_type": profile["account_type"],
             "platform_role": profile["platform_role"],
         }
     )
+
+
+@bp.put("/api/v1/auth/profile")
+@login_required
+def update_profile():
+    body=_payload(ProfileUpdate)
+    identity=current_identity(required=True)
+    with db_connection() as conn:
+        row=conn.execute(
+            """update profiles set name=%s,phone=%s,updated_at=now()
+               where id=%s returning id,name,phone,account_type,platform_role,status""",
+            (body.name,body.phone,identity.user_id),
+        ).fetchone()
+        conn.commit()
+    session["user_name"]=row["name"]
+    return ok({**dict(row),"email":identity.email})
 
 
 @bp.get("/account")

@@ -1,4 +1,20 @@
 
+document.querySelectorAll('[data-profile-form]').forEach(function(form){
+  form.addEventListener('submit',async function(event){
+    event.preventDefault();const msg=form.querySelector('.form-message');const submit=form.querySelector('button[type="submit"]');const body=Object.fromEntries(new FormData(form).entries());if(!body.phone)body.phone=null;msg.textContent='Saving profile…';submit.disabled=true;
+    const res=await fetch('/api/v1/auth/profile',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const data=await res.json().catch(function(){return {};});if(!res.ok){msg.textContent=(data.error&&data.error.message)||'Profile could not be saved.';submit.disabled=false;return;}msg.textContent='Profile saved.';submit.disabled=false;
+  });
+});
+document.querySelectorAll('[data-property-photo-form]').forEach(function(form){
+  form.addEventListener('submit',async function(event){
+    event.preventDefault();const msg=form.querySelector('.form-message');const submit=form.querySelector('button[type="submit"]');const data=new FormData(form);msg.textContent='Uploading photo…';submit.disabled=true;
+    const res=await fetch('/api/v1/properties/'+form.dataset.property+'/images',{method:'POST',body:data});
+    const body=await res.json().catch(function(){return {};});if(!res.ok){msg.textContent=(body.error&&body.error.message)||'Photo could not be uploaded.';submit.disabled=false;return;}msg.textContent='Photo uploaded.';window.location.reload();
+  });
+});
+
+
 document.querySelectorAll('[data-property-details-form]').forEach(function(form){
   form.addEventListener('submit',async function(event){
     event.preventDefault();const msg=form.querySelector('.form-message');const submit=form.querySelector('button[type="submit"]');const body=Object.fromEntries(new FormData(form).entries());if(!body.phone)body.phone=null;if(!body.email)body.email=null;msg.textContent='Saving property details…';submit.disabled=true;
