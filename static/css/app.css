@@ -215,3 +215,49 @@ html{scroll-behavior:smooth}
   .partner-start{padding-top:42px;gap:28px}
   .partner-start-card{padding:22px}
 }
+
+
+/* Hotel operations workspace */
+.back-link{display:inline-block;margin-bottom:10px;color:var(--muted);font-size:.82rem;font-weight:800}
+.notice-card{display:flex;gap:10px;align-items:flex-start;padding:15px 18px;border:1px solid #efd5a7;background:#fff8e9;border-radius:14px;color:#6c542e}
+.notice-card span{color:#7b6a4c}
+.setup-disclosure{margin-bottom:16px;padding:0;overflow:hidden}
+.setup-disclosure>summary{cursor:pointer;list-style:none;padding:17px 20px;font-weight:850;background:#fbfcfb}
+.setup-disclosure>summary::-webkit-details-marker{display:none}
+.setup-disclosure>summary:after{content:"+";float:right;color:var(--brand);font-size:1.2rem}
+.setup-disclosure[open]>summary:after{content:"−"}
+.setup-disclosure[open]>summary{border-bottom:1px solid var(--line)}
+.compact-form{padding:20px}
+.room-admin-list{display:grid;gap:14px}
+.room-admin-card{padding:22px}
+.room-admin-head{display:flex;justify-content:space-between;align-items:start;gap:20px}
+.room-admin-head h3{font-size:1.5rem;margin:.18rem 0}
+.inventory-chip{white-space:nowrap;border-radius:999px;padding:7px 10px;background:#e7f3ed;color:#275e50;font-size:.72rem;font-weight:850}
+.inventory-chip-warn{background:#fff1df;color:#8a5e2d}
+.rate-admin-list{display:grid;gap:7px;margin:18px 0}
+.rate-admin-row{display:flex;justify-content:space-between;gap:18px;padding:11px 13px;border:1px solid var(--line);border-radius:11px;background:#fbfcfb}
+.rate-admin-row>div{display:grid;gap:2px}
+.rate-admin-row .muted{font-size:.78rem}
+.room-admin-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.inner-disclosure{margin:0;background:#fbfcfb}
+.check-label{flex-direction:row;align-items:center;gap:9px;color:var(--ink);font-weight:750}
+.check-label input{min-height:auto;width:18px;height:18px}
+.team-layout{display:grid;grid-template-columns:1.2fr .8fr;gap:14px}
+.team-list{padding:8px 20px}
+.team-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--line)}
+.team-row:last-child{border-bottom:0}
+.team-avatar{width:38px;height:38px;border-radius:12px;background:#e8f1ee;display:grid;place-items:center;font-weight:900;color:#315d53}
+.team-row .muted{font-size:.78rem}
+.team-form h3{font-size:1.4rem;margin:.25rem 0}
+.partner-property-card{transition:transform .18s,border-color .18s,box-shadow .18s}
+.partner-property-card:hover{transform:translateY(-2px);border-color:#bfd2ce;box-shadow:0 12px 34px #143c3310}
+
+@media(max-width:860px){
+  .team-layout,.room-admin-actions{grid-template-columns:1fr}
+}
+@media(max-width:620px){
+  .room-admin-head,.rate-admin-row{flex-direction:column;display:flex}
+  .inventory-chip{white-space:normal}
+  .team-row{grid-template-columns:auto 1fr}
+  .team-row>.status-pill{grid-column:2}
+}
