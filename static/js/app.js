@@ -1,4 +1,47 @@
 
+const inviteAccept=document.querySelector('[data-invite-accept]');
+if(inviteAccept){
+  inviteAccept.addEventListener('click',async function(){
+    const msg=document.querySelector('[data-invite-message]');
+    inviteAccept.disabled=true;
+    if(msg)msg.textContent='Accepting hotel invitation…';
+    const res=await fetch('/api/v1/invites/accept',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({token:inviteAccept.dataset.inviteToken})
+    });
+    const data=await res.json().catch(function(){return {};});
+    if(!res.ok){
+      if(msg)msg.textContent=(data.error&&data.error.message)||'Invitation could not be accepted.';
+      inviteAccept.disabled=false;
+      return;
+    }
+    window.location.href=(data.data&&data.data.redirect_to)||'/partner';
+  });
+}
+
+document.querySelectorAll('[data-pending-invite]').forEach(function(row){
+  const revoke=row.querySelector('[data-invite-revoke]');
+  const msg=row.querySelector('.form-message');
+  if(!revoke)return;
+  revoke.addEventListener('click',async function(){
+    if(!window.confirm('Revoke this hotel invitation?'))return;
+    revoke.disabled=true;
+    if(msg)msg.textContent='Revoking invitation…';
+    const res=await fetch('/api/v1/organizations/'+row.dataset.organization+'/invites/'+row.dataset.invite,{
+      method:'DELETE'
+    });
+    const data=await res.json().catch(function(){return {};});
+    if(!res.ok){
+      if(msg)msg.textContent=(data.error&&data.error.message)||'Invitation could not be revoked.';
+      revoke.disabled=false;
+      return;
+    }
+    row.remove();
+  });
+});
+
+
 document.querySelectorAll('[data-property-image]').forEach(function(card){
   const save=card.querySelector('[data-image-save]');
   const remove=card.querySelector('[data-image-delete]');
@@ -355,9 +398,12 @@ if(memberForm){
     event.preventDefault();
     const msg=memberForm.querySelector('.form-message');
     const submit=memberForm.querySelector('button[type="submit"]');
+    const inviteResult=memberForm.querySelector('[data-invite-result]');
+    const inviteLink=memberForm.querySelector('[data-invite-link]');
     const raw=Object.fromEntries(new FormData(memberForm).entries());
     const organizationId=raw.organization_id;
     delete raw.organization_id;
+    if(inviteResult)inviteResult.hidden=true;
     msg.textContent='Adding team member…';
     submit.disabled=true;
     const res=await fetch('/api/v1/organizations/'+organizationId+'/members',{
@@ -371,8 +417,31 @@ if(memberForm){
       submit.disabled=false;
       return;
     }
+    if(data.data&&data.data.invited){
+      msg.textContent='Invitation created. Copy the one-time link below.';
+      if(inviteLink)inviteLink.value=data.data.invite_url||'';
+      if(inviteResult)inviteResult.hidden=false;
+      submit.disabled=false;
+      return;
+    }
     window.location.reload();
   });
+
+  const copyButton=memberForm.querySelector('[data-copy-invite]');
+  if(copyButton){
+    copyButton.addEventListener('click',async function(){
+      const inviteLink=memberForm.querySelector('[data-invite-link]');
+      if(!inviteLink||!inviteLink.value)return;
+      try{
+        await navigator.clipboard.writeText(inviteLink.value);
+        copyButton.textContent='Copied';
+      }catch(_error){
+        inviteLink.select();
+        document.execCommand('copy');
+        copyButton.textContent='Copied';
+      }
+    });
+  }
 }
 
 document.querySelectorAll('[data-room-form]').forEach(function(form){
