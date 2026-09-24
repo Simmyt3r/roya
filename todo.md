@@ -40,6 +40,6 @@
 - [ ] Configure and test SMTP guest/hotel notifications
 - [x] Add property/room image deletion, ordering and alt-text editing
 - [x] Add invitation flow for hotel staff who do not yet have iRoya accounts
-- [ ] Add richer search/filtering and location-based discovery
+- [x] Add richer search/filtering and location-based discovery
 - [x] Replace client-cookie Supabase token storage with private opaque server-side sessions
 - [ ] Complete browser/mobile/PWA end-to-end QA
