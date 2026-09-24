@@ -103,11 +103,11 @@ def add_organization_member(organization_id):
 
             if target:
                 existing=conn.execute(
-                """select role from organization_members
-                   where organization_id=%s and user_id=%s
-                   for update""",
-                (str(organization_id),str(target["id"])),
-            ).fetchone()
+                    """select role from organization_members
+                       where organization_id=%s and user_id=%s
+                       for update""",
+                    (str(organization_id),str(target["id"])),
+                ).fetchone()
                 if existing and existing["role"]=="owner":
                     raise RoyaError("OWNER_ROLE_PROTECTED","The organization owner role cannot be changed here.",409)
 
