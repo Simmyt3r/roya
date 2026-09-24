@@ -1,3 +1,4 @@
+import json
 import uuid
 from flask import Blueprint, redirect, render_template, request, session
 from typing import Literal
@@ -20,6 +21,11 @@ class OrganizationCreate(BaseModel):
 class OrganizationMemberAdd(BaseModel):
     email: EmailStr
     role: Literal["manager", "reservations", "finance", "staff"]
+
+
+class OrganizationMemberUpdate(BaseModel):
+    role: Literal["manager", "reservations", "finance", "staff"]
+    status: Literal["active", "suspended"]
 
 
 
@@ -113,6 +119,73 @@ def add_organization_member(organization_id):
     },201)
 
 
+@bp.put("/api/v1/organizations/<uuid:organization_id>/members/<uuid:member_user_id>")
+@login_required
+def update_organization_member(organization_id,member_user_id):
+    try:
+        body=OrganizationMemberUpdate.model_validate(request.get_json(silent=True) or {})
+    except ValidationError as exc:
+        raise RoyaError("VALIDATION_ERROR","Invalid team member update.",422,{"errors":exc.errors()}) from exc
+
+    actor=current_identity(required=True)
+    with db_connection() as conn:
+        with conn.transaction():
+            actor_membership=conn.execute(
+                """select role from organization_members
+                   where organization_id=%s and user_id=%s and status='active'
+                   for update""",
+                (str(organization_id),actor.user_id),
+            ).fetchone()
+            if not actor_membership or actor_membership["role"] not in {"owner","manager"}:
+                raise RoyaError("FORBIDDEN","Only hotel owners and managers can manage team access.",403)
+
+            target=conn.execute(
+                """select om.role,om.status,u.email,coalesce(p.name,'') name
+                   from organization_members om
+                   join auth.users u on u.id=om.user_id
+                   left join profiles p on p.id=om.user_id
+                   where om.organization_id=%s and om.user_id=%s
+                   for update of om""",
+                (str(organization_id),str(member_user_id)),
+            ).fetchone()
+            if not target:
+                raise RoyaError("TEAM_MEMBER_NOT_FOUND","Hotel team member not found.",404)
+            if target["role"]=="owner":
+                raise RoyaError("OWNER_ROLE_PROTECTED","The organization owner role cannot be changed or suspended here.",409)
+            if actor_membership["role"]=="manager" and (
+                target["role"]=="manager" or body.role=="manager"
+            ):
+                raise RoyaError("FORBIDDEN","Only an owner can manage hotel managers.",403)
+
+            member=conn.execute(
+                """update organization_members
+                   set role=%s,status=%s
+                   where organization_id=%s and user_id=%s
+                   returning organization_id,user_id,role,status""",
+                (body.role,body.status,str(organization_id),str(member_user_id)),
+            ).fetchone()
+
+            conn.execute(
+                """insert into audit_logs(
+                     actor_user_id,organization_id,action,entity_type,entity_id,before_json,after_json
+                   ) values(%s,%s,'organization.member_updated','organization_member',%s,%s::jsonb,%s::jsonb)""",
+                (
+                    actor.user_id,
+                    str(organization_id),
+                    str(member_user_id),
+                    json.dumps({"role":target["role"],"status":target["status"]}),
+                    json.dumps({"role":body.role,"status":body.status}),
+                ),
+            )
+
+    return ok({
+        **dict(member),
+        "email":target["email"],
+        "name":target["name"],
+        "message":"Team access updated.",
+    })
+
+
 @bp.get("/partner/start")
 @login_required
 def partner_start():
@@ -174,15 +247,15 @@ def partner_dashboard():
         team_members = list(
             conn.execute(
                 """select o.id organization_id,o.name organization_name,om.user_id,om.role,om.status,
-                          coalesce(p.name,'') name,u.email
+                          coalesce(p.name,'') name,u.email,actor_om.role actor_role
                    from organization_members om
                    join organizations o on o.id=om.organization_id
+                   join organization_members actor_om
+                     on actor_om.organization_id=o.id
+                    and actor_om.user_id=%s
+                    and actor_om.status='active'
                    join auth.users u on u.id=om.user_id
                    left join profiles p on p.id=om.user_id
-                   where om.organization_id in (
-                     select organization_id from organization_members
-                     where user_id=%s and status='active'
-                   )
                    order by o.name,
                      case om.role when 'owner' then 0 when 'manager' then 1 else 2 end,
                      coalesce(p.name,u.email)""",

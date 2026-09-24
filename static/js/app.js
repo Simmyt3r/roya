@@ -1,4 +1,44 @@
 
+document.querySelectorAll('[data-team-member]').forEach(function(row){
+  const save=row.querySelector('[data-team-save]');
+  const statusButton=row.querySelector('[data-team-status]');
+  const roleSelect=row.querySelector('[data-team-role]');
+  const msg=row.querySelector('.team-message');
+  if(!save||!roleSelect)return;
+
+  async function updateTeam(status){
+    row.querySelectorAll('button,select').forEach(function(el){el.disabled=true;});
+    if(msg)msg.textContent='Updating hotel access…';
+    const res=await fetch('/api/v1/organizations/'+row.dataset.organization+'/members/'+row.dataset.user,{
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({role:roleSelect.value,status:status})
+    });
+    const data=await res.json().catch(function(){return {};});
+    if(!res.ok){
+      if(msg)msg.textContent=(data.error&&data.error.message)||'Team access could not be updated.';
+      row.querySelectorAll('button,select').forEach(function(el){el.disabled=false;});
+      return;
+    }
+    window.location.reload();
+  }
+
+  save.addEventListener('click',function(){
+    const currentStatus=statusButton&&statusButton.dataset.teamStatus==='active'?'suspended':'active';
+    updateTeam(currentStatus);
+  });
+
+  if(statusButton){
+    statusButton.addEventListener('click',function(){
+      const next=statusButton.dataset.teamStatus;
+      const verb=next==='suspended'?'Suspend':'Restore';
+      if(!window.confirm(verb+' this hotel team member?'))return;
+      updateTeam(next);
+    });
+  }
+});
+
+
 document.querySelectorAll('[data-refund-request]').forEach(function(button){
   button.addEventListener('click',async function(){
     const msg=document.querySelector('[data-reservation-message]');const reason=window.prompt('Reason for cancellation and refund:','Plans changed');if(reason===null)return;button.disabled=true;if(msg)msg.textContent='Submitting refund request…';

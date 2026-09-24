@@ -65,13 +65,32 @@
   <div class="team-layout">
     <div class="card team-list">
       {% for member in team_members %}
-        <div class="team-row">
+        <div class="team-row team-row-manage" data-team-member data-organization="{{ member.organization_id }}" data-user="{{ member.user_id }}">
           <div class="team-avatar">{{ (member.name or member.email)[:1]|upper }}</div>
           <div>
             <strong>{{ member.name or member.email }}</strong>
             <div class="muted">{{ member.email }} · {{ member.organization_name }}</div>
+            {% if member.status != "active" %}<div class="muted">Access {{ member.status|title }}</div>{% endif %}
           </div>
-          <span class="status-pill">{{ member.role|title }}</span>
+          {% if member.role == "owner" %}
+            <span class="status-pill">Owner</span>
+          {% elif member.actor_role == "owner" or (member.actor_role == "manager" and member.role not in ["owner","manager"]) %}
+            <div class="team-controls">
+              <select data-team-role aria-label="Role for {{ member.email }}">
+                {% if member.actor_role == "owner" %}<option value="manager" {% if member.role == "manager" %}selected{% endif %}>Manager</option>{% endif %}
+                <option value="reservations" {% if member.role == "reservations" %}selected{% endif %}>Reservations</option>
+                <option value="finance" {% if member.role == "finance" %}selected{% endif %}>Finance</option>
+                <option value="staff" {% if member.role == "staff" %}selected{% endif %}>Staff</option>
+              </select>
+              <button class="button button-small button-secondary" type="button" data-team-status="{{ 'suspended' if member.status == 'active' else 'active' }}">
+                {{ "Suspend" if member.status == "active" else "Restore" }}
+              </button>
+              <button class="button button-small" type="button" data-team-save>Save</button>
+            </div>
+          {% else %}
+            <span class="status-pill">{{ member.role|title }}</span>
+          {% endif %}
+          <p class="form-message team-message"></p>
         </div>
       {% endfor %}
     </div>

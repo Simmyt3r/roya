@@ -4,6 +4,7 @@ from pydantic import ValidationError
 from roya import create_app
 from roya.auth.schemas import RegisterInput
 from roya.reservations.schemas import PartnerReservationStatusChange
+from roya.organizations.routes import OrganizationMemberUpdate
 
 
 def test_registration_defaults_to_guest_account():
@@ -69,3 +70,14 @@ def test_payment_callback_does_not_expose_reservation_to_signed_out_user():
     html=response.get_data(as_text=True)
     assert "Sign in to check this payment." in html
     assert "example-ref" in html
+
+
+def test_hotel_team_update_accepts_operational_role_and_status():
+    update=OrganizationMemberUpdate(role="reservations",status="suspended")
+    assert update.role=="reservations"
+    assert update.status=="suspended"
+
+
+def test_hotel_team_update_rejects_owner_role():
+    with pytest.raises(ValidationError):
+        OrganizationMemberUpdate(role="owner",status="active")
