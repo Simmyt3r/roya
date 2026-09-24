@@ -37,7 +37,7 @@
   </div>
   <div class="partner-property-grid">
     {% for p in properties %}
-      <article class="card partner-property-card">
+      <a class="card partner-property-card" href="/partner/properties/{{ p.id }}">
         <div>
           <strong>{{ p.name }}</strong>
           <p class="muted">{{ p.city }} · {{ p.organization_name }}</p>
@@ -46,7 +46,7 @@
           <span class="status-pill">{{ p.verification_status|title }}</span>
           <span class="status-pill status-muted">{{ p.status|title }}</span>
         </div>
-      </article>
+      </a>
     {% else %}
       <div class="empty">
         <h3>Add your first property</h3>
@@ -54,6 +54,57 @@
         <a class="button" href="/partner/properties/new">Add property</a>
       </div>
     {% endfor %}
+  </div>
+</section>
+
+
+<section class="shell partner-section" id="team">
+  <div class="section-heading">
+    <div><div class="eyebrow">Access</div><h2>Hotel team</h2></div>
+  </div>
+  <div class="team-layout">
+    <div class="card team-list">
+      {% for member in team_members %}
+        <div class="team-row">
+          <div class="team-avatar">{{ (member.name or member.email)[:1]|upper }}</div>
+          <div>
+            <strong>{{ member.name or member.email }}</strong>
+            <div class="muted">{{ member.email }} · {{ member.organization_name }}</div>
+          </div>
+          <span class="status-pill">{{ member.role|title }}</span>
+        </div>
+      {% endfor %}
+    </div>
+
+    {% if manageable_organizations %}
+    <form class="card partner-form team-form" data-member-form>
+      <div>
+        <div class="eyebrow">Add existing user</div>
+        <h3>Add team member</h3>
+        <p class="muted">The person must already have an iRoya account. Their personal stay history remains separate.</p>
+      </div>
+      <label>Organization
+        <select name="organization_id" required>
+          {% for o in manageable_organizations %}
+            <option value="{{ o.id }}">{{ o.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>iRoya email<input name="email" type="email" required></label>
+      <label>Role
+        <select name="role" required>
+          {% if manageable_organizations|selectattr("role","equalto","owner")|list %}
+            <option value="manager">Manager</option>
+          {% endif %}
+          <option value="reservations">Reservations</option>
+          <option value="finance">Finance</option>
+          <option value="staff">Staff</option>
+        </select>
+      </label>
+      <button class="button" type="submit">Add to hotel team</button>
+      <p class="form-message"></p>
+    </form>
+    {% endif %}
   </div>
 </section>
 
