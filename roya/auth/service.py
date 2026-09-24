@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from functools import wraps
 from flask import g, request, session
 
-from roya.common.db import supabase_anon_client
+from roya.common.db import db_connection, supabase_anon_client
 from roya.common.errors import RoyaError
 
 
@@ -60,6 +60,35 @@ def current_identity(required: bool = False) -> Identity | None:
             raise RoyaError("AUTH_REQUIRED", "Your session is invalid or expired.", 401) from original_exc
         g.roya_identity = None
         return None
+
+
+def account_profile(user_id: str):
+    with db_connection() as conn:
+        profile = conn.execute(
+            """select id,name,phone,avatar_path,account_type,platform_role,status
+               from profiles where id=%s""",
+            (user_id,),
+        ).fetchone()
+    if not profile:
+        raise RoyaError("PROFILE_NOT_FOUND", "Your account profile is unavailable.", 404)
+    return profile
+
+
+def account_type_for_user(user_id: str) -> str:
+    return account_profile(user_id)["account_type"]
+
+
+def require_account_type(expected: str):
+    identity = current_identity(required=True)
+    actual = account_type_for_user(identity.user_id)
+    if actual != expected:
+        raise RoyaError(
+            "ACCOUNT_TYPE_REQUIRED",
+            f"This area requires a {expected} account.",
+            403,
+            {"account_type": actual},
+        )
+    return identity
 
 
 def login_required(view):
