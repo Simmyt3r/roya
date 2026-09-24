@@ -32,14 +32,14 @@
 - [ ] Verify `SUPABASE_SERVICE_ROLE_KEY` is present in production and live-test hotel photo upload
 - [ ] Configure/verify Paystack test credentials and webhook delivery
 - [ ] Run a complete test payment and refund lifecycle against Paystack test mode
-- [ ] Enforce actual cancellation-policy rules before allowing refund requests
-- [ ] Run authenticated two-user RLS isolation tests on the replacement Supabase project
-- [ ] Re-run the last-room concurrency race on the replacement Supabase project
+- [x] Enforce refundable-rate cancellation windows before automatic refund requests
+- [x] Run authenticated two-user RLS isolation tests on the replacement Supabase project
+- [x] Re-run the last-room concurrency race on the replacement Supabase project
 - [ ] Enable/review Supabase leaked-password protection
 - [ ] Decide whether to remediate remaining PostGIS-owned advisor findings
 - [ ] Configure and test SMTP guest/hotel notifications
 - [ ] Add property/room image deletion, ordering and alt-text editing
 - [ ] Add invitation flow for hotel staff who do not yet have iRoya accounts
 - [ ] Add richer search/filtering and location-based discovery
-- [ ] Replace client-cookie Supabase token storage with a safer server-side session strategy
+- [x] Replace client-cookie Supabase token storage with private opaque server-side sessions
 - [ ] Complete browser/mobile/PWA end-to-end QA

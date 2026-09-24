@@ -99,3 +99,12 @@ Production project: `iroya`.
 ## Legacy
 
 The procedural PHP/MySQL prototype remains on `legacy-php-prototype`. See `MIGRATION.md` for domain mapping.
+
+
+## Session security
+
+Browser authentication uses opaque server-side sessions. The Flask cookie stores only a random signed session id plus non-sensitive UI metadata; Supabase access and refresh tokens are stored in private.app_sessions in PostgreSQL. Session lookup keys are SHA-256 hashed before storage, refresh-token rotation updates the server-side row, and logout revokes the session. Existing pre-migration browser sessions must sign in again after this version reaches production.
+
+## Cancellation policy
+
+Refundable rates carry a configurable free-cancellation window before property check-in. For the Nigeria pilot, cutoff calculations use the property's configured check-in time in Africa/Lagos. Non-refundable rates and cancellations after the cutoff do not enter the automatic refund path. Paid exceptions remain a manual hotel/iRoya review instead of moving money automatically.
