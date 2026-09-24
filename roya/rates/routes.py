@@ -1,4 +1,5 @@
 from datetime import date
+import json
 from typing import Literal
 from uuid import UUID
 
@@ -13,6 +14,17 @@ from roya.common.response import ok
 bp = Blueprint("rates", __name__)
 
 
+def _cancellation_policy(refundable,hours):
+    if not refundable:
+        return {"type":"non_refundable","summary":"Non-refundable rate."}
+    hours=max(0,min(int(hours),720))
+    return {
+        "type":"free_until_hours_before_checkin",
+        "free_cancellation_hours":hours,
+        "summary":f"Free cancellation until {hours} hour{'s' if hours != 1 else ''} before check-in.",
+    }
+
+
 class RatePlanCreate(BaseModel):
     room_type_id: UUID
     name: str = Field(min_length=2, max_length=120)
@@ -23,6 +35,7 @@ class RatePlanCreate(BaseModel):
     meal_plan: str = "room_only"
     deposit_percent: int = Field(default=100, ge=0, le=100)
     min_stay: int = Field(default=1, ge=1, le=90)
+    free_cancellation_hours: int = Field(default=24, ge=0, le=720)
 
 
 class RatePlanUpdate(BaseModel):
@@ -35,6 +48,7 @@ class RatePlanUpdate(BaseModel):
     deposit_percent: int = Field(default=0, ge=0, le=100)
     min_stay: int = Field(default=1, ge=1, le=90)
     status: Literal["active","inactive"] = "active"
+    free_cancellation_hours: int = Field(default=24, ge=0, le=720)
 
 
 class DailyRateItem(BaseModel):
@@ -67,9 +81,10 @@ def create_rate_plan():
         if not access or access["role"] not in {"owner","manager","reservations"}:
             raise RoyaError("FORBIDDEN", "You cannot manage rates for this room type.", 403)
         row = conn.execute(
-            """insert into rate_plans(room_type_id,name,base_price_minor,currency,guarantee_type,refundable,meal_plan,deposit_percent,min_stay,status)
-               values(%s,%s,%s,upper(%s),%s,%s,%s,%s,%s,'active') returning *""",
-            (str(body.room_type_id),body.name,body.base_price_minor,body.currency,body.guarantee_type,body.refundable,body.meal_plan,body.deposit_percent,body.min_stay),
+            """insert into rate_plans(room_type_id,name,base_price_minor,currency,guarantee_type,refundable,meal_plan,deposit_percent,min_stay,cancellation_policy,status)
+               values(%s,%s,%s,upper(%s),%s,%s,%s,%s,%s,%s::jsonb,'active') returning *""",
+            (str(body.room_type_id),body.name,body.base_price_minor,body.currency,body.guarantee_type,body.refundable,body.meal_plan,body.deposit_percent,body.min_stay,
+             json.dumps(_cancellation_policy(body.refundable,body.free_cancellation_hours))),
         ).fetchone()
         conn.commit()
     return ok(row,201)
@@ -138,9 +153,11 @@ def update_rate_plan(rate_plan_id):
             row=conn.execute(
                 """update rate_plans set name=%s,base_price_minor=%s,currency=upper(%s),
                           guarantee_type=%s,refundable=%s,meal_plan=%s,deposit_percent=%s,
-                          min_stay=%s,status=%s,updated_at=now()
+                          min_stay=%s,cancellation_policy=%s::jsonb,status=%s,updated_at=now()
                    where id=%s returning *""",
                 (body.name,body.base_price_minor,body.currency,body.guarantee_type,body.refundable,
-                 body.meal_plan,deposit_percent,body.min_stay,body.status,str(rate_plan_id)),
+                 body.meal_plan,deposit_percent,body.min_stay,
+                 json.dumps(_cancellation_policy(body.refundable,body.free_cancellation_hours)),
+                 body.status,str(rate_plan_id)),
             ).fetchone()
     return ok(row)
