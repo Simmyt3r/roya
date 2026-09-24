@@ -36,7 +36,8 @@ def test_paystack_webhook_signature_accepts_exact_hmac(paystack_app):
     signature=hmac.new(b"sk_test_example",raw,hashlib.sha512).hexdigest()
     with paystack_app.app_context():
         assert PaystackProvider().verify_webhook(raw,signature) is True
-        tampered=("0" if signature[0]!="0" else "1")+signature[1:]\n        assert PaystackProvider().verify_webhook(raw,tampered) is False
+        tampered=("0" if signature[0]!="0" else "1")+signature[1:]
+        assert PaystackProvider().verify_webhook(raw,tampered) is False
 
 
 def test_paystack_initialize_requires_checkout_fields(paystack_app,monkeypatch):
