@@ -98,9 +98,9 @@
     {% if manageable_organizations %}
     <form class="card partner-form team-form" data-member-form>
       <div>
-        <div class="eyebrow">Add existing user</div>
-        <h3>Add team member</h3>
-        <p class="muted">The person must already have an iRoya account. Their personal stay history remains separate.</p>
+        <div class="eyebrow">Team access</div>
+        <h3>Add or invite teammate</h3>
+        <p class="muted">Existing iRoya users are added immediately. New users receive a secure 7-day invitation link.</p>
       </div>
       <label>Organization
         <select name="organization_id" required>
@@ -122,9 +122,33 @@
       </label>
       <button class="button" type="submit">Add to hotel team</button>
       <p class="form-message"></p>
+      <div class="invite-result" data-invite-result hidden>
+        <label>Invitation link<input type="text" readonly data-invite-link></label>
+        <button class="button button-small button-secondary" type="button" data-copy-invite>Copy invitation link</button>
+      </div>
     </form>
     {% endif %}
   </div>
+
+  {% if pending_invites %}
+  <div class="card pending-invites">
+    <div class="eyebrow">Pending invitations</div>
+    <div class="pending-invite-list">
+      {% for invite in pending_invites %}
+      <div class="pending-invite-row" data-pending-invite data-organization="{{ invite.organization_id }}" data-invite="{{ invite.id }}">
+        <div>
+          <strong>{{ invite.email }}</strong>
+          <div class="muted">{{ invite.organization_name }} · {{ invite.role|title }} · expires {{ invite.expires_at }}</div>
+        </div>
+        {% if invite.actor_role == "owner" or invite.role != "manager" %}
+        <button class="button button-small button-secondary" type="button" data-invite-revoke>Revoke</button>
+        {% endif %}
+        <p class="form-message"></p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
 </section>
 
 
