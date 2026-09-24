@@ -49,7 +49,7 @@ def get_property_by_slug(slug: str, check_in: date | None=None, check_out: date 
         images=list(conn.execute("select id,path,alt_text from property_images where property_id=%s order by sort_order,created_at",(prop["id"],)).fetchall())
         rooms=list(conn.execute(
             """select rt.id,rt.name,rt.description,rt.capacity_adults,rt.capacity_children,rt.total_inventory,
-                      rp.id rate_plan_id,rp.name rate_plan_name,rp.base_price_minor,rp.currency,rp.guarantee_type,rp.refundable,rp.meal_plan
+                      rp.id rate_plan_id,rp.name rate_plan_name,rp.base_price_minor,rp.currency,rp.guarantee_type,\n                      rp.refundable,rp.meal_plan,rp.cancellation_policy
                from room_types rt join rate_plans rp on rp.room_type_id=rt.id and rp.status='active'
                where rt.property_id=%s and rt.status='active' and rt.capacity_adults >= %s order by rp.base_price_minor""",(prop["id"],guests)
         ).fetchall())
