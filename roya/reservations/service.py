@@ -2,6 +2,7 @@ import json
 
 from roya.common.db import db_connection
 from roya.common.errors import RoyaError
+from .policy import cancellation_policy_view
 
 
 class ReservationService:
@@ -29,7 +30,9 @@ class ReservationService:
     def get_for_user(self,reservation_id,user_id):
         with db_connection() as conn:
             row=conn.execute(
-                """select r.*,p.name property_name,rt.name room_type_name,rp.name rate_plan_name,
+                """select r.*,p.name property_name,p.check_in_time,
+                          rt.name room_type_name,rp.name rate_plan_name,
+                          rp.refundable,rp.cancellation_policy,
                           (select rf.status from refunds rf where rf.reservation_id=r.id order by rf.created_at desc limit 1) refund_status,
                           (select rf.amount_minor from refunds rf where rf.reservation_id=r.id order by rf.created_at desc limit 1) refund_amount_minor
                    from reservations r join properties p on p.id=r.property_id
@@ -39,7 +42,14 @@ class ReservationService:
             ).fetchone()
         if not row:
             raise RoyaError("NOT_FOUND","Reservation not found.",404)
-        return row
+        result=dict(row)
+        result["cancellation_policy_view"]=cancellation_policy_view(
+            refundable=bool(row["refundable"]),
+            policy=row["cancellation_policy"] or {},
+            check_in=row["check_in"],
+            check_in_time=row["check_in_time"],
+        )
+        return result
 
     def cancel(self,reservation_id,user_id,reason):
         with db_connection() as conn:
