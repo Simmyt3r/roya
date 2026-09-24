@@ -27,6 +27,7 @@ def test_internal_cron_routes_require_secret():
     for path in (
         "/api/internal/cron/expire-holds",
         "/api/internal/cron/payment-reconcile",
+        "/api/internal/cron/send-notifications",
         "/api/internal/cron/send-reminders",
     ):
         response=client.get(path)
