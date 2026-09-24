@@ -28,9 +28,17 @@ def payment_reconcile():
     return ok(PaymentService().reconcile_pending())
 
 
+@bp.get("/api/internal/cron/send-notifications")
+@require_cron_secret
+def send_notifications():
+    notifier=NotificationService(SmtpNotificationAdapter())
+    return ok(notifier.deliver_pending_emails(limit=100))
+
+
 @bp.get("/api/internal/cron/send-reminders")
 @require_cron_secret
 def send_reminders():
+    queued_delivery=NotificationService(SmtpNotificationAdapter()).deliver_pending_emails(limit=100)
     target_date = date.today() + timedelta(days=1)
     with db_connection() as conn:
         reservations = list(
@@ -97,5 +105,6 @@ def send_reminders():
             "sent": sent,
             "skipped": skipped,
             "failed": failed,
+            "queued_delivery":queued_delivery,
         }
     )
