@@ -59,7 +59,7 @@
             <option value="price_asc" {% if query.sort == "price_asc" %}selected{% endif %}>Price: low to high</option>
             <option value="price_desc" {% if query.sort == "price_desc" %}selected{% endif %}>Price: high to low</option>
             <option value="rating" {% if query.sort == "rating" %}selected{% endif %}>Guest rating</option>
-            {% if query.lat is not none %}<option value="distance" {% if query.sort == "distance" %}selected{% endif %}>Distance</option>{% endif %}
+            <option value="distance" data-distance-option {% if query.lat is none %}disabled{% endif %} {% if query.sort == "distance" %}selected{% endif %}>Distance</option>
           </select>
         </label>
         <label>Nearby radius
