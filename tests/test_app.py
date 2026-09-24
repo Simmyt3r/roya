@@ -7,9 +7,12 @@ def test_health_endpoint():
     assert response.status_code==200
     payload=response.get_json()
     assert payload["success"] is True
-    assert payload["data"]["service"]=="roya"
+    assert payload["data"]["service"]=="iroya"
     assert payload["data"]["database_configured"] is False
     assert payload["data"]["database_reachable"] is False
+    assert payload["data"]["integrations"]["payments_configured"] is False
+    assert payload["data"]["integrations"]["storage_admin_configured"] is False
+    assert payload["data"]["integrations"]["notifications_configured"] is False
 
 
 def test_internal_cron_routes_require_secret():
