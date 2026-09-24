@@ -1,6 +1,6 @@
 import json
 import uuid
-from flask import Blueprint, redirect, render_template, request, session
+from flask import Blueprint, redirect, render_template, request, session, url_for
 from typing import Literal
 from pydantic import BaseModel, EmailStr, Field, ValidationError
 
@@ -215,7 +215,13 @@ def update_organization_member(organization_id,member_user_id):
 @bp.get("/invite/<token>")
 def invite_page(token):
     invite=preview_invite(token)
-    return render_template("auth/invite.html",invite=invite,token=token)
+    return render_template(
+        "auth/invite.html",
+        invite=invite,
+        token=token,
+        login_url=url_for("auth.login_page",invite=token,email=invite["email"]),
+        register_url=url_for("auth.register_page",invite=token,email=invite["email"],account_type="hotel"),
+    )
 
 
 @bp.post("/api/v1/invites/accept")
