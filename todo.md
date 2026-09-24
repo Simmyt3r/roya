@@ -38,7 +38,7 @@
 - [ ] Enable/review Supabase leaked-password protection
 - [ ] Decide whether to remediate remaining PostGIS-owned advisor findings
 - [ ] Configure and test SMTP guest/hotel notifications
-- [ ] Add property/room image deletion, ordering and alt-text editing
+- [x] Add property/room image deletion, ordering and alt-text editing
 - [ ] Add invitation flow for hotel staff who do not yet have iRoya accounts
 - [ ] Add richer search/filtering and location-based discovery
 - [x] Replace client-cookie Supabase token storage with private opaque server-side sessions
