@@ -1,3 +1,4 @@
+import json
 import uuid as uuidlib
 from typing import Literal
 from uuid import UUID
@@ -194,6 +195,15 @@ def update_room_image(room_type_id,image_id):
                    where id=%s returning *""",
                 ((body.alt_text or "").strip() or None,body.sort_order,str(image_id)),
             ).fetchone()
+            conn.execute(
+                """insert into audit_logs(actor_user_id,organization_id,property_id,action,entity_type,entity_id,before_json,after_json)
+                   values(%s,%s,%s,'room.image_updated','room_image',%s,%s::jsonb,%s::jsonb)""",
+                (
+                    user.user_id,access["organization_id"],access["property_id"],str(image_id),
+                    json.dumps({"alt_text":image["alt_text"],"sort_order":image["sort_order"]}),
+                    json.dumps({"alt_text":row["alt_text"],"sort_order":row["sort_order"]}),
+                ),
+            )
     return ok(row)
 
 
@@ -215,6 +225,14 @@ def delete_room_image(room_type_id,image_id):
             if not image:
                 raise RoyaError("IMAGE_NOT_FOUND","Room image not found.",404)
             conn.execute("delete from room_images where id=%s",(str(image_id),))
+            conn.execute(
+                """insert into audit_logs(actor_user_id,organization_id,property_id,action,entity_type,entity_id,before_json,after_json)
+                   values(%s,%s,%s,'room.image_deleted','room_image',%s,%s::jsonb,'{}'::jsonb)""",
+                (
+                    user.user_id,access["organization_id"],access["property_id"],str(image_id),
+                    json.dumps({"path":image["path"],"alt_text":image["alt_text"],"sort_order":image["sort_order"]}),
+                ),
+            )
 
     storage_cleanup=True
     object_path=storage_object_path(image["path"],"room-images")
