@@ -21,13 +21,36 @@
       <img src="/static/brand/iroya-logo.svg" alt="" width="44" height="44">
       <span>iRoya</span>
     </a>
-    <nav aria-label="Primary navigation">
-      <a href="/search">Find a stay</a>
-      <a href="/partner">Hotel partner</a>
-      <button class="install-app-button" type="button" data-install-app hidden>Install app</button>
-      <a class="button button-small" href="/login">Sign in</a>
+
+    <button class="nav-toggle" type="button" data-nav-toggle aria-expanded="false" aria-controls="main-navigation">
+      <span></span><span></span><span></span><span class="sr-only">Menu</span>
+    </button>
+
+    <nav id="main-navigation" class="main-nav" data-main-nav aria-label="Primary navigation">
+      {% if session.get("access_token") %}
+        {% if session.get("account_type") == "hotel" %}
+          <a href="/partner">Dashboard</a>
+          <a href="/partner#properties">Properties</a>
+          <a href="/partner#reservations">Reservations</a>
+          <a href="/search">Book a stay</a>
+          <span class="account-role account-role-hotel">Hotel</span>
+        {% else %}
+          <a href="/search">Find a stay</a>
+          <a href="/account">My stays</a>
+          <a href="/partner/start">List your hotel</a>
+          <span class="account-role">Guest</span>
+        {% endif %}
+        <button class="install-app-button" type="button" data-install-app hidden>Install app</button>
+        <button class="nav-signout" type="button" data-logout>Sign out</button>
+      {% else %}
+        <a href="/search">Find a stay</a>
+        <a href="/partner/start">For hotels</a>
+        <button class="install-app-button" type="button" data-install-app hidden>Install app</button>
+        <a class="button button-small" href="/login">Sign in</a>
+      {% endif %}
     </nav>
   </header>
+
   <main>{% block content %}{% endblock %}</main>
   <footer class="footer">iRoya · Thoughtful stays, clearer booking.</footer>
   <script src="/static/js/app.js" defer></script>
