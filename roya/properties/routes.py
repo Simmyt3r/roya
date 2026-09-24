@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field, ValidationError
 from roya.auth.service import account_type_for_user, current_identity, login_required
 from roya.common.db import db_connection, supabase_admin_client
 from roya.common.errors import RoyaError
+from roya.common.media import read_image_upload, storage_object_path
 from roya.common.response import ok
 from roya.common.slug import slugify
 from roya.organizations.service import require_organization_member
@@ -186,6 +187,14 @@ def manage_property_page(property_id):
                order by sort_order,created_at""",
             (str(property_id),),
         ).fetchall())
+        room_images=list(conn.execute(
+            """select ri.id,ri.room_type_id,ri.path,ri.alt_text,ri.sort_order,ri.created_at
+               from room_images ri
+               join room_types rt on rt.id=ri.room_type_id
+               where rt.property_id=%s
+               order by rt.created_at,ri.sort_order,ri.created_at""",
+            (str(property_id),),
+        ).fetchall())
         calendar_rows=list(conn.execute(
             """select i.room_type_id,i.date,i.total_inventory,i.held_inventory,i.sold_inventory,
                       greatest(0,i.total_inventory-i.held_inventory-i.sold_inventory) available_inventory,
@@ -205,10 +214,15 @@ def manage_property_page(property_id):
     for row in calendar_rows:
         calendar_by_room.setdefault(str(row["room_type_id"]),[]).append(row)
 
+    room_images_by_room={}
+    for image in room_images:
+        room_images_by_room.setdefault(str(image["room_type_id"]),[]).append(image)
+
     for room in rooms:
         room["rates"]=rates_by_room.get(str(room["id"]),[])
         room["inventory_summary"]=inventory_by_room.get(str(room["id"]))
         room["calendar"]=calendar_by_room.get(str(room["id"]),[])
+        room["images"]=room_images_by_room.get(str(room["id"]),[])
 
     return render_template(
         "partner/property_manage.html",
@@ -258,6 +272,11 @@ class PropertyUpdate(BaseModel):
 
 class AmenityUpdate(BaseModel):
     codes: list[str] = Field(default_factory=list,max_length=50)
+
+
+class ImageMetadataUpdate(BaseModel):
+    alt_text: str|None = Field(default=None,max_length=300)
+    sort_order: int = Field(default=0,ge=0,le=10000)
 
 
 @bp.post("/api/v1/properties")
@@ -394,6 +413,7 @@ def update_property_amenities(property_id):
 
 
 @bp.post("/api/v1/properties/<uuid:property_id>/images")
+@login_required
 def upload_property_image(property_id):
     identity=current_identity(required=True)
     with db_connection() as conn:
@@ -401,25 +421,112 @@ def upload_property_image(property_id):
     if not prop:
         raise RoyaError("PROPERTY_NOT_FOUND","Property not found.",404)
     require_organization_member(identity.user_id,str(prop["organization_id"]),{"owner","manager"})
+
     file=request.files.get("file")
-    if not file or not file.filename:
-        raise RoyaError("VALIDATION_ERROR","An image file is required.",422)
-    allowed={"image/jpeg":".jpg","image/png":".png","image/webp":".webp"}
-    if file.mimetype not in allowed:
-        raise RoyaError("VALIDATION_ERROR","Only JPEG, PNG and WebP images are accepted.",422)
-    raw=file.read(10*1024*1024+1)
-    if len(raw)>10*1024*1024:
-        raise RoyaError("VALIDATION_ERROR","Image must be 10 MB or smaller.",422)
-    path=f"{property_id}/{uuidlib.uuid4().hex}{allowed[file.mimetype]}"
+    try:
+        raw,extension=read_image_upload(file)
+    except ValueError as exc:
+        messages={
+            "IMAGE_REQUIRED":"An image file is required.",
+            "IMAGE_TYPE":"Only JPEG, PNG and WebP images are accepted.",
+            "IMAGE_TOO_LARGE":"Image must be 10 MB or smaller.",
+        }
+        raise RoyaError("VALIDATION_ERROR",messages.get(str(exc),"Invalid image."),422) from exc
+
+    path=f"{property_id}/{uuidlib.uuid4().hex}{extension}"
     client=supabase_admin_client()
     try:
         client.storage.from_("property-images").upload(path,raw,{"content-type":file.mimetype,"upsert":"false"})
     except Exception as exc:
         raise RoyaError("STORAGE_UPLOAD_FAILED","Image upload failed.",502) from exc
+
     public_url=client.storage.from_("property-images").get_public_url(path)
+    alt_text=(request.form.get("alt_text") or "").strip() or None
+    if alt_text and len(alt_text)>300:
+        raise RoyaError("VALIDATION_ERROR","Alt text must be 300 characters or fewer.",422)
+
     with db_connection() as conn:
         row=conn.execute(
-            "insert into property_images(property_id,path,sort_order) values(%s,%s,coalesce((select max(sort_order)+1 from property_images where property_id=%s),0)) returning *",
-            (str(property_id),public_url,str(property_id)),
-        ).fetchone(); conn.commit()
+            """insert into property_images(property_id,path,alt_text,sort_order)
+               values(%s,%s,%s,coalesce((select max(sort_order)+1 from property_images where property_id=%s),0))
+               returning *""",
+            (str(property_id),public_url,alt_text,str(property_id)),
+        ).fetchone()
+        conn.commit()
     return ok(row,201)
+
+
+@bp.put("/api/v1/properties/<uuid:property_id>/images/<uuid:image_id>")
+@login_required
+def update_property_image(property_id,image_id):
+    try:
+        body=ImageMetadataUpdate.model_validate(request.get_json(silent=True) or {})
+    except ValidationError as exc:
+        raise RoyaError("VALIDATION_ERROR","Invalid image details.",422,{"errors":exc.errors()}) from exc
+
+    identity=current_identity(required=True)
+    with db_connection() as conn:
+        with conn.transaction():
+            image=conn.execute(
+                """select pi.*,p.organization_id
+                   from property_images pi join properties p on p.id=pi.property_id
+                   where pi.id=%s and pi.property_id=%s
+                   for update of pi""",
+                (str(image_id),str(property_id)),
+            ).fetchone()
+            if not image:
+                raise RoyaError("IMAGE_NOT_FOUND","Property image not found.",404)
+            require_organization_member(identity.user_id,str(image["organization_id"]),{"owner","manager"})
+            row=conn.execute(
+                """update property_images
+                   set alt_text=%s,sort_order=%s
+                   where id=%s returning *""",
+                ((body.alt_text or "").strip() or None,body.sort_order,str(image_id)),
+            ).fetchone()
+            conn.execute(
+                """insert into audit_logs(actor_user_id,organization_id,property_id,action,entity_type,entity_id,before_json,after_json)
+                   values(%s,%s,%s,'property.image_updated','property_image',%s,%s::jsonb,%s::jsonb)""",
+                (
+                    identity.user_id,image["organization_id"],str(property_id),str(image_id),
+                    json.dumps({"alt_text":image["alt_text"],"sort_order":image["sort_order"]}),
+                    json.dumps({"alt_text":row["alt_text"],"sort_order":row["sort_order"]}),
+                ),
+            )
+    return ok(row)
+
+
+@bp.delete("/api/v1/properties/<uuid:property_id>/images/<uuid:image_id>")
+@login_required
+def delete_property_image(property_id,image_id):
+    identity=current_identity(required=True)
+    with db_connection() as conn:
+        with conn.transaction():
+            image=conn.execute(
+                """select pi.*,p.organization_id
+                   from property_images pi join properties p on p.id=pi.property_id
+                   where pi.id=%s and pi.property_id=%s
+                   for update of pi""",
+                (str(image_id),str(property_id)),
+            ).fetchone()
+            if not image:
+                raise RoyaError("IMAGE_NOT_FOUND","Property image not found.",404)
+            require_organization_member(identity.user_id,str(image["organization_id"]),{"owner","manager"})
+            conn.execute("delete from property_images where id=%s",(str(image_id),))
+            conn.execute(
+                """insert into audit_logs(actor_user_id,organization_id,property_id,action,entity_type,entity_id,before_json,after_json)
+                   values(%s,%s,%s,'property.image_deleted','property_image',%s,%s::jsonb,'{}'::jsonb)""",
+                (
+                    identity.user_id,image["organization_id"],str(property_id),str(image_id),
+                    json.dumps({"path":image["path"],"alt_text":image["alt_text"],"sort_order":image["sort_order"]}),
+                ),
+            )
+
+    storage_cleanup=True
+    object_path=storage_object_path(image["path"],"property-images")
+    if object_path:
+        try:
+            supabase_admin_client().storage.from_("property-images").remove([object_path])
+        except Exception:
+            storage_cleanup=False
+
+    return ok({"deleted":True,"image_id":str(image_id),"storage_cleanup":storage_cleanup})
