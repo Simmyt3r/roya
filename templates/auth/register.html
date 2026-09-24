@@ -3,8 +3,9 @@
 {% block content %}
 <section class="shell auth-shell">
   <form class="card auth-card auth-card-wide" data-auth-form="register">
+    {% if request.args.get("invite") %}<input type="hidden" name="invite_token" value="{{ request.args.get('invite') }}">{% endif %}
     <div>
-      <div class="eyebrow">Join iRoya</div>
+      <div class="eyebrow">{% if request.args.get("invite") %}Hotel team invitation{% else %}Join iRoya{% endif %}</div>
       <h1>What are you here to do?</h1>
       <p class="muted">Choose your starting workspace. Hotel accounts still have access to guest booking.</p>
     </div>
@@ -27,11 +28,11 @@
     </div>
 
     <label>Name<input name="name" autocomplete="name" required minlength="2"></label>
-    <label>Email<input type="email" name="email" autocomplete="email" required></label>
+    <label>Email<input type="email" name="email" autocomplete="email" value="{{ request.args.get('email','') }}" required></label>
     <label>Password<input type="password" name="password" autocomplete="new-password" minlength="8" required></label>
     <button class="button" type="submit">Create account</button>
     <p class="form-message" aria-live="polite"></p>
-    <p class="auth-switch">Already have an account? <a href="/login">Sign in</a></p>
+    <p class="auth-switch">Already have an account? <a href="{% if request.args.get('invite') %}/login?invite={{ request.args.get('invite') }}&email={{ request.args.get('email','') }}{% else %}/login{% endif %}">Sign in</a></p>
   </form>
 </section>
 {% endblock %}
