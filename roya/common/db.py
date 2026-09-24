@@ -16,7 +16,21 @@ def database_url() -> str:
 
 @contextmanager
 def db_connection():
-    conn = psycopg.connect(database_url(), row_factory=dict_row, prepare_threshold=None)
+    try:
+        conn = psycopg.connect(
+            database_url(),
+            row_factory=dict_row,
+            prepare_threshold=None,
+            connect_timeout=8,
+        )
+    except psycopg.OperationalError as exc:
+        current_app.logger.error("Database connection failed: %s", exc)
+        raise RoyaError(
+            "DATABASE_UNAVAILABLE",
+            "The database is temporarily unreachable. Check the serverless pooler connection configuration.",
+            503,
+        ) from exc
+
     try:
         yield conn
     finally:
