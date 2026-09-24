@@ -61,7 +61,7 @@ def register():
     except Exception as exc:
         raise RoyaError("AUTH_REGISTRATION_FAILED", "Registration could not be completed.", 400) from exc
 
-    redirect_to = "/partner/start" if body.account_type == "hotel" else "/account"
+    redirect_to = f"/invite/{body.invite_token}" if body.invite_token else ("/partner/start" if body.account_type == "hotel" else "/account")
     if result.session:
         _store_session(result, body.account_type, body.name)
 
@@ -88,7 +88,7 @@ def login():
 
     profile = account_profile(str(result.user.id))
     _store_session(result, profile["account_type"], profile.get("name"))
-    redirect_to = "/partner" if profile["account_type"] == "hotel" else "/account"
+    redirect_to = f"/invite/{body.invite_token}" if body.invite_token else ("/partner" if profile["account_type"] == "hotel" else "/account")
 
     return ok(
         {
