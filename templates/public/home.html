@@ -36,8 +36,8 @@
   <section class="shell welcome-panel" data-reveal>
     <div class="welcome-panel-copy"><span class="eyebrow eyebrow-light">For hotel partners</span><h2>Your rooms. Your rates. One source of truth.</h2><p>Manage availability once, receive reservations clearly, and build a direct digital presence that feels like your property rather than a crowded marketplace shelf.</p>
       <div class="welcome-actions">
-        <a class="button button-warm" href="{% if session.get('account_type') == 'hotel' %}/partner{% elif session.get('access_token') %}/partner/start{% else %}/register?account_type=hotel{% endif %}">{% if session.get('account_type') == 'hotel' %}Open hotel dashboard{% else %}Start hotel setup{% endif %} <span aria-hidden="true">→</span></a>
-        {% if not session.get("access_token") %}<a class="text-link-light" href="/register?account_type=hotel">Create a hotel account</a>{% else %}<a class="text-link-light" href="/account">My stays</a>{% endif %}
+        <a class="button button-warm" href="{% if session.get('account_type') == 'hotel' %}/partner{% elif session.get('sid') %}/partner/start{% else %}/register?account_type=hotel{% endif %}">{% if session.get('account_type') == 'hotel' %}Open hotel dashboard{% else %}Start hotel setup{% endif %} <span aria-hidden="true">→</span></a>
+        {% if not session.get("sid") %}<a class="text-link-light" href="/register?account_type=hotel">Create a hotel account</a>{% else %}<a class="text-link-light" href="/account">My stays</a>{% endif %}
       </div>
     </div>
     <div class="welcome-panel-badges" aria-label="Partner capabilities"><span>Daily inventory</span><span>Rate plans</span><span>Reservation approvals</span><span>Direct booking</span></div>
