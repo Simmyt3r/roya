@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}{{ property.name }} · Hotel workspace · iRoya{% endblock %}
+{% block content %}
+<section class="shell page-head partner-page-head">
+  <div>
+    <a class="back-link" href="/partner">← Hotel dashboard</a>
+    <div class="eyebrow">{{ property.organization_name }}</div>
+    <h1>{{ property.name }}</h1>
+    <p>{{ property.city }}, {{ property.state }} · Your role: {{ property.member_role|title }}</p>
+  </div>
+  <div class="status-row">
+    <span class="status-pill">{{ property.verification_status|title }}</span>
+    <span class="status-pill status-muted">{{ property.status|title }}</span>
+  </div>
+</section>
+
+{% if property.verification_status == "pending" %}
+<section class="shell">
+  <div class="notice-card">
+    <strong>Property verification is pending.</strong>
+    <span>You can finish rooms, rates and inventory while iRoya reviews the property. It will not appear publicly until verified and active.</span>
+  </div>
+</section>
+{% endif %}
+
+<section class="shell partner-section">
+  <div class="section-heading">
+    <div>
+      <div class="eyebrow">Room inventory</div>
+      <h2>Rooms, rates & availability</h2>
+    </div>
+  </div>
+
+  {% if can_manage %}
+  <details class="card setup-disclosure" {% if not rooms %}open{% endif %}>
+    <summary>Add room type</summary>
+    <form class="partner-form compact-form" data-room-form data-property="{{ property.id }}">
+      <div class="form-grid">
+        <label>Room type name<input name="name" required minlength="2" maxlength="120" placeholder="Deluxe King"></label>
+        <label>Total rooms of this type<input name="total_inventory" type="number" min="1" max="1000" value="1" required></label>
+        <label>Adult capacity<input name="capacity_adults" type="number" min="1" max="20" value="2" required></label>
+        <label>Child capacity<input name="capacity_children" type="number" min="0" max="20" value="0" required></label>
+        <label>Base occupancy<input name="base_occupancy" type="number" min="1" max="20" value="1" required></label>
+        <label>Bed configuration<input name="bed_configuration" maxlength="200" placeholder="1 King Bed"></label>
+      </div>
+      <label>Description<textarea name="description" maxlength="3000" rows="3"></textarea></label>
+      <button class="button" type="submit">Add room type</button>
+      <p class="form-message" aria-live="polite"></p>
+    </form>
+  </details>
+  {% endif %}
+
+  <div class="room-admin-list">
+    {% for room in rooms %}
+      <article class="card room-admin-card">
+        <div class="room-admin-head">
+          <div>
+            <div class="eyebrow">{{ room.total_inventory }} room{% if room.total_inventory != 1 %}s{% endif %}</div>
+            <h3>{{ room.name }}</h3>
+            <p class="muted">{{ room.capacity_adults }} adults · {{ room.capacity_children }} children{% if room.bed_configuration %} · {{ room.bed_configuration }}{% endif %}</p>
+          </div>
+          {% if room.inventory_summary %}
+            <div class="inventory-chip">{{ room.inventory_summary.days_loaded or 0 }}/30 days loaded</div>
+          {% else %}
+            <div class="inventory-chip inventory-chip-warn">No inventory loaded</div>
+          {% endif %}
+        </div>
+
+        <div class="rate-admin-list">
+          {% for rate in room.rates %}
+            <div class="rate-admin-row">
+              <div>
+                <strong>{{ rate.name }}</strong>
+                <span class="muted">{{ rate.guarantee_type|replace("_"," ")|title }} · {{ rate.meal_plan|replace("_"," ")|title }}</span>
+              </div>
+              <strong>{{ rate.currency }} {{ '%.2f'|format(rate.base_price_minor / 100) }}</strong>
+            </div>
+          {% else %}
+            <p class="muted">No rate plan yet. Guests cannot book this room until at least one active rate exists.</p>
+          {% endfor %}
+        </div>
+
+        {% if can_manage %}
+        <div class="room-admin-actions">
+          <details class="setup-disclosure inner-disclosure">
+            <summary>Add rate plan</summary>
+            <form class="partner-form compact-form" data-rate-form data-room="{{ room.id }}">
+              <div class="form-grid">
+                <label>Rate name<input name="name" required minlength="2" maxlength="120" placeholder="Flexible"></label>
+                <label>Nightly price (NGN)<input name="base_price_ngn" type="number" min="1" step="0.01" required></label>
+                <label>Guarantee
+                  <select name="guarantee_type">
+                    <option value="pay_at_property">Pay at property</option>
+                    <option value="pay_now">Pay now</option>
+                    <option value="deposit">Deposit</option>
+                    <option value="hotel_approval">Hotel approval</option>
+                  </select>
+                </label>
+                <label>Meal plan
+                  <select name="meal_plan">
+                    <option value="room_only">Room only</option>
+                    <option value="breakfast">Breakfast</option>
+                    <option value="half_board">Half board</option>
+                    <option value="full_board">Full board</option>
+                  </select>
+                </label>
+                <label>Minimum stay<input name="min_stay" type="number" min="1" max="90" value="1"></label>
+                <label>Deposit %<input name="deposit_percent" type="number" min="0" max="100" value="100"></label>
+              </div>
+              <label class="check-label"><input type="checkbox" name="refundable" checked> Refundable rate</label>
+              <button class="button button-small" type="submit">Add rate</button>
+              <p class="form-message"></p>
+            </form>
+          </details>
+
+          <details class="setup-disclosure inner-disclosure">
+            <summary>Load inventory</summary>
+            <form class="partner-form compact-form" data-inventory-form data-room="{{ room.id }}">
+              <div class="form-grid">
+                <label>From<input name="start_date" type="date" required></label>
+                <label>Through<input name="end_date" type="date" required></label>
+                <label>Rooms available<input name="total_inventory" type="number" min="0" max="1000" value="{{ room.total_inventory }}" required></label>
+                <label>Minimum stay<input name="min_stay" type="number" min="1" max="90" value="1" required></label>
+              </div>
+              <label class="check-label"><input type="checkbox" name="stop_sell"> Stop sell for this range</label>
+              <button class="button button-small" type="submit">Update inventory</button>
+              <p class="form-message"></p>
+            </form>
+          </details>
+        </div>
+        {% endif %}
+      </article>
+    {% else %}
+      <div class="empty">
+        <h3>No room types yet</h3>
+        <p class="muted">Add the first room type, then attach a rate and load availability.</p>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
