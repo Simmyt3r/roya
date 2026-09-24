@@ -85,6 +85,157 @@ if(propertyForm){
     window.location.href=(data.data&&data.data.redirect_to)||'/partner#properties';
   });
 }
+
+
+const memberForm=document.querySelector('[data-member-form]');
+if(memberForm){
+  memberForm.addEventListener('submit',async function(event){
+    event.preventDefault();
+    const msg=memberForm.querySelector('.form-message');
+    const submit=memberForm.querySelector('button[type="submit"]');
+    const raw=Object.fromEntries(new FormData(memberForm).entries());
+    const organizationId=raw.organization_id;
+    delete raw.organization_id;
+    msg.textContent='Adding team member…';
+    submit.disabled=true;
+    const res=await fetch('/api/v1/organizations/'+organizationId+'/members',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(raw)
+    });
+    const data=await res.json().catch(function(){return {};});
+    if(!res.ok){
+      msg.textContent=(data.error&&data.error.message)||'Team member could not be added.';
+      submit.disabled=false;
+      return;
+    }
+    window.location.reload();
+  });
+}
+
+document.querySelectorAll('[data-room-form]').forEach(function(form){
+  form.addEventListener('submit',async function(event){
+    event.preventDefault();
+    const msg=form.querySelector('.form-message');
+    const submit=form.querySelector('button[type="submit"]');
+    const raw=Object.fromEntries(new FormData(form).entries());
+    const body={
+      property_id:form.dataset.property,
+      name:raw.name,
+      description:raw.description||'',
+      capacity_adults:Number(raw.capacity_adults),
+      capacity_children:Number(raw.capacity_children),
+      base_occupancy:Number(raw.base_occupancy),
+      total_inventory:Number(raw.total_inventory),
+      bed_configuration:raw.bed_configuration||''
+    };
+    msg.textContent='Adding room type…';
+    submit.disabled=true;
+    const res=await fetch('/api/v1/room-types',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    });
+    const data=await res.json().catch(function(){return {};});
+    if(!res.ok){
+      msg.textContent=(data.error&&data.error.message)||'Room type could not be created.';
+      submit.disabled=false;
+      return;
+    }
+    window.location.reload();
+  });
+});
+
+document.querySelectorAll('[data-rate-form]').forEach(function(form){
+  form.addEventListener('submit',async function(event){
+    event.preventDefault();
+    const msg=form.querySelector('.form-message');
+    const submit=form.querySelector('button[type="submit"]');
+    const raw=Object.fromEntries(new FormData(form).entries());
+    const price=Number(raw.base_price_ngn);
+    const body={
+      room_type_id:form.dataset.room,
+      name:raw.name,
+      base_price_minor:Math.round(price*100),
+      currency:'NGN',
+      guarantee_type:raw.guarantee_type,
+      refundable:new FormData(form).has('refundable'),
+      meal_plan:raw.meal_plan,
+      deposit_percent:Number(raw.deposit_percent||0),
+      min_stay:Number(raw.min_stay||1)
+    };
+    msg.textContent='Adding rate plan…';
+    submit.disabled=true;
+    const res=await fetch('/api/v1/rate-plans',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    });
+    const data=await res.json().catch(function(){return {};});
+    if(!res.ok){
+      msg.textContent=(data.error&&data.error.message)||'Rate plan could not be created.';
+      submit.disabled=false;
+      return;
+    }
+    window.location.reload();
+  });
+});
+
+function dateRange(startValue,endValue){
+  const start=new Date(startValue+'T00:00:00Z');
+  const end=new Date(endValue+'T00:00:00Z');
+  if(Number.isNaN(start.getTime())||Number.isNaN(end.getTime())||end<start)return [];
+  const days=[];
+  const cursor=new Date(start);
+  while(cursor<=end&&days.length<366){
+    days.push(cursor.toISOString().slice(0,10));
+    cursor.setUTCDate(cursor.getUTCDate()+1);
+  }
+  return days;
+}
+
+document.querySelectorAll('[data-inventory-form]').forEach(function(form){
+  form.addEventListener('submit',async function(event){
+    event.preventDefault();
+    const msg=form.querySelector('.form-message');
+    const submit=form.querySelector('button[type="submit"]');
+    const raw=Object.fromEntries(new FormData(form).entries());
+    const dates=dateRange(raw.start_date,raw.end_date);
+    if(!dates.length){
+      msg.textContent='Choose a valid inventory date range.';
+      return;
+    }
+    const body={
+      room_type_id:form.dataset.room,
+      days:dates.map(function(date){
+        return {
+          date:date,
+          total_inventory:Number(raw.total_inventory),
+          stop_sell:new FormData(form).has('stop_sell'),
+          closed_to_arrival:false,
+          closed_to_departure:false,
+          min_stay:Number(raw.min_stay||1),
+          price_override_minor:null
+        };
+      })
+    };
+    msg.textContent='Updating '+dates.length+' inventory day'+(dates.length===1?'':'s')+'…';
+    submit.disabled=true;
+    const res=await fetch('/api/v1/inventory',{
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    });
+    const data=await res.json().catch(function(){return {};});
+    if(!res.ok){
+      msg.textContent=(data.error&&data.error.message)||'Inventory could not be updated.';
+      submit.disabled=false;
+      return;
+    }
+    window.location.reload();
+  });
+});
+
 async function authSubmit(form,mode){
   const msg=form.querySelector('.form-message'); msg.textContent='';
   const body=Object.fromEntries(new FormData(form).entries());
