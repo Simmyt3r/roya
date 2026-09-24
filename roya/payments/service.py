@@ -102,8 +102,24 @@ class PaymentService:
         provider=PaystackProvider()
         if not provider.verify_webhook(raw_body,signature):
             raise RoyaError("INVALID_WEBHOOK_SIGNATURE","Invalid webhook signature.",401)
-        payload=json.loads(raw_body.decode("utf-8")); event=payload.get("event","unknown"); data=payload.get("data") or {}
-        reference=data.get("reference"); fingerprint=hashlib.sha256(raw_body).hexdigest()
+        try:
+            payload=json.loads(raw_body.decode("utf-8"))
+        except (UnicodeDecodeError,json.JSONDecodeError) as exc:
+            raise RoyaError("INVALID_WEBHOOK_PAYLOAD","Paystack webhook payload is invalid.",400) from exc
+        if not isinstance(payload,dict):
+            raise RoyaError("INVALID_WEBHOOK_PAYLOAD","Paystack webhook payload is invalid.",400)
+
+        event=payload.get("event","unknown")
+        data=payload.get("data") or {}
+        if not isinstance(data,dict):
+            raise RoyaError("INVALID_WEBHOOK_PAYLOAD","Paystack webhook data is invalid.",400)
+
+        reference=data.get("reference")
+        fingerprint=hashlib.sha256(raw_body).hexdigest()
+        response=None
+        payment_notification=None
+        refund_notification=None
+
         with db_connection() as conn:
             with conn.transaction():
                 inserted=conn.execute(
@@ -113,20 +129,45 @@ class PaymentService:
                     (fingerprint,event,json.dumps(payload)),
                 ).fetchone()
                 if not inserted:
-                    return {"duplicate":True}
-                if event=="charge.success" and reference:
+                    response={"duplicate":True}
+                elif event=="charge.success" and reference:
                     row=conn.execute(
                         "select * from record_successful_payment(%s::text,%s::bigint,%s::jsonb)",
                         (reference,int(data.get("amount") or 0),json.dumps(data)),
                     ).fetchone()
-                    conn.execute("update payment_webhook_events set processing_status='processed',processed_at=now() where id=%s",(inserted["id"],))
-                    return {"processed":True,"reference":reference,"result":row}
-                if event in {"refund.pending","refund.processing","refund.needs-attention","refund.failed","refund.processed"}:
+                    conn.execute(
+                        "update payment_webhook_events set processing_status='processed',processed_at=now() where id=%s",
+                        (inserted["id"],),
+                    )
+                    response={"processed":True,"reference":reference,"result":row}
+                    if row:
+                        payment_notification=str(row["reservation_id"])
+                elif event in {"refund.pending","refund.processing","refund.needs-attention","refund.failed","refund.processed"}:
                     result=self.apply_refund_webhook(conn,event,data)
-                    conn.execute("update payment_webhook_events set processing_status='processed',processed_at=now() where id=%s",(inserted["id"],))
-                    return {"processed":True,"event":event,"result":result}
-                conn.execute("update payment_webhook_events set processing_status='ignored',processed_at=now() where id=%s",(inserted["id"],))
-                return {"processed":False,"ignored":True,"event":event}
+                    conn.execute(
+                        "update payment_webhook_events set processing_status='processed',processed_at=now() where id=%s",
+                        (inserted["id"],),
+                    )
+                    response={"processed":True,"event":event,"result":result}
+                    if result and result.get("reservation_id"):
+                        refund_notification=(
+                            str(result["reservation_id"]),
+                            result.get("status") or "processing",
+                            result.get("payment_status"),
+                        )
+                else:
+                    conn.execute(
+                        "update payment_webhook_events set processing_status='ignored',processed_at=now() where id=%s",
+                        (inserted["id"],),
+                    )
+                    response={"processed":False,"ignored":True,"event":event}
+
+        if payment_notification:
+            NotificationService().notify_payment_success(payment_notification)
+        if refund_notification:
+            NotificationService().notify_refund_status(*refund_notification)
+        return response
+
 
     def reconcile_pending(self,limit=50):
         provider=PaystackProvider()
@@ -328,7 +369,7 @@ class PaymentService:
 
         if not successful:
             conn.execute("update refunds set status='failed',updated_at=now() where id=%s",(refund_id,))
-            return {"refund_id":refund_id,"status":"failed"}
+            return {"refund_id":refund_id,"reservation_id":str(refund["reservation_id"]),"status":"failed"}
 
         conn.execute(
             "update refunds set status='successful',updated_at=now() where id=%s",
@@ -366,7 +407,7 @@ class PaymentService:
                 "update reservations set payment_status='refunded',updated_at=now() where id=%s",
                 (refund["reservation_id"],),
             )
-        return {"refund_id":refund_id,"status":"successful","payment_status":payment_status}
+        return {"refund_id":refund_id,"reservation_id":str(refund["reservation_id"]),"status":"successful","payment_status":payment_status}
 
     def apply_refund_webhook(self,conn,event,data):
         tx_reference=data.get("transaction_reference")
@@ -374,7 +415,7 @@ class PaymentService:
             return {"processed":False,"reason":"missing_transaction_reference"}
         amount=int(data.get("amount") or 0)
         refund=conn.execute(
-            """select rf.id
+            """select rf.id,rf.reservation_id
                from refunds rf join payment_transactions pt on pt.id=rf.payment_transaction_id
                where pt.provider='paystack' and pt.provider_reference=%s
                  and rf.status in ('requested','processing') and (%s=0 or rf.amount_minor=%s)
@@ -395,4 +436,4 @@ class PaymentService:
             return self._finalize_refund(conn,str(refund["id"]),False,data)
 
         conn.execute("update refunds set status='processing',updated_at=now() where id=%s",(refund["id"],))
-        return {"refund_id":refund["id"],"status":"processing"}
+        return {"refund_id":refund["id"],"reservation_id":str(refund["reservation_id"]),"status":"processing"}
