@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Start with iRoya for Hotels{% endblock %}
+{% block content %}
+<section class="shell partner-start">
+  <div class="partner-start-copy">
+    <div class="eyebrow">iRoya for Hotels</div>
+    <h1>Put your hotel inventory in one reliable place.</h1>
+    <p>Start with your hotel business. Then add properties, room types, rates and availability. Your personal booking account remains available too.</p>
+    <div class="partner-principles">
+      <span>One live inventory source</span>
+      <span>Role-based hotel staff</span>
+      <span>Direct reservation control</span>
+    </div>
+  </div>
+
+  <form class="card partner-start-card" data-organization-form>
+    <div>
+      <span class="account-role account-role-hotel">Hotel setup</span>
+      <h2>Create your hotel organization</h2>
+      <p class="muted">Use your hotel, hospitality company or management group name. You will start as the owner.</p>
+    </div>
+    <label>Business / hotel group name
+      <input name="name" minlength="2" maxlength="160" required placeholder="e.g. Royal Palm Hotels">
+    </label>
+    <button class="button" type="submit">Create hotel workspace</button>
+    <p class="form-message" aria-live="polite"></p>
+  </form>
+</section>
+{% endblock %}
