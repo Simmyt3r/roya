@@ -61,6 +61,7 @@ def partner_reservation_decision(reservation_id):
 @login_required
 def booking_page():
     from roya.common.db import db_connection
+    identity=current_identity(required=True)
     room_type_id=request.args.get("room_type_id",""); rate_plan_id=request.args.get("rate_plan_id","")
     try:
         check_in=date.fromisoformat(request.args.get("check_in","")); check_out=date.fromisoformat(request.args.get("check_out",""))
@@ -75,11 +76,13 @@ def booking_page():
                where rt.id=%s and rp.id=%s and rt.status='active' and rp.status='active' and p.status='active' and p.verification_status='verified'""",
             (room_type_id,rate_plan_id),
         ).fetchone()
+        profile=conn.execute("select name,phone from profiles where id=%s",(identity.user_id,)).fetchone()
     if not row:
         raise RoyaError("RATE_NOT_FOUND","Selected room/rate is unavailable.",404)
     prop={"id":row["property_id"],"name":row["property_name"]}; room={"id":row["id"],"name":row["name"]}
     rate={"id":row["rate_id"],"name":row["rate_name"],"base_price_minor":row["base_price_minor"],"guarantee_type":row["guarantee_type"]}
-    return render_template("guest/booking.html",property=prop,room=room,rate=rate,check_in=check_in,check_out=check_out,nights=(check_out-check_in).days)
+    guest={"name":(profile["name"] if profile else "") or "","email":identity.email or "","phone":(profile["phone"] if profile else "") or ""}
+    return render_template("guest/booking.html",property=prop,room=room,rate=rate,check_in=check_in,check_out=check_out,nights=(check_out-check_in).days,guest=guest)
 
 
 @bp.get("/reservation/<uuid:reservation_id>")

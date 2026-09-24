@@ -4,6 +4,12 @@
 <section class="shell page-head"><div><div class="eyebrow">Platform operations</div><h1>iRoya admin</h1></div></section>
 <section class="shell metric-grid"><div class="metric"><strong>{{ metrics.pending_properties }}</strong><span>Pending hotels</span></div><div class="metric"><strong>{{ metrics.verified_properties }}</strong><span>Verified hotels</span></div><div class="metric"><strong>{{ metrics.reservations_this_month }}</strong><span>Bookings this month</span></div><div class="metric"><strong>₦{{ '%.0f'|format(metrics.volume_this_month_minor/100) }}</strong><span>Paid volume</span></div></section>
 <section class="shell card admin-verification"><div class="section-heading"><div><div class="eyebrow">Hotel verification</div><h2>Pending properties</h2></div></div>
-{% for p in pending %}<div class="admin-property-row" data-property-verification="{{ p.id }}"><div><strong>{{ p.name }}</strong><div class="muted">{{ p.city }}, {{ p.state }} · submitted {{ p.created_at }}</div></div><div class="approval-actions"><button class="button button-small" type="button" data-verification-status="verified">Verify</button><button class="button button-small button-secondary" type="button" data-verification-status="rejected">Reject</button></div><p class="form-message"></p></div>{% else %}<p class="muted">No pending properties.</p>{% endfor %}
+{% for p in pending %}
+<div class="admin-property-row" data-property-verification="{{ p.id }}">
+  <div><strong>{{ p.name }}</strong><div class="muted">{{ p.city }}, {{ p.state }} · submitted {{ p.created_at }}</div><div class="setup-checks"><span class="{% if p.has_room %}ready{% endif %}">Room</span><span class="{% if p.has_rate %}ready{% endif %}">Rate</span><span class="{% if p.has_inventory %}ready{% endif %}">Inventory</span></div></div>
+  <div class="approval-actions"><button class="button button-small" type="button" data-verification-status="verified" {% if not (p.has_room and p.has_rate and p.has_inventory) %}disabled title="Property setup is incomplete"{% endif %}>Verify</button><button class="button button-small button-secondary" type="button" data-verification-status="rejected">Reject</button></div>
+  <p class="form-message"></p>
+</div>
+{% else %}<p class="muted">No pending properties.</p>{% endfor %}
 </section>
 {% endblock %}

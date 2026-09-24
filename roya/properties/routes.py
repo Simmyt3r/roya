@@ -142,6 +142,17 @@ def manage_property_page(property_id):
             (str(property_id),),
         ).fetchall())
 
+        readiness_row=conn.execute(
+            """select
+                 exists(select 1 from room_types rt where rt.property_id=%s and rt.status='active') has_room,
+                 exists(select 1 from rate_plans rp join room_types rt on rt.id=rp.room_type_id
+                        where rt.property_id=%s and rt.status='active' and rp.status='active') has_rate,
+                 exists(select 1 from inventory_days i join room_types rt on rt.id=i.room_type_id
+                        where rt.property_id=%s and rt.status='active' and i.date>=current_date
+                          and i.stop_sell=false and (i.total_inventory-i.held_inventory-i.sold_inventory)>0) has_inventory""",
+            (str(property_id),str(property_id),str(property_id)),
+        ).fetchone()
+
     rates_by_room={}
     for rate in rates:
         rates_by_room.setdefault(str(rate["room_type_id"]),[]).append(rate)
@@ -156,6 +167,12 @@ def manage_property_page(property_id):
         property=access,
         rooms=rooms,
         can_manage=access["member_role"] in {"owner","manager","reservations"},
+        readiness={
+            "has_room":bool(readiness_row["has_room"]),
+            "has_rate":bool(readiness_row["has_rate"]),
+            "has_inventory":bool(readiness_row["has_inventory"]),
+            "ready":bool(readiness_row["has_room"] and readiness_row["has_rate"] and readiness_row["has_inventory"]),
+        },
     )
 
 
