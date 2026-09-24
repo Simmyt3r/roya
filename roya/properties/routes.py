@@ -173,15 +173,29 @@ def manage_property_page(property_id):
                order by sort_order,created_at""",
             (str(property_id),),
         ).fetchall())
+        calendar_rows=list(conn.execute(
+            """select i.room_type_id,i.date,i.total_inventory,i.held_inventory,i.sold_inventory,
+                      greatest(0,i.total_inventory-i.held_inventory-i.sold_inventory) available_inventory,
+                      i.stop_sell,i.closed_to_arrival,i.closed_to_departure,i.min_stay,i.price_override_minor
+               from inventory_days i
+               join room_types rt on rt.id=i.room_type_id
+               where rt.property_id=%s and i.date>=current_date and i.date<current_date+30
+               order by rt.created_at,i.date""",
+            (str(property_id),),
+        ).fetchall())
 
     rates_by_room={}
     for rate in rates:
         rates_by_room.setdefault(str(rate["room_type_id"]),[]).append(rate)
     inventory_by_room={str(row["room_type_id"]):row for row in inventory_rows}
+    calendar_by_room={}
+    for row in calendar_rows:
+        calendar_by_room.setdefault(str(row["room_type_id"]),[]).append(row)
 
     for room in rooms:
         room["rates"]=rates_by_room.get(str(room["id"]),[])
         room["inventory_summary"]=inventory_by_room.get(str(room["id"]))
+        room["calendar"]=calendar_by_room.get(str(room["id"]),[])
 
     return render_template(
         "partner/property_manage.html",

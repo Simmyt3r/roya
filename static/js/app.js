@@ -1,4 +1,18 @@
 
+document.querySelectorAll('[data-room-edit-form]').forEach(function(form){
+  form.addEventListener('submit',async function(event){
+    event.preventDefault();const msg=form.querySelector('.form-message');const submit=form.querySelector('button[type="submit"]');const raw=Object.fromEntries(new FormData(form).entries());const body={name:raw.name,description:raw.description||'',capacity_adults:Number(raw.capacity_adults),capacity_children:Number(raw.capacity_children),base_occupancy:Number(raw.base_occupancy),total_inventory:Number(raw.total_inventory),bed_configuration:raw.bed_configuration||'',status:raw.status};msg.textContent='Saving room type…';submit.disabled=true;
+    const res=await fetch('/api/v1/room-types/'+form.dataset.room,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const data=await res.json().catch(function(){return {};});if(!res.ok){msg.textContent=(data.error&&data.error.message)||'Room type could not be saved.';submit.disabled=false;return;}window.location.reload();
+  });
+});
+document.querySelectorAll('[data-rate-edit-form]').forEach(function(form){
+  form.addEventListener('submit',async function(event){
+    event.preventDefault();const msg=form.querySelector('.form-message');const submit=form.querySelector('button[type="submit"]');const raw=Object.fromEntries(new FormData(form).entries());const body={name:raw.name,base_price_minor:Math.round(Number(raw.base_price_ngn)*100),currency:'NGN',guarantee_type:raw.guarantee_type,refundable:new FormData(form).has('refundable'),meal_plan:raw.meal_plan||'room_only',deposit_percent:Number(raw.deposit_percent||0),min_stay:Number(raw.min_stay||1),status:raw.status};msg.textContent='Saving rate plan…';submit.disabled=true;
+    const res=await fetch('/api/v1/rate-plans/'+form.dataset.rate,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const data=await res.json().catch(function(){return {};});if(!res.ok){msg.textContent=(data.error&&data.error.message)||'Rate plan could not be saved.';submit.disabled=false;return;}window.location.reload();
+  });
+});
+
+
 document.querySelectorAll('[data-reservation-status]').forEach(function(button){
   button.addEventListener('click',async function(){
     const target=button.dataset.reservationStatus;
