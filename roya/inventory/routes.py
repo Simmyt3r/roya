@@ -43,8 +43,9 @@ def update_inventory():
         if not access or access["role"] not in {"owner","manager","reservations"}:
             raise RoyaError("FORBIDDEN","You cannot manage this inventory.",403)
         with conn.transaction():
+            updated=0
             for item in body.days:
-                conn.execute(
+                result=conn.execute(
                     """insert into inventory_days(room_type_id,date,total_inventory,price_override_minor,stop_sell,closed_to_arrival,closed_to_departure,min_stay,source)
                        values(%s,%s,%s,%s,%s,%s,%s,%s,'manual')
                        on conflict(room_type_id,date) do update set
@@ -55,4 +56,12 @@ def update_inventory():
                        where inventory_days.sold_inventory+inventory_days.held_inventory <= excluded.total_inventory""",
                     (str(body.room_type_id),item.date,item.total_inventory,item.price_override_minor,item.stop_sell,item.closed_to_arrival,item.closed_to_departure,item.min_stay),
                 )
-    return ok({"updated":len(body.days)})
+                if result.rowcount != 1:
+                    raise RoyaError(
+                        "INVENTORY_BELOW_COMMITTED",
+                        "Inventory cannot be reduced below rooms already held or sold.",
+                        409,
+                        {"date":item.date.isoformat()},
+                    )
+                updated+=1
+    return ok({"updated":updated})
