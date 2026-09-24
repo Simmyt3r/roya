@@ -5,7 +5,7 @@ from roya.common.db import db_connection, supabase_anon_client
 from roya.common.errors import RoyaError
 from roya.common.response import ok
 from .schemas import LoginInput, RegisterInput
-from .service import account_profile, current_identity, login_required
+from .service import account_profile, create_server_session, current_identity, login_required, revoke_server_session
 
 bp = Blueprint("auth", __name__)
 
@@ -26,12 +26,14 @@ def _payload(model):
 
 
 def _store_session(result, account_type: str, name: str | None = None):
-    session["access_token"] = result.session.access_token
-    session["refresh_token"] = result.session.refresh_token
-    session["account_type"] = account_type
-    session["user_email"] = getattr(result.user, "email", None)
+    raw_session_id=create_server_session(result)
+    session.clear()
+    session["sid"]=raw_session_id
+    session["account_type"]=account_type
+    session["user_email"]=getattr(result.user,"email",None)
     if name:
-        session["user_name"] = name
+        session["user_name"]=name
+    session.permanent=True
 
 
 @bp.get("/login")
@@ -101,6 +103,9 @@ def login():
 def logout():
     if not request.is_json:
         raise RoyaError("UNSUPPORTED_MEDIA_TYPE", "JSON request body required.", 415)
+    raw_session_id=session.get("sid")
+    if raw_session_id:
+        revoke_server_session(raw_session_id)
     session.clear()
     return ok({})
 
