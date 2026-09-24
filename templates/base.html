@@ -27,7 +27,7 @@
     </button>
 
     <nav id="main-navigation" class="main-nav" data-main-nav aria-label="Primary navigation">
-      {% if session.get("access_token") %}
+      {% if session.get("sid") %}
         {% if session.get("account_type") == "hotel" %}
           <a href="/partner">Dashboard</a>
           <a href="/partner#properties">Properties</a>
