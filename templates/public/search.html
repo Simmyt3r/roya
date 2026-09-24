@@ -1,4 +1,111 @@
-{% extends "base.html" %}{% block title %}Search hotels · iRoya{% endblock %}{% block content %}
-<section class="shell page-head"><div><div class="eyebrow">Search</div><h1>{{ city or 'Available hotels' }}</h1></div></section><section class="shell property-grid">
-{% for hotel in properties %}<a class="property-card" href="/hotels/{{ hotel.slug }}{% if check_in %}?check_in={{ check_in }}&check_out={{ check_out }}&guests={{ guests }}{% endif %}"><div class="property-image">{% if hotel.cover_image %}<img src="{{ hotel.cover_image }}" alt="{{ hotel.name }}">{% else %}<span>R</span>{% endif %}</div><div class="property-body"><div class="muted">{{ hotel.city }}, {{ hotel.state }}</div><h2>{{ hotel.name }}</h2><div class="property-meta"><span>★ {{ hotel.rating }}</span>{% if hotel.from_price_minor %}<strong>from ₦{{ '%.0f'|format(hotel.from_price_minor/100) }}</strong>{% endif %}</div></div></a>{% else %}<div class="empty"><h2>No sellable rooms found</h2><p>Try different dates or a nearby location. iRoya does not pretend stale inventory is availability.</p></div>{% endfor %}
-</section>{% endblock %}
+{% extends "base.html" %}
+{% block title %}Search hotels · iRoya{% endblock %}
+{% block content %}
+<section class="shell page-head search-page-head">
+  <div>
+    <div class="eyebrow">Search stays</div>
+    <h1>{{ city or "Find a stay" }}</h1>
+    <p class="muted">{{ properties|length }} hotel{% if properties|length != 1 %}s{% endif %} match these filters.</p>
+  </div>
+</section>
+
+<section class="shell">
+  <form class="card search-filter-form" action="/search" method="get" data-search-filters>
+    <div class="search-filter-primary">
+      <label>Location
+        <input name="city" value="{{ query.city or '' }}" placeholder="Lagos, Abuja, Jos…">
+      </label>
+      <label>Check in
+        <input type="date" name="check_in" value="{{ query.check_in or '' }}">
+      </label>
+      <label>Check out
+        <input type="date" name="check_out" value="{{ query.check_out or '' }}">
+      </label>
+      <label>Guests
+        <input type="number" name="guests" min="1" max="20" value="{{ query.guests }}">
+      </label>
+    </div>
+
+    <details class="search-more-filters" {% if query.min_price_ngn is not none or query.max_price_ngn is not none or query.refundable or query.meal_plan or query.guarantee_type %}open{% endif %}>
+      <summary>More filters</summary>
+      <div class="search-filter-secondary">
+        <label>Minimum nightly price (₦)
+          <input type="number" min="0" step="100" name="min_price_ngn" value="{{ query.min_price_ngn if query.min_price_ngn is not none else '' }}">
+        </label>
+        <label>Maximum nightly price (₦)
+          <input type="number" min="0" step="100" name="max_price_ngn" value="{{ query.max_price_ngn if query.max_price_ngn is not none else '' }}">
+        </label>
+        <label>Meal plan
+          <select name="meal_plan">
+            <option value="">Any</option>
+            <option value="room_only" {% if query.meal_plan == "room_only" %}selected{% endif %}>Room only</option>
+            <option value="breakfast" {% if query.meal_plan == "breakfast" %}selected{% endif %}>Breakfast</option>
+            <option value="half_board" {% if query.meal_plan == "half_board" %}selected{% endif %}>Half board</option>
+            <option value="full_board" {% if query.meal_plan == "full_board" %}selected{% endif %}>Full board</option>
+          </select>
+        </label>
+        <label>Reservation guarantee
+          <select name="guarantee_type">
+            <option value="">Any</option>
+            <option value="pay_at_property" {% if query.guarantee_type == "pay_at_property" %}selected{% endif %}>Pay at property</option>
+            <option value="pay_now" {% if query.guarantee_type == "pay_now" %}selected{% endif %}>Pay now</option>
+            <option value="deposit" {% if query.guarantee_type == "deposit" %}selected{% endif %}>Deposit</option>
+            <option value="hotel_approval" {% if query.guarantee_type == "hotel_approval" %}selected{% endif %}>Hotel approval</option>
+          </select>
+        </label>
+        <label>Sort
+          <select name="sort" data-search-sort>
+            <option value="recommended" {% if query.sort == "recommended" %}selected{% endif %}>Recommended</option>
+            <option value="price_asc" {% if query.sort == "price_asc" %}selected{% endif %}>Price: low to high</option>
+            <option value="price_desc" {% if query.sort == "price_desc" %}selected{% endif %}>Price: high to low</option>
+            <option value="rating" {% if query.sort == "rating" %}selected{% endif %}>Guest rating</option>
+            {% if query.lat is not none %}<option value="distance" {% if query.sort == "distance" %}selected{% endif %}>Distance</option>{% endif %}
+          </select>
+        </label>
+        <label>Nearby radius
+          <select name="radius_km">
+            {% for km in [5,10,25,50,100,200] %}
+              <option value="{{ km }}" {% if query.radius_km == km %}selected{% endif %}>{{ km }} km</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="check-label search-check">
+          <input type="checkbox" name="refundable" value="true" {% if query.refundable %}checked{% endif %}>
+          Refundable rates only
+        </label>
+      </div>
+    </details>
+
+    <input type="hidden" name="lat" value="{{ query.lat if query.lat is not none else '' }}" data-search-lat>
+    <input type="hidden" name="lng" value="{{ query.lng if query.lng is not none else '' }}" data-search-lng>
+
+    <div class="search-filter-actions">
+      <button class="button" type="submit">Apply filters</button>
+      <button class="button button-secondary" type="button" data-search-location>Search near me</button>
+      <a class="text-link" href="/search">Clear filters</a>
+    </div>
+    <p class="form-message" data-location-message></p>
+  </form>
+</section>
+
+<section class="shell property-grid search-results">
+{% for hotel in properties %}
+  <a class="property-card" href="/hotels/{{ hotel.slug }}{% if check_in %}?check_in={{ check_in }}&check_out={{ check_out }}&guests={{ guests }}{% endif %}">
+    <div class="property-image">{% if hotel.cover_image %}<img src="{{ hotel.cover_image }}" alt="{{ hotel.name }}">{% else %}<span>R</span>{% endif %}</div>
+    <div class="property-body">
+      <div class="muted">{{ hotel.city }}, {{ hotel.state }}{% if hotel.distance_km is not none %} · {{ '%.1f'|format(hotel.distance_km) }} km away{% endif %}</div>
+      <h2>{{ hotel.name }}</h2>
+      <div class="property-meta">
+        <span>★ {{ hotel.rating }}</span>
+        {% if hotel.from_price_minor %}<strong>from ₦{{ '%.0f'|format(hotel.from_price_minor/100) }}</strong>{% endif %}
+      </div>
+    </div>
+  </a>
+{% else %}
+  <div class="empty search-empty">
+    <h2>No sellable rooms found</h2>
+    <p>Try different dates, loosen a filter, or search a nearby area. iRoya does not pretend stale inventory is availability.</p>
+  </div>
+{% endfor %}
+</section>
+{% endblock %}
