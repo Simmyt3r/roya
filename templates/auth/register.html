@@ -32,7 +32,7 @@
     <label>Password<input type="password" name="password" autocomplete="new-password" minlength="8" required></label>
     <button class="button" type="submit">Create account</button>
     <p class="form-message" aria-live="polite"></p>
-    <p class="auth-switch">Already have an account? <a href="{% if request.args.get('invite') %}/login?invite={{ request.args.get('invite') }}&email={{ request.args.get('email','') }}{% else %}/login{% endif %}">Sign in</a></p>
+    <p class="auth-switch">Already have an account? <a href="{% if request.args.get('invite') %}/login?invite={{ request.args.get('invite') }}&email={{ request.args.get('email','')|urlencode }}{% else %}/login{% endif %}">Sign in</a></p>
   </form>
 </section>
 {% endblock %}
