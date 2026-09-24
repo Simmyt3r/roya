@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 
 
 class Config:
@@ -22,7 +23,9 @@ class Config:
     SMTP_FROM = os.getenv("SMTP_FROM", "")
     SMTP_TLS = os.getenv("SMTP_TLS", "true").lower() != "false"
     RESERVATION_HOLD_MINUTES = int(os.getenv("RESERVATION_HOLD_MINUTES", "15"))
+    SESSION_TTL_DAYS = int(os.getenv("SESSION_TTL_DAYS", "30"))
 
+    PERMANENT_SESSION_LIFETIME = timedelta(days=SESSION_TTL_DAYS)
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
     SESSION_COOKIE_SECURE = os.getenv("FLASK_ENV") == "production"
