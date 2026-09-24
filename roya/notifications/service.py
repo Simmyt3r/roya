@@ -33,7 +33,10 @@ class NotificationService:
         conn.execute(
             """insert into notifications(
                  user_id,reservation_id,channel,event_type,recipient,status,payload,sent_at
-               ) values(%s,%s,'in_app',%s,%s,'sent',%s::jsonb,now())""",
+               ) values(%s,%s,'in_app',%s,%s,'sent',%s::jsonb,now())
+               on conflict(channel,event_type,reservation_id,recipient)
+               where reservation_id is not null
+               do nothing""",
             (
                 user_id,
                 reservation_id,
@@ -49,6 +52,9 @@ class NotificationService:
             """insert into notifications(
                  user_id,reservation_id,channel,event_type,recipient,status,payload,next_attempt_at
                ) values(%s,%s,'email',%s,%s,'queued',%s::jsonb,now())
+               on conflict(channel,event_type,reservation_id,recipient)
+               where reservation_id is not null
+               do nothing
                returning id""",
             (
                 user_id,
@@ -62,7 +68,7 @@ class NotificationService:
                 }),
             ),
         ).fetchone()
-        return str(row["id"])
+        return str(row["id"]) if row else None
 
     @staticmethod
     def _smtp_configured():
@@ -184,6 +190,7 @@ class NotificationService:
         }
 
     def _deliver_new(self,email_ids):
+        email_ids=[item for item in email_ids if item]
         if not email_ids:
             return {"configured":self._smtp_configured(),"checked":0,"sent":0,"retrying":0,"failed":0}
         return self.deliver_pending_emails(
@@ -375,6 +382,200 @@ class NotificationService:
                     ))
             delivery=self._deliver_new(email_ids)
             return {"created":1,"emails_queued":1,"delivery":delivery}
+        except Exception:
+            return {"created":0,"error":"notification_write_failed"}
+
+    def notify_payment_success(self,reservation_id):
+        email_ids=[]
+        try:
+            with db_connection() as conn:
+                with conn.transaction():
+                    r=conn.execute(
+                        """select r.id,r.reference,r.user_id,r.organization_id,r.guest_email,
+                                  r.amount_paid_minor,r.currency,p.name property_name
+                           from reservations r
+                           join properties p on p.id=r.property_id
+                           where r.id=%s""",
+                        (reservation_id,),
+                    ).fetchone()
+                    if not r:
+                        return {"created":0}
+
+                    amount=f"{r['currency']} {int(r['amount_paid_minor'] or 0)/100:,.2f}"
+                    guest_title="Payment received"
+                    guest_body=f"We recorded {amount} for {r['reference']} at {r['property_name']}."
+                    guest_href=f"/reservation/{r['id']}"
+                    self._insert_in_app(
+                        conn,
+                        user_id=r["user_id"],
+                        reservation_id=r["id"],
+                        event_type="payment.received",
+                        title=guest_title,
+                        body=guest_body,
+                        href=guest_href,
+                    )
+                    email_ids.append(self._queue_email(
+                        conn,
+                        user_id=r["user_id"],
+                        reservation_id=r["id"],
+                        event_type="payment.received",
+                        recipient=r["guest_email"],
+                        subject=f"iRoya: Payment received · {r['reference']}",
+                        body=f"{guest_body}\n\nView reservation: {self._absolute_url(guest_href)}",
+                        href=guest_href,
+                    ))
+
+                    members=list(conn.execute(
+                        """select om.user_id,u.email
+                           from organization_members om
+                           join auth.users u on u.id=om.user_id
+                           where om.organization_id=%s
+                             and om.status='active'
+                             and om.role in ('owner','manager','finance','reservations')""",
+                        (r["organization_id"],),
+                    ).fetchall())
+                    hotel_title="Reservation payment received"
+                    hotel_body=f"{r['reference']} at {r['property_name']} has recorded payment of {amount}."
+                    hotel_href="/partner#recent-reservations"
+                    for member in members:
+                        self._insert_in_app(
+                            conn,
+                            user_id=member["user_id"],
+                            reservation_id=r["id"],
+                            event_type="partner.payment_received",
+                            title=hotel_title,
+                            body=hotel_body,
+                            href=hotel_href,
+                        )
+                        if member["email"]:
+                            email_ids.append(self._queue_email(
+                                conn,
+                                user_id=member["user_id"],
+                                reservation_id=r["id"],
+                                event_type="partner.payment_received",
+                                recipient=member["email"],
+                                subject=f"iRoya hotel: Payment received · {r['reference']}",
+                                body=f"{hotel_body}\n\nOpen hotel workspace: {self._absolute_url(hotel_href)}",
+                                href=hotel_href,
+                            ))
+            delivery=self._deliver_new(email_ids)
+            return {"created":1+len(members),"emails_queued":len([x for x in email_ids if x]),"delivery":delivery}
+        except Exception:
+            return {"created":0,"error":"notification_write_failed"}
+
+    def notify_refund_requested(self,reservation_id):
+        email_ids=[]
+        try:
+            with db_connection() as conn:
+                with conn.transaction():
+                    r=conn.execute(
+                        """select r.id,r.reference,r.organization_id,p.name property_name,
+                                  coalesce(sum(rf.amount_minor),0) refund_amount_minor,r.currency
+                           from reservations r
+                           join properties p on p.id=r.property_id
+                           join refunds rf on rf.reservation_id=r.id and rf.status in ('requested','processing')
+                           where r.id=%s
+                           group by r.id,r.reference,r.organization_id,p.name,r.currency""",
+                        (reservation_id,),
+                    ).fetchone()
+                    if not r:
+                        return {"created":0}
+                    amount=f"{r['currency']} {int(r['refund_amount_minor'] or 0)/100:,.2f}"
+                    title="Refund request received"
+                    body=f"{r['reference']} at {r['property_name']} has a refund request for {amount}."
+                    href="/partner#refunds"
+                    members=list(conn.execute(
+                        """select om.user_id,u.email
+                           from organization_members om
+                           join auth.users u on u.id=om.user_id
+                           where om.organization_id=%s
+                             and om.status='active'
+                             and om.role in ('owner','manager','finance')""",
+                        (r["organization_id"],),
+                    ).fetchall())
+                    for member in members:
+                        self._insert_in_app(
+                            conn,
+                            user_id=member["user_id"],
+                            reservation_id=r["id"],
+                            event_type="partner.refund_requested",
+                            title=title,
+                            body=body,
+                            href=href,
+                        )
+                        if member["email"]:
+                            email_ids.append(self._queue_email(
+                                conn,
+                                user_id=member["user_id"],
+                                reservation_id=r["id"],
+                                event_type="partner.refund_requested",
+                                recipient=member["email"],
+                                subject=f"iRoya hotel: Refund requested · {r['reference']}",
+                                body=f"{body}\n\nReview refund: {self._absolute_url(href)}",
+                                href=href,
+                            ))
+            delivery=self._deliver_new(email_ids)
+            return {"created":len(members),"emails_queued":len([x for x in email_ids if x]),"delivery":delivery}
+        except Exception:
+            return {"created":0,"error":"notification_write_failed"}
+
+    def notify_refund_status(self,reservation_id,status,payment_status=None):
+        email_ids=[]
+        try:
+            with db_connection() as conn:
+                with conn.transaction():
+                    r=conn.execute(
+                        """select r.id,r.reference,r.user_id,r.guest_email,r.currency,
+                                  r.payment_status,p.name property_name,
+                                  coalesce(sum(rf.amount_minor) filter(where rf.status='successful'),0) refunded_minor
+                           from reservations r
+                           join properties p on p.id=r.property_id
+                           left join refunds rf on rf.reservation_id=r.id
+                           where r.id=%s
+                           group by r.id,r.reference,r.user_id,r.guest_email,r.currency,
+                                    r.payment_status,p.name""",
+                        (reservation_id,),
+                    ).fetchone()
+                    if not r:
+                        return {"created":0}
+
+                    effective_payment_status=payment_status or r["payment_status"]
+                    if status=="successful":
+                        title="Refund completed" if effective_payment_status=="refunded" else "Partial refund completed"
+                        amount=f"{r['currency']} {int(r['refunded_minor'] or 0)/100:,.2f}"
+                        body=f"{amount} has been recorded as refunded for {r['reference']} at {r['property_name']}."
+                        event_type="refund.successful"
+                    elif status=="failed":
+                        title="Refund needs attention"
+                        body=f"The refund for {r['reference']} could not be completed automatically. iRoya or the hotel will need to review it."
+                        event_type="refund.failed"
+                    else:
+                        title="Refund processing"
+                        body=f"The refund for {r['reference']} is being processed."
+                        event_type="refund.processing"
+
+                    href=f"/reservation/{r['id']}"
+                    self._insert_in_app(
+                        conn,
+                        user_id=r["user_id"],
+                        reservation_id=r["id"],
+                        event_type=event_type,
+                        title=title,
+                        body=body,
+                        href=href,
+                    )
+                    email_ids.append(self._queue_email(
+                        conn,
+                        user_id=r["user_id"],
+                        reservation_id=r["id"],
+                        event_type=event_type,
+                        recipient=r["guest_email"],
+                        subject=f"iRoya: {title} · {r['reference']}",
+                        body=f"{body}\n\nView reservation: {self._absolute_url(href)}",
+                        href=href,
+                    ))
+            delivery=self._deliver_new(email_ids)
+            return {"created":1,"emails_queued":len([x for x in email_ids if x]),"delivery":delivery}
         except Exception:
             return {"created":0,"error":"notification_write_failed"}
 
