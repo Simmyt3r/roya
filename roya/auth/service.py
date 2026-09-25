@@ -1,3 +1,4 @@
+from urllib.parse import urlencode
 import hashlib
 import secrets
 from dataclasses import dataclass
@@ -197,7 +198,14 @@ def login_required(view):
             return view(*args,**kwargs)
 
         if request.method=="GET" and not request.path.startswith("/api/"):
-            next_path=request.full_path.rstrip("?")
+            safe_args=[
+                (key,value)
+                for key,values in request.args.lists()
+                if not key.lower().startswith("_vercel")
+                for value in values
+            ]
+            query=urlencode(safe_args,doseq=True)
+            next_path=request.path+(f"?{query}" if query else "")
             return redirect(url_for("auth.login_page",next=next_path))
 
         raise RoyaError("AUTH_REQUIRED","Authentication is required.",401)
