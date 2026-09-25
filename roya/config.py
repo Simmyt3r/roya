@@ -22,6 +22,7 @@ class Config:
     SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
     SMTP_FROM = os.getenv("SMTP_FROM", "")
     SMTP_TLS = os.getenv("SMTP_TLS", "true").lower() != "false"
+    SMTP_SECURITY = os.getenv("SMTP_SECURITY", "")
     RESERVATION_HOLD_MINUTES = int(os.getenv("RESERVATION_HOLD_MINUTES", "15"))
     SESSION_TTL_DAYS = int(os.getenv("SESSION_TTL_DAYS", "30"))
 

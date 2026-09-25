@@ -3,6 +3,38 @@
 {% block content %}
 <section class="shell page-head"><div><div class="eyebrow">Platform operations</div><h1>iRoya admin</h1></div></section>
 <section class="shell metric-grid"><div class="metric"><strong>{{ metrics.pending_properties }}</strong><span>Pending hotels</span></div><div class="metric"><strong>{{ metrics.verified_properties }}</strong><span>Verified hotels</span></div><div class="metric"><strong>{{ metrics.reservations_this_month }}</strong><span>Bookings this month</span></div><div class="metric"><strong>₦{{ '%.0f'|format(metrics.volume_this_month_minor/100) }}</strong><span>Paid volume</span></div></section>
+<section class="shell admin-integrations" aria-labelledby="integrations-heading">
+  <div class="section-heading"><div><div class="eyebrow">Platform configuration</div><h2 id="integrations-heading">Integrations</h2></div></div>
+  <div class="admin-integration-grid">
+    <form class="card partner-form" data-admin-integration="smtp" autocomplete="off">
+      <h3>SMTP email</h3>
+      <p class="muted">Reservation updates and reminders. Connection check logs in without sending an email.</p>
+      <p class="integration-state">{{ 'Configured' if smtp.configured else 'Not configured' }}{% if smtp.source == 'environment' %} · Environment{% elif smtp.source == 'dashboard' %} · Dashboard{% endif %}</p>
+      <div class="form-grid">
+        <label>SMTP host<input name="host" required maxlength="255" value="{{ smtp.host }}" placeholder="smtp.example.com"></label>
+        <label>Port<select name="port"><option value="587" {% if smtp.port == 587 %}selected{% endif %}>587 · STARTTLS</option><option value="465" {% if smtp.port == 465 %}selected{% endif %}>465 · SSL</option><option value="2525" {% if smtp.port == 2525 %}selected{% endif %}>2525 · STARTTLS</option></select></label>
+        <label>Encryption<select name="security"><option value="starttls" {% if smtp.security != 'ssl' %}selected{% endif %}>STARTTLS</option><option value="ssl" {% if smtp.security == 'ssl' %}selected{% endif %}>SSL</option></select></label>
+        <label>From address<input name="sender" type="email" required maxlength="254" value="{{ smtp.sender }}" placeholder="bookings@example.com"></label>
+        <label>Username<input name="username" required maxlength="255" value="{{ smtp.username }}" autocomplete="off"></label>
+        <label>Password<input name="password" type="password" maxlength="512" autocomplete="new-password" placeholder="{{ 'Leave blank to keep saved password' if smtp.has_password and smtp.source == 'dashboard' else 'Enter SMTP password' }}"></label>
+      </div>
+      <div class="integration-actions"><button class="button button-small" type="submit">Save SMTP</button><button class="button button-small button-secondary" type="button" data-integration-test="smtp" {% if not smtp.configured %}disabled{% endif %}>Check connection</button></div>
+      <p class="form-message" role="status" aria-live="polite"></p>
+      <p class="muted">Account confirmation emails are configured separately in Supabase Auth.</p>
+    </form>
+    <form class="card partner-form" data-admin-integration="paystack" autocomplete="off">
+      <h3>Paystack payments</h3>
+      <p class="muted">Use matching test or live keys. The connection check does not initiate a payment.</p>
+      <p class="integration-state">{{ 'Configured' if paystack.configured else 'Not configured' }}{% if paystack.mode %} · {{ paystack.mode|title }} mode{% endif %}{% if paystack.source == 'environment' %} · Environment{% elif paystack.source == 'dashboard' %} · Dashboard{% endif %}</p>
+      <label>Public key<input name="public_key" required maxlength="256" value="{{ paystack.public_key }}" placeholder="pk_test_..."></label>
+      <label>Secret key<input name="secret_key" type="password" maxlength="256" autocomplete="new-password" placeholder="{{ 'Leave blank to keep saved key' if paystack.has_secret and paystack.source == 'dashboard' else 'sk_test_...' }}"></label>
+      <div class="integration-actions"><button class="button button-small" type="submit">Save Paystack</button><button class="button button-small button-secondary" type="button" data-integration-test="paystack" {% if not paystack.configured %}disabled{% endif %}>Check connection</button></div>
+      <p class="form-message" role="status" aria-live="polite"></p>
+      <p class="muted">Set this webhook URL in your Paystack dashboard for the chosen mode:</p>
+      <code class="integration-webhook">{{ paystack_webhook_url }}</code>
+    </form>
+  </div>
+</section>
 <section class="shell card admin-verification"><div class="section-heading"><div><div class="eyebrow">Hotel verification</div><h2>Pending properties</h2></div></div>
 {% for p in pending %}
 <div class="admin-property-row" data-property-verification="{{ p.id }}">

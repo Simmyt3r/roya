@@ -1,11 +1,62 @@
 import json
-from flask import Blueprint,g,render_template,request
+import re
+from flask import Blueprint,current_app,g,render_template,request
+from pydantic import BaseModel, EmailStr, Field, ValidationError, field_validator, model_validator
 from roya.common.db import db_connection
 from roya.common.errors import RoyaError
+from roya.common.integrations import (
+    integration_status, paystack_settings, save_integration, smtp_settings,
+)
 from roya.common.response import ok
 from .service import require_platform_admin
 
 bp=Blueprint("admin",__name__)
+
+
+class SmtpConfiguration(BaseModel):
+    host: str = Field(min_length=4,max_length=255)
+    port: int = Field(ge=1,le=65535)
+    security: str
+    username: str = Field(min_length=1,max_length=255)
+    sender: EmailStr
+    password: str | None = Field(default=None,max_length=512)
+
+    @field_validator("host")
+    @classmethod
+    def valid_host(cls,value):
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.-]*[A-Za-z0-9]",value) or ".." in value:
+            raise ValueError("Use a hostname such as smtp.example.com.")
+        return value
+
+    @model_validator(mode="after")
+    def valid_security(self):
+        if (self.security,self.port) not in {
+            ("ssl",465),("starttls",587),("starttls",2525)
+        }:
+            raise ValueError("Use SSL on 465 or STARTTLS on 587 or 2525.")
+        return self
+
+
+class PaystackConfiguration(BaseModel):
+    public_key: str = Field(min_length=12,max_length=256)
+    secret_key: str | None = Field(default=None,max_length=256)
+
+    @field_validator("public_key")
+    @classmethod
+    def valid_public_key(cls,value):
+        if not re.fullmatch(r"pk_(test|live)_[A-Za-z0-9_-]{4,}",value):
+            raise ValueError("Enter a Paystack public key.")
+        return value
+
+
+def _configuration_payload(schema):
+    if not request.is_json:
+        raise RoyaError("UNSUPPORTED_MEDIA_TYPE","JSON request body required.",415)
+    try:
+        return schema.model_validate(request.get_json(silent=True) or {})
+    except ValidationError as exc:
+        # Pydantic errors may include the submitted secret; never echo them.
+        raise RoyaError("VALIDATION_ERROR","Check the integration settings and try again.",422) from exc
 
 
 @bp.get("/admin")
@@ -31,7 +82,54 @@ def dashboard():
                where p.verification_status='pending'
                order by p.created_at asc limit 50"""
         ).fetchall())
-    return render_template("admin/dashboard.html",metrics=metrics,pending=pending)
+    return render_template(
+        "admin/dashboard.html",metrics=metrics,pending=pending,
+        smtp=integration_status("smtp"),paystack=integration_status("paystack"),
+        paystack_webhook_url=(current_app.config["APP_URL"].rstrip("/")+"/api/webhooks/paystack"),
+    )
+
+
+@bp.put("/api/v1/admin/integrations/smtp")
+@require_platform_admin
+def save_smtp():
+    body=_configuration_payload(SmtpConfiguration)
+    save_integration("smtp",{
+        "host":body.host,"port":body.port,"security":body.security,
+        "username":body.username,"sender":str(body.sender),
+    },body.password or None,g.platform_admin.user_id)
+    return ok(integration_status("smtp"))
+
+
+@bp.put("/api/v1/admin/integrations/paystack")
+@require_platform_admin
+def save_paystack():
+    body=_configuration_payload(PaystackConfiguration)
+    secret=(body.secret_key or "").strip()
+    if secret and not re.fullmatch(r"sk_(test|live)_[A-Za-z0-9_-]{4,}",secret):
+        raise RoyaError("VALIDATION_ERROR","Enter a valid Paystack secret key.",422)
+    mode="live" if secret.startswith("sk_live_") else "test" if secret else paystack_settings()["mode"]
+    if not mode or not body.public_key.startswith(f"pk_{mode}_"):
+        raise RoyaError("KEY_MODE_MISMATCH","Paystack public and secret keys must use the same mode.",422)
+    save_integration("paystack",{
+        "public_key":body.public_key,"mode":mode,
+    },secret or None,g.platform_admin.user_id)
+    return ok(integration_status("paystack"))
+
+
+@bp.post("/api/v1/admin/integrations/smtp/test")
+@require_platform_admin
+def test_smtp():
+    from roya.notifications.smtp import SmtpNotificationAdapter
+    SmtpNotificationAdapter().test_connection()
+    return ok({"connected":True,"message":"SMTP connection and login succeeded. No email was sent."})
+
+
+@bp.post("/api/v1/admin/integrations/paystack/test")
+@require_platform_admin
+def test_paystack():
+    from roya.payments.paystack import PaystackProvider
+    PaystackProvider().test_connection()
+    return ok({"connected":True,"message":"Paystack key accepted. No payment was initiated."})
 
 
 @bp.put("/api/v1/admin/properties/<uuid:property_id>/verification")

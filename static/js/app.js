@@ -96,6 +96,50 @@ document.querySelectorAll('[data-pending-invite]').forEach(function(row){
   });
 });
 
+document.querySelectorAll('[data-admin-integration]').forEach(function(form){
+  const provider=form.dataset.adminIntegration;
+  const test=form.querySelector('[data-integration-test]');
+  const message=form.querySelector('.form-message');
+  const endpoint='/api/v1/admin/integrations/'+provider;
+
+  form.addEventListener('submit',async function(event){
+    event.preventDefault();
+    const submit=form.querySelector('[type="submit"]');
+    const body=Object.fromEntries(new FormData(form).entries());
+    if(provider==='smtp')body.port=Number(body.port);
+    submit.disabled=true;
+    message.textContent='Saving settings…';
+    try{
+      const response=await fetch(endpoint,{
+        method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)
+      });
+      const data=await response.json().catch(function(){return {};});
+      if(!response.ok){
+        message.textContent=(data.error&&data.error.message)||'Settings could not be saved.';
+        return;
+      }
+      form.querySelectorAll('input[type="password"]').forEach(function(input){input.value='';});
+      message.textContent='Saved. Run the connection check before use.';
+      if(test)test.disabled=false;
+    }catch(_error){message.textContent='Connection failed. Please try again.';}
+    finally{submit.disabled=false;}
+  });
+
+  if(test)test.addEventListener('click',async function(){
+    test.disabled=true;
+    message.textContent='Checking connection…';
+    try{
+      const response=await fetch(endpoint+'/test',{
+        method:'POST',headers:{'Content-Type':'application/json'},body:'{}'
+      });
+      const data=await response.json().catch(function(){return {};});
+      message.textContent=response.ok?(data.data&&data.data.message)||'Connection succeeded.':
+        (data.error&&data.error.message)||'Connection check failed.';
+    }catch(_error){message.textContent='Connection check could not complete.';}
+    finally{test.disabled=false;}
+  });
+});
+
 
 document.querySelectorAll('[data-property-image]').forEach(function(card){
   const save=card.querySelector('[data-image-save]');

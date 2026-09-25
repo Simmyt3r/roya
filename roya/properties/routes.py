@@ -10,6 +10,7 @@ from roya.auth.service import account_type_for_user, current_identity, login_req
 from roya.common.db import db_connection, supabase_admin_client
 from roya.common.errors import RoyaError
 from roya.common.media import read_image_upload, storage_object_path
+from roya.common.integrations import integration_status
 from roya.common.response import ok
 from roya.common.slug import slugify
 from roya.organizations.service import require_organization_member
@@ -106,11 +107,8 @@ def health():
         "database_reachable":reachable,
         "integrations":{
             "storage_admin_configured":bool(current_app.config.get("SUPABASE_SERVICE_ROLE_KEY")),
-            "payments_configured":bool(current_app.config.get("PAYSTACK_SECRET_KEY")),
-            "notifications_configured":bool(
-                current_app.config.get("SMTP_HOST")
-                and current_app.config.get("SMTP_FROM")
-            ),
+            "payments_configured":integration_status("paystack")["configured"] if reachable else bool(current_app.config.get("PAYSTACK_SECRET_KEY")),
+            "notifications_configured":integration_status("smtp")["configured"] if reachable else bool(current_app.config.get("SMTP_HOST") and current_app.config.get("SMTP_FROM")),
         },
     })
 

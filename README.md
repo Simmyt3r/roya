@@ -60,6 +60,8 @@ Configure:
 - `CRON_SECRET`
 - SMTP values when email notifications are enabled
 
+Platform administrators can configure SMTP notifications and Paystack under **Admin → Integrations** after signing in. These dashboard settings take precedence over the corresponding environment variables. Passwords and secret keys are stored in Supabase Vault and are never returned by the admin API. Supabase Vault must be enabled in the project before using the dashboard. The Paystack webhook URL appears in Admin and must also be entered in the Paystack dashboard for the matching test or live mode. iRoya SMTP settings send reservation notifications and reminders; Supabase Auth confirmation emails are configured separately in Supabase Auth.
+
 `SUPABASE_ANON_KEY` remains supported as a legacy fallback. Never expose the Supabase service-role key, database password, Flask secret, cron secret or Paystack secret to browser code.
 
 ## Supabase

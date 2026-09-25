@@ -5,6 +5,7 @@ from datetime import datetime,timedelta,timezone
 from flask import current_app
 
 from roya.common.db import db_connection
+from roya.common.integrations import integration_status
 
 
 class NotificationAdapter(ABC):
@@ -72,10 +73,7 @@ class NotificationService:
 
     @staticmethod
     def _smtp_configured():
-        return bool(
-            current_app.config.get("SMTP_HOST")
-            and current_app.config.get("SMTP_FROM")
-        )
+        return integration_status("smtp")["configured"]
 
     def _adapter(self):
         if self.adapter:

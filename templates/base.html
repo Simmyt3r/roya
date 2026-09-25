@@ -43,6 +43,7 @@
           <span class="account-role">Guest</span>
         {% endif %}
         <a href="/notifications">Notifications</a>
+        {% if session.get("platform_role") == "admin" %}<a href="/admin">Admin</a>{% endif %}
         <button class="install-app-button" type="button" data-install-app hidden>Install app</button>
         <button class="nav-signout" type="button" data-logout>Sign out</button>
       {% else %}

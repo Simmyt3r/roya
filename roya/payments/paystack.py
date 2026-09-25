@@ -6,12 +6,13 @@ import requests
 from flask import current_app
 
 from roya.common.errors import RoyaError
+from roya.common.integrations import paystack_settings
 from .provider import PaymentProvider
 
 
 class PaystackProvider(PaymentProvider):
     def __init__(self):
-        self.secret=current_app.config.get("PAYSTACK_SECRET_KEY","")
+        self.secret=paystack_settings()["secret_key"]
         self.base_url=current_app.config.get("PAYSTACK_BASE_URL","https://api.paystack.co").rstrip("/")
 
     def _headers(self):
@@ -121,3 +122,19 @@ class PaystackProvider(PaymentProvider):
             return False
         digest=hmac.new(self.secret.encode(),raw_body,hashlib.sha512).hexdigest()
         return hmac.compare_digest(digest,signature)
+
+    def test_connection(self):
+        try:
+            response=requests.get(
+                f"{self.base_url}/integration/payment_session_timeout",
+                headers=self._headers(),timeout=12,
+            )
+            payload=response.json()
+        except (requests.RequestException,ValueError,TypeError) as exc:
+            raise RoyaError("PAYSTACK_CONNECTION_FAILED","Paystack could not be reached.",502) from exc
+        if not response.ok or not isinstance(payload,dict) or payload.get("status") is not True:
+            raise RoyaError(
+                "PAYSTACK_CONNECTION_FAILED",
+                "Paystack rejected this key. Check the key and its mode.",502,
+            )
+        return True

@@ -38,11 +38,12 @@ def _payload(model):
         raise RoyaError("VALIDATION_ERROR", "Please correct the submitted details.", 422, {"errors": exc.errors()}) from exc
 
 
-def _store_session(result, account_type: str, name: str | None = None):
+def _store_session(result, account_type: str, name: str | None = None, platform_role: str = "user"):
     raw_session_id=create_server_session(result)
     session.clear()
     session["sid"]=raw_session_id
     session["account_type"]=account_type
+    session["platform_role"]=platform_role
     session["user_email"]=getattr(result.user,"email",None)
     if name:
         session["user_name"]=name
@@ -107,7 +108,7 @@ def login():
         raise RoyaError("AUTH_FAILED", "Invalid email or password.", 401) from exc
 
     profile = account_profile(str(result.user.id))
-    _store_session(result, profile["account_type"], profile.get("name"))
+    _store_session(result, profile["account_type"], profile.get("name"), profile["platform_role"])
     safe_next=_safe_next_path(body.next_path)
     redirect_to = f"/invite/{body.invite_token}" if body.invite_token else (safe_next or ("/partner" if profile["account_type"] == "hotel" else "/account"))
 
@@ -172,6 +173,7 @@ def account_page():
     session["account_type"] = profile["account_type"]
     session["user_email"] = identity.email
     session["user_name"] = profile.get("name")
+    session["platform_role"] = profile["platform_role"]
 
     with db_connection() as conn:
         reservations = list(
