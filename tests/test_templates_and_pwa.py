@@ -56,9 +56,15 @@ def test_static_pwa_assets_are_served_with_expected_content():
     sw=client.get("/static/js/sw.js")
     assert sw.status_code==200
     sw_text=sw.get_data(as_text=True)
-    assert "iroya-shell-v14" in sw_text
-    assert "url.pathname.startsWith('/api/')" in sw_text
-    assert "url.pathname.startsWith('/partner')" in sw_text
+    assert "iroya-shell-v15" in sw_text
+    assert "'/api/'" in sw_text
+    assert "'/partner'" in sw_text
+    assert "'/account'" in sw_text
+    assert "'/notifications'" in sw_text
+    assert "'/book'" in sw_text
+    assert "'/payment/'" in sw_text
+    assert "cacheControl.includes('private')" in sw_text
+    assert "cacheControl.includes('no-store')" in sw_text
 
     css=client.get("/static/css/app.css")
     js=client.get("/static/js/app.js")
