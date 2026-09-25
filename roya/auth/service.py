@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 
-from flask import current_app, g, request, session
+from flask import current_app, g, redirect, request, session, url_for
 
 from roya.common.db import db_connection, supabase_anon_client
 from roya.common.errors import RoyaError
@@ -192,7 +192,14 @@ def require_account_type(expected: str):
 def login_required(view):
     @wraps(view)
     def wrapped(*args,**kwargs):
-        current_identity(required=True)
-        return view(*args,**kwargs)
+        identity=current_identity(required=False)
+        if identity:
+            return view(*args,**kwargs)
+
+        if request.method=="GET" and not request.path.startswith("/api/"):
+            next_path=request.full_path.rstrip("?")
+            return redirect(url_for("auth.login_page",next=next_path))
+
+        raise RoyaError("AUTH_REQUIRED","Authentication is required.",401)
 
     return wrapped
