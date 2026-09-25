@@ -1,3 +1,4 @@
+from urllib.parse import urlsplit
 from flask import Blueprint, render_template, request, session
 from pydantic import BaseModel, Field, ValidationError
 
@@ -13,6 +14,18 @@ bp = Blueprint("auth", __name__)
 class ProfileUpdate(BaseModel):
     name: str = Field(min_length=2,max_length=120)
     phone: str | None = Field(default=None,max_length=30)
+
+
+def _safe_next_path(value):
+    if not value or len(value)>2048:
+        return None
+    value=str(value).strip()
+    if not value.startswith("/") or value.startswith("//"):
+        return None
+    parsed=urlsplit(value)
+    if parsed.scheme or parsed.netloc:
+        return None
+    return value
 
 
 def _payload(model):
@@ -38,12 +51,18 @@ def _store_session(result, account_type: str, name: str | None = None):
 
 @bp.get("/login")
 def login_page():
-    return render_template("auth/login.html")
+    return render_template(
+        "auth/login.html",
+        next_path=_safe_next_path(request.args.get("next")),
+    )
 
 
 @bp.get("/register")
 def register_page():
-    return render_template("auth/register.html")
+    return render_template(
+        "auth/register.html",
+        next_path=_safe_next_path(request.args.get("next")),
+    )
 
 
 @bp.post("/api/v1/auth/register")
@@ -61,7 +80,8 @@ def register():
     except Exception as exc:
         raise RoyaError("AUTH_REGISTRATION_FAILED", "Registration could not be completed.", 400) from exc
 
-    redirect_to = f"/invite/{body.invite_token}" if body.invite_token else ("/partner/start" if body.account_type == "hotel" else "/account")
+    safe_next=_safe_next_path(body.next_path)
+    redirect_to = f"/invite/{body.invite_token}" if body.invite_token else (safe_next or ("/partner/start" if body.account_type == "hotel" else "/account"))
     if result.session:
         _store_session(result, body.account_type, body.name)
 
@@ -88,7 +108,8 @@ def login():
 
     profile = account_profile(str(result.user.id))
     _store_session(result, profile["account_type"], profile.get("name"))
-    redirect_to = f"/invite/{body.invite_token}" if body.invite_token else ("/partner" if profile["account_type"] == "hotel" else "/account")
+    safe_next=_safe_next_path(body.next_path)
+    redirect_to = f"/invite/{body.invite_token}" if body.invite_token else (safe_next or ("/partner" if profile["account_type"] == "hotel" else "/account"))
 
     return ok(
         {
