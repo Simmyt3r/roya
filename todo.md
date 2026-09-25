@@ -29,13 +29,14 @@
 ## Before public launch
 
 - [x] Deploy the consolidated latest `main` to production
-- [ ] Verify `SUPABASE_SERVICE_ROLE_KEY` is present in production and live-test hotel photo upload
+- [x] Verify `SUPABASE_SERVICE_ROLE_KEY` is present in production
+- [ ] Live-test hotel photo upload as an authenticated owner/manager
 - [ ] Configure/verify Paystack test credentials and webhook delivery
 - [ ] Run a complete test payment and refund lifecycle against Paystack test mode
 - [x] Enforce refundable-rate cancellation windows before automatic refund requests
 - [x] Run authenticated two-user RLS isolation tests on the replacement Supabase project
 - [x] Re-run the last-room concurrency race on the replacement Supabase project
-- [ ] Enable/review Supabase leaked-password protection
+- [ ] Enable/review Supabase leaked-password protection in Auth settings (Supabase Pro+ feature)
 - [x] Review PostGIS-owned advisor findings; defer extension/spatial_ref_sys ownership warnings for launch because they are Supabase/PostGIS-owned, not iRoya business tables
 - [ ] Configure and test SMTP guest/hotel notifications
 - [x] Add property/room image deletion, ordering and alt-text editing
