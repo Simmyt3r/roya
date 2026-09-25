@@ -159,10 +159,20 @@ def get_property_by_slug(slug: str, check_in: date | None=None, check_out: date 
             nights=(check_out-check_in).days; filtered=[]
             for room in rooms:
                 row=conn.execute(
-                    """select count(*) night_count,min(total_inventory-held_inventory-sold_inventory) min_available
-                       from inventory_days where room_type_id=%s and date >= %s and date < %s and stop_sell=false""",
-                    (room["id"],check_in,check_out),
+                    """select count(*) night_count,
+                              min(total_inventory-held_inventory-sold_inventory) min_available
+                       from inventory_days
+                       where room_type_id=%s
+                         and date >= %s
+                         and date < %s
+                         and stop_sell=false
+                         and min_stay<=%s
+                         and (total_inventory-held_inventory-sold_inventory)>0
+                         and not (date=%s and closed_to_arrival)
+                         and not (date=(%s::date-1) and closed_to_departure)""",
+                    (room["id"],check_in,check_out,nights,check_in,check_out),
                 ).fetchone()
-                if row and row["night_count"]==nights and (row["min_available"] or 0)>0: filtered.append(room)
+                if row and row["night_count"]==nights and (row["min_available"] or 0)>0:
+                    filtered.append(room)
             rooms=filtered
         return prop,images,rooms
