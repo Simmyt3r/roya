@@ -36,3 +36,30 @@ def test_search_query_requires_coordinate_pair():
     with app.test_request_context("/search?lat=6.5"):
         with pytest.raises(RoyaError):
             _search_query()
+
+
+def test_hotel_detail_rejects_backwards_dates_before_database_access():
+    app=Flask(__name__)
+    from roya.common.errors import register_error_handlers
+    from roya.properties.routes import bp
+    register_error_handlers(app)
+    app.register_blueprint(bp)
+
+    response=app.test_client().get(
+        "/hotels/demo?check_in=2026-09-28&check_out=2026-09-27&guests=2"
+    )
+    assert response.status_code==422
+    assert response.get_json()["error"]["code"]=="VALIDATION_ERROR"
+
+
+@pytest.mark.parametrize("guests",["abc","0","21"])
+def test_hotel_detail_rejects_invalid_guest_count_before_database_access(guests):
+    app=Flask(__name__)
+    from roya.common.errors import register_error_handlers
+    from roya.properties.routes import bp
+    register_error_handlers(app)
+    app.register_blueprint(bp)
+
+    response=app.test_client().get(f"/hotels/demo?guests={guests}")
+    assert response.status_code==422
+    assert response.get_json()["error"]["code"]=="VALIDATION_ERROR"
