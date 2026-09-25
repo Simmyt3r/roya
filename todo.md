@@ -28,7 +28,7 @@
 
 ## Before public launch
 
-- [ ] Deploy the consolidated latest `main` after the current Vercel build-rate limit clears
+- [x] Deploy the consolidated latest `main` to production
 - [ ] Verify `SUPABASE_SERVICE_ROLE_KEY` is present in production and live-test hotel photo upload
 - [ ] Configure/verify Paystack test credentials and webhook delivery
 - [ ] Run a complete test payment and refund lifecycle against Paystack test mode
