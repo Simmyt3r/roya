@@ -1,3 +1,4 @@
+import json
 import hashlib
 import secrets
 from datetime import datetime,timedelta,timezone
@@ -75,7 +76,7 @@ def issue_invite(conn,*,organization_id,email,role,actor_user_id,actor_role):
             actor_user_id,
             organization_id,
             str(invite["id"]),
-            '{"email":"'+normalized.replace('"','')+'","role":"'+role+'"}',
+            json.dumps({"email":normalized,"role":role}),
         ),
     )
 
@@ -178,7 +179,7 @@ def accept_invite(token:str,*,user_id,user_email):
                     user_id,
                     invite["organization_id"],
                     str(invite["id"]),
-                    '{"role":"'+str(role).replace('"','')+'"}',
+                    json.dumps({"role":str(role)}),
                 ),
             )
 
@@ -229,7 +230,11 @@ def revoke_invite(invite_id,*,organization_id,actor_user_id):
                     actor_user_id,
                     organization_id,
                     str(invite_id),
-                    '{"email":"'+str(invite["email"]).replace('"','')+'","role":"'+str(invite["role"]).replace('"','')+'","status":"pending"}',
+                    json.dumps({
+                        "email":str(invite["email"]),
+                        "role":str(invite["role"]),
+                        "status":"pending",
+                    }),
                 ),
             )
     return {"revoked":True,"invite_id":str(invite_id)}
