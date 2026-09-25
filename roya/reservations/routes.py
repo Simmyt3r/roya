@@ -82,18 +82,58 @@ def booking_page():
         raise RoyaError("VALIDATION_ERROR","Check-out must be after check-in.",422)
     with db_connection() as conn:
         row=conn.execute(
-            """select rt.*,p.name property_name,p.id property_id,rp.id rate_id,rp.name rate_name,rp.base_price_minor,rp.guarantee_type,\n                      rp.refundable,rp.cancellation_policy
-               from room_types rt join properties p on p.id=rt.property_id join rate_plans rp on rp.room_type_id=rt.id
-               where rt.id=%s and rp.id=%s and rt.status='active' and rp.status='active' and p.status='active' and p.verification_status='verified'""",
+            """select rt.*,p.name property_name,p.id property_id,rp.id rate_id,rp.name rate_name,
+                      rp.base_price_minor,rp.guarantee_type,rp.refundable,rp.cancellation_policy,
+                      rp.min_stay rate_min_stay
+               from room_types rt
+               join properties p on p.id=rt.property_id
+               join rate_plans rp on rp.room_type_id=rt.id
+               where rt.id=%s and rp.id=%s
+                 and rt.status='active' and rp.status='active'
+                 and p.status='active' and p.verification_status='verified'""",
             (room_type_id,rate_plan_id),
         ).fetchone()
         profile=conn.execute("select name,phone from profiles where id=%s",(identity.user_id,)).fetchone()
+        availability=None
+        if row:
+            nights=(check_out-check_in).days
+            availability=conn.execute(
+                """select
+                     count(*) total_nights,
+                     count(*) filter(
+                       where stop_sell=false
+                         and min_stay<=%s
+                         and (total_inventory-held_inventory-sold_inventory)>0
+                         and not (date=%s and closed_to_arrival)
+                         and not (date=(%s::date-1) and closed_to_departure)
+                     ) sellable_nights
+                   from inventory_days
+                   where room_type_id=%s
+                     and date>=%s
+                     and date<%s""",
+                (nights,check_in,check_out,room_type_id,check_in,check_out),
+            ).fetchone()
     if not row:
         raise RoyaError("RATE_NOT_FOUND","Selected room/rate is unavailable.",404)
-    prop={"id":row["property_id"],"name":row["property_name"]}; room={"id":row["id"],"name":row["name"]}
+
+    nights=(check_out-check_in).days
+    if nights<int(row["rate_min_stay"] or 1) or not availability or int(availability["total_nights"] or 0)!=nights or int(availability["sellable_nights"] or 0)!=nights:
+        raise RoyaError(
+            "BOOKING_CONFLICT",
+            "This stay is no longer available for the selected dates.",
+            409,
+        )
+
+    prop={"id":row["property_id"],"name":row["property_name"]}
+    room={
+        "id":row["id"],
+        "name":row["name"],
+        "capacity_adults":row["capacity_adults"],
+        "capacity_children":row["capacity_children"],
+    }
     rate={"id":row["rate_id"],"name":row["rate_name"],"base_price_minor":row["base_price_minor"],"guarantee_type":row["guarantee_type"],"refundable":row["refundable"],"cancellation_policy":row["cancellation_policy"] or {}}
     guest={"name":(profile["name"] if profile else "") or "","email":identity.email or "","phone":(profile["phone"] if profile else "") or ""}
-    return render_template("guest/booking.html",property=prop,room=room,rate=rate,check_in=check_in,check_out=check_out,nights=(check_out-check_in).days,guest=guest)
+    return render_template("guest/booking.html",property=prop,room=room,rate=rate,check_in=check_in,check_out=check_out,nights=nights,guest=guest)
 
 
 @bp.get("/reservation/<uuid:reservation_id>")
