@@ -36,7 +36,7 @@
 - [x] Run authenticated two-user RLS isolation tests on the replacement Supabase project
 - [x] Re-run the last-room concurrency race on the replacement Supabase project
 - [ ] Enable/review Supabase leaked-password protection
-- [ ] Decide whether to remediate remaining PostGIS-owned advisor findings
+- [x] Review PostGIS-owned advisor findings; defer extension/spatial_ref_sys ownership warnings for launch because they are Supabase/PostGIS-owned, not iRoya business tables
 - [ ] Configure and test SMTP guest/hotel notifications
 - [x] Add property/room image deletion, ordering and alt-text editing
 - [x] Add invitation flow for hotel staff who do not yet have iRoya accounts
