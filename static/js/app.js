@@ -142,6 +142,7 @@ document.querySelectorAll('[data-room-photo-form]').forEach(function(form){
     event.preventDefault();
     const msg=form.querySelector('.form-message');
     const submit=form.querySelector('button[type="submit"]');
+    if(!photoFitsUploadLimit(form,msg))return;
     msg.textContent='Uploading room photo…';
     submit.disabled=true;
     const res=await fetch('/api/v1/room-types/'+form.dataset.room+'/images',{
@@ -329,9 +330,18 @@ document.querySelectorAll('[data-profile-form]').forEach(function(form){
     const data=await res.json().catch(function(){return {};});if(!res.ok){msg.textContent=(data.error&&data.error.message)||'Profile could not be saved.';submit.disabled=false;return;}msg.textContent='Profile saved.';submit.disabled=false;
   });
 });
+function photoFitsUploadLimit(form,msg){
+  const file=form.querySelector('input[type="file"]')?.files?.[0];
+  if(file&&file.size>4*1024*1024){
+    msg.textContent='Image must be 4 MB or smaller.';
+    return false;
+  }
+  return true;
+}
+
 document.querySelectorAll('[data-property-photo-form]').forEach(function(form){
   form.addEventListener('submit',async function(event){
-    event.preventDefault();const msg=form.querySelector('.form-message');const submit=form.querySelector('button[type="submit"]');const data=new FormData(form);msg.textContent='Uploading photo…';submit.disabled=true;
+    event.preventDefault();const msg=form.querySelector('.form-message');const submit=form.querySelector('button[type="submit"]');if(!photoFitsUploadLimit(form,msg))return;const data=new FormData(form);msg.textContent='Uploading photo…';submit.disabled=true;
     const res=await fetch('/api/v1/properties/'+form.dataset.property+'/images',{method:'POST',body:data});
     const body=await res.json().catch(function(){return {};});if(!res.ok){msg.textContent=(body.error&&body.error.message)||'Photo could not be uploaded.';submit.disabled=false;return;}msg.textContent='Photo uploaded.';window.location.reload();
   });

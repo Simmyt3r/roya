@@ -54,7 +54,7 @@
       <form class="photo-upload-form" data-property-photo-form data-property="{{ property.id }}" enctype="multipart/form-data">
         <label>Upload hotel photo<input name="file" type="file" accept="image/jpeg,image/png,image/webp" required></label>
         <label>Alt text<input name="alt_text" maxlength="300" placeholder="e.g. Pool and garden at sunset"></label>
-        <small class="muted">JPEG, PNG or WebP. Maximum 10 MB.</small>
+        <small class="muted">JPEG, PNG or WebP. Maximum 4 MB.</small>
         <button class="button button-secondary" type="submit">Upload photo</button><p class="form-message"></p>
       </form>
       {% endif %}
@@ -121,7 +121,7 @@
     <form class="photo-upload-form" data-room-photo-form data-room="{{ room.id }}" enctype="multipart/form-data">
       <label>Upload room photo<input name="file" type="file" accept="image/jpeg,image/png,image/webp" required></label>
       <label>Alt text<input name="alt_text" maxlength="300" placeholder="e.g. Deluxe room with king bed"></label>
-      <small class="muted">JPEG, PNG or WebP. Maximum 10 MB.</small>
+      <small class="muted">JPEG, PNG or WebP. Maximum 4 MB.</small>
       <button class="button button-secondary" type="submit">Upload room photo</button><p class="form-message"></p>
     </form>
     {% endif %}

@@ -1,6 +1,7 @@
 from urllib.parse import unquote,urlparse
 
-MAX_IMAGE_BYTES=10*1024*1024
+# Leave room for multipart headers under Vercel's 4.5 MB function request limit.
+MAX_IMAGE_BYTES=4*1024*1024
 ALLOWED_IMAGE_TYPES={
     "image/jpeg":".jpg",
     "image/png":".png",

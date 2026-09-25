@@ -496,30 +496,37 @@ def upload_property_image(property_id):
         messages={
             "IMAGE_REQUIRED":"An image file is required.",
             "IMAGE_TYPE":"Only JPEG, PNG and WebP images are accepted.",
-            "IMAGE_TOO_LARGE":"Image must be 10 MB or smaller.",
+            "IMAGE_TOO_LARGE":"Image must be 4 MB or smaller.",
         }
         raise RoyaError("VALIDATION_ERROR",messages.get(str(exc),"Invalid image."),422) from exc
 
-    path=f"{property_id}/{uuidlib.uuid4().hex}{extension}"
-    client=supabase_admin_client()
-    try:
-        client.storage.from_("property-images").upload(path,raw,{"content-type":file.mimetype,"upsert":"false"})
-    except Exception as exc:
-        raise RoyaError("STORAGE_UPLOAD_FAILED","Image upload failed.",502) from exc
-
-    public_url=client.storage.from_("property-images").get_public_url(path)
     alt_text=(request.form.get("alt_text") or "").strip() or None
     if alt_text and len(alt_text)>300:
         raise RoyaError("VALIDATION_ERROR","Alt text must be 300 characters or fewer.",422)
 
-    with db_connection() as conn:
-        row=conn.execute(
-            """insert into property_images(property_id,path,alt_text,sort_order)
-               values(%s,%s,%s,coalesce((select max(sort_order)+1 from property_images where property_id=%s),0))
-               returning *""",
-            (str(property_id),public_url,alt_text,str(property_id)),
-        ).fetchone()
-        conn.commit()
+    path=f"{property_id}/{uuidlib.uuid4().hex}{extension}"
+    storage=supabase_admin_client().storage.from_("property-images")
+    try:
+        storage.upload(path,raw,{"content-type":file.mimetype,"upsert":"false"})
+    except Exception as exc:
+        raise RoyaError("STORAGE_UPLOAD_FAILED","Image upload failed.",502) from exc
+
+    try:
+        public_url=storage.get_public_url(path)
+        with db_connection() as conn:
+            row=conn.execute(
+                """insert into property_images(property_id,path,alt_text,sort_order)
+                   values(%s,%s,%s,coalesce((select max(sort_order)+1 from property_images where property_id=%s),0))
+                   returning *""",
+                (str(property_id),public_url,alt_text,str(property_id)),
+            ).fetchone()
+            conn.commit()
+    except Exception:
+        try:
+            storage.remove([path])
+        except Exception:
+            current_app.logger.exception("Could not clean up failed property image upload")
+        raise
     return ok(row,201)
 
 

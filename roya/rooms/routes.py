@@ -2,7 +2,7 @@ import json
 import uuid as uuidlib
 from typing import Literal
 from uuid import UUID
-from flask import Blueprint, request
+from flask import Blueprint, current_app, request
 from pydantic import BaseModel, Field, ValidationError
 
 from roya.auth.service import current_identity, login_required
@@ -141,7 +141,7 @@ def upload_room_image(room_type_id):
         messages={
             "IMAGE_REQUIRED":"An image file is required.",
             "IMAGE_TYPE":"Only JPEG, PNG and WebP images are accepted.",
-            "IMAGE_TOO_LARGE":"Image must be 10 MB or smaller.",
+            "IMAGE_TOO_LARGE":"Image must be 4 MB or smaller.",
         }
         raise RoyaError("VALIDATION_ERROR",messages.get(str(exc),"Invalid image."),422) from exc
 
@@ -150,21 +150,28 @@ def upload_room_image(room_type_id):
         raise RoyaError("VALIDATION_ERROR","Alt text must be 300 characters or fewer.",422)
 
     path=f"{room_type_id}/{uuidlib.uuid4().hex}{extension}"
-    client=supabase_admin_client()
+    storage=supabase_admin_client().storage.from_("room-images")
     try:
-        client.storage.from_("room-images").upload(path,raw,{"content-type":file.mimetype,"upsert":"false"})
+        storage.upload(path,raw,{"content-type":file.mimetype,"upsert":"false"})
     except Exception as exc:
         raise RoyaError("STORAGE_UPLOAD_FAILED","Room image upload failed.",502) from exc
 
-    public_url=client.storage.from_("room-images").get_public_url(path)
-    with db_connection() as conn:
-        row=conn.execute(
-            """insert into room_images(room_type_id,path,alt_text,sort_order)
-               values(%s,%s,%s,coalesce((select max(sort_order)+1 from room_images where room_type_id=%s),0))
-               returning *""",
-            (str(room_type_id),public_url,alt_text,str(room_type_id)),
-        ).fetchone()
-        conn.commit()
+    try:
+        public_url=storage.get_public_url(path)
+        with db_connection() as conn:
+            row=conn.execute(
+                """insert into room_images(room_type_id,path,alt_text,sort_order)
+                   values(%s,%s,%s,coalesce((select max(sort_order)+1 from room_images where room_type_id=%s),0))
+                   returning *""",
+                (str(room_type_id),public_url,alt_text,str(room_type_id)),
+            ).fetchone()
+            conn.commit()
+    except Exception:
+        try:
+            storage.remove([path])
+        except Exception:
+            current_app.logger.exception("Could not clean up failed room image upload")
+        raise
     return ok(row,201)
 
 
