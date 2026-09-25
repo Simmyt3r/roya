@@ -27,6 +27,16 @@ def _date(value):
         raise RoyaError("VALIDATION_ERROR", "Dates must use YYYY-MM-DD.", 422) from exc
 
 
+def _guest_count(value):
+    try:
+        guests=int(value or "1")
+    except (TypeError,ValueError) as exc:
+        raise RoyaError("VALIDATION_ERROR","Guests must be a whole number.",422) from exc
+    if guests<1 or guests>20:
+        raise RoyaError("VALIDATION_ERROR","Guests must be between 1 and 20.",422)
+    return guests
+
+
 class SearchQuery(BaseModel):
     city: str|None = Field(default=None,max_length=120)
     check_in: date|None = None
@@ -133,8 +143,11 @@ def search_api():
 
 @bp.get("/hotels/<slug>")
 def property_page(slug):
-    check_in=_date(request.args.get("check_in")); check_out=_date(request.args.get("check_out"))
-    guests=max(int(request.args.get("guests","1")),1)
+    check_in=_date(request.args.get("check_in"))
+    check_out=_date(request.args.get("check_out"))
+    guests=_guest_count(request.args.get("guests","1"))
+    if check_in and check_out and check_out<=check_in:
+        raise RoyaError("VALIDATION_ERROR","Check-out must be after check-in.",422)
     prop,images,rooms=get_property_by_slug(slug,check_in,check_out,guests)
     if not prop:
         raise RoyaError("PROPERTY_NOT_FOUND","Property not found.",404)
