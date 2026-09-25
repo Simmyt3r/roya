@@ -8,6 +8,8 @@ class RegisterInput(BaseModel):
     password: str = Field(min_length=8, max_length=128)
     account_type: Literal["guest", "hotel"] = "guest"
     invite_token: str | None = Field(default=None, min_length=20, max_length=256)
+    next_path: str | None = Field(default=None, max_length=2048)
+    next_path: str | None = Field(default=None, max_length=2048)
 
 
 class LoginInput(BaseModel):
