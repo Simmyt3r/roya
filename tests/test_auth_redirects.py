@@ -16,7 +16,7 @@ def _app():
 
 def test_signed_out_page_redirects_to_login_and_preserves_destination():
     client=_app().test_client()
-    response=client.get("/partner?section=team")
+    response=client.get("/partner?section=team&_vercel_share=internal-token")
     assert response.status_code==302
 
     location=response.headers["Location"]
