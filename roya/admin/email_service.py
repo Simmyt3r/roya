@@ -187,27 +187,27 @@ def queue_campaign(
     recipients=[]
 
     with db_connection() as conn:
-        if audience=="custom":
-            seen=set()
-            for email in custom_recipients or []:
-                normalized=str(email).strip().lower()
-                if normalized and normalized not in seen:
-                    seen.add(normalized)
-                    recipients.append({"user_id":None,"email":normalized,"name":""})
-        else:
-            recipients=_registered_recipients(conn,audience)
-
-        if not recipients:
-            raise RoyaError("NO_EMAIL_RECIPIENTS","No recipients matched this audience.",422)
-
-        if len(recipients)>5000:
-            raise RoyaError(
-                "EMAIL_AUDIENCE_TOO_LARGE",
-                "This campaign exceeds the current 5,000-recipient safety limit.",
-                422,
-            )
-
         with conn.transaction():
+            if audience=="custom":
+                seen=set()
+                for email in custom_recipients or []:
+                    normalized=str(email).strip().lower()
+                    if normalized and normalized not in seen:
+                        seen.add(normalized)
+                        recipients.append({"user_id":None,"email":normalized,"name":""})
+            else:
+                recipients=_registered_recipients(conn,audience)
+
+            if not recipients:
+                raise RoyaError("NO_EMAIL_RECIPIENTS","No recipients matched this audience.",422)
+
+            if len(recipients)>5000:
+                raise RoyaError(
+                    "EMAIL_AUDIENCE_TOO_LARGE",
+                    "This campaign exceeds the current 5,000-recipient safety limit.",
+                    422,
+                )
+
             conn.execute(
                 """insert into private.email_campaigns(
                      id,template_id,audience,subject,body,requested_recipients,created_by
