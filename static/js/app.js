@@ -1006,11 +1006,44 @@ document.querySelectorAll('[data-reservation-approval]').forEach(function(row){
     });
   }
 
+
+  const consentForm=document.querySelector('[data-marketing-consent]');
+  if(consentForm)consentForm.addEventListener('submit',async function(event){
+    event.preventDefault();
+    const submit=consentForm.querySelector('[type="submit"]');
+    const message=consentForm.querySelector('.form-message');
+    const raw=Object.fromEntries(new FormData(consentForm).entries());
+    if(raw.consent_confirmed!=='true'){
+      message.textContent='Confirm explicit marketing consent before saving.';
+      return;
+    }
+    submit.disabled=true;
+    message.textContent='Recording consent…';
+    try{
+      const response=await fetch('/api/v1/admin/email/subscribers',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({email:raw.email,consent_confirmed:true})
+      });
+      const data=await response.json().catch(function(){return {};});
+      if(!response.ok){
+        message.textContent=(data.error&&data.error.message)||'Marketing consent could not be recorded.';
+        return;
+      }
+      message.textContent='Marketing consent recorded.';
+      setTimeout(function(){window.location.reload();},700);
+    }catch(_error){
+      message.textContent='Consent request could not complete.';
+    }finally{
+      submit.disabled=false;
+    }
+  });
+
   const deliver=document.querySelector('[data-email-deliver]');
   const deliverMessage=document.querySelector('[data-email-deliver-message]');
   if(deliver)deliver.addEventListener('click',async function(){
     deliver.disabled=true;
-    if(deliverMessage)deliverMessage.textContent='Processing up to 100 queued emails…';
+    if(deliverMessage)deliverMessage.textContent='Processing up to 50 queued emails…';
     try{
       const response=await fetch('/api/v1/admin/email/deliver',{
         method:'POST',headers:{'Content-Type':'application/json'},body:'{}'
