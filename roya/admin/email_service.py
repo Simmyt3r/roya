@@ -21,7 +21,7 @@ def _dict(row):
 def list_templates():
     with db_connection() as conn:
         rows=conn.execute(
-            """select id,name,subject,body,category,is_active,created_at,updated_at
+            """select id::text id,name,subject,body,category,is_active,created_at,updated_at
                from private.email_templates
                where is_active=true
                order by name asc"""
@@ -32,7 +32,7 @@ def list_templates():
 def recent_campaigns(limit=8):
     with db_connection() as conn:
         rows=conn.execute(
-            """select c.id,c.audience,c.subject,c.requested_recipients,c.queued_recipients,
+            """select c.id::text id,c.audience,c.subject,c.requested_recipients,c.queued_recipients,
                       c.created_at,t.name template_name,
                       count(n.id) filter (where n.status='sent') sent_recipients,
                       count(n.id) filter (where n.status='queued') queued_now,
