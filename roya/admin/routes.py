@@ -1,5 +1,7 @@
 import json
 import re
+from typing import Literal
+from uuid import UUID
 from flask import Blueprint,current_app,g,render_template,request
 from pydantic import BaseModel, EmailStr, Field, ValidationError, field_validator, model_validator
 from roya.common.db import db_connection
@@ -9,6 +11,10 @@ from roya.common.integrations import (
 )
 from roya.common.response import ok
 from .service import require_platform_admin
+from .email_service import (
+    create_template, delete_template, deliver_email_queue, list_templates,
+    queue_campaign, recent_campaigns, update_template,
+)
 
 bp=Blueprint("admin",__name__)
 
@@ -49,6 +55,29 @@ class PaystackConfiguration(BaseModel):
         return value
 
 
+class EmailTemplateConfiguration(BaseModel):
+    name: str = Field(min_length=2,max_length=120)
+    subject: str = Field(min_length=2,max_length=180)
+    body: str = Field(min_length=2,max_length=20000)
+    category: Literal["marketing","general","hotel_outreach"] = "marketing"
+
+
+class EmailCampaignRequest(BaseModel):
+    audience: Literal["registered_all","registered_guests","registered_hotels","custom"]
+    subject: str = Field(min_length=2,max_length=180)
+    body: str = Field(min_length=2,max_length=20000)
+    template_id: UUID | None = None
+    custom_recipients: list[EmailStr] = Field(default_factory=list,max_length=500)
+
+    @model_validator(mode="after")
+    def validate_custom_audience(self):
+        if self.audience=="custom" and not self.custom_recipients:
+            raise ValueError("Add at least one external email recipient.")
+        if self.audience!="custom" and self.custom_recipients:
+            raise ValueError("Custom recipients are only valid for the custom audience.")
+        return self
+
+
 def _configuration_payload(schema):
     if not request.is_json:
         raise RoyaError("UNSUPPORTED_MEDIA_TYPE","JSON request body required.",415)
@@ -56,7 +85,7 @@ def _configuration_payload(schema):
         return schema.model_validate(request.get_json(silent=True) or {})
     except ValidationError as exc:
         # Pydantic errors may include the submitted secret; never echo them.
-        raise RoyaError("VALIDATION_ERROR","Check the integration settings and try again.",422) from exc
+        raise RoyaError("VALIDATION_ERROR","Check the submitted settings and try again.",422) from exc
 
 
 @bp.get("/admin")
@@ -82,10 +111,18 @@ def dashboard():
                where p.verification_status='pending'
                order by p.created_at asc limit 50"""
         ).fetchall())
+    try:
+        email_templates=list_templates()
+        email_campaigns=recent_campaigns()
+    except Exception as exc:
+        current_app.logger.warning("Admin email tools unavailable until migration is applied: %s",exc)
+        email_templates=[]
+        email_campaigns=[]
     return render_template(
         "admin/dashboard.html",metrics=metrics,pending=pending,
         smtp=integration_status("smtp"),paystack=integration_status("paystack"),
         paystack_webhook_url=(current_app.config["APP_URL"].rstrip("/")+"/api/webhooks/paystack"),
+        email_templates=email_templates,email_campaigns=email_campaigns,
     )
 
 
@@ -130,6 +167,63 @@ def test_paystack():
     from roya.payments.paystack import PaystackProvider
     PaystackProvider().test_connection()
     return ok({"connected":True,"message":"Paystack key accepted. No payment was initiated."})
+
+
+@bp.post("/api/v1/admin/email/templates")
+@require_platform_admin
+def create_email_template():
+    body=_configuration_payload(EmailTemplateConfiguration)
+    return ok(create_template(
+        name=body.name.strip(),subject=body.subject.strip(),body=body.body.strip(),
+        category=body.category,actor_user_id=g.platform_admin.user_id,
+    ))
+
+
+@bp.put("/api/v1/admin/email/templates/<uuid:template_id>")
+@require_platform_admin
+def update_email_template(template_id):
+    body=_configuration_payload(EmailTemplateConfiguration)
+    return ok(update_template(
+        template_id=str(template_id),name=body.name.strip(),subject=body.subject.strip(),
+        body=body.body.strip(),category=body.category,
+        actor_user_id=g.platform_admin.user_id,
+    ))
+
+
+@bp.delete("/api/v1/admin/email/templates/<uuid:template_id>")
+@require_platform_admin
+def archive_email_template(template_id):
+    return ok(delete_template(
+        template_id=str(template_id),actor_user_id=g.platform_admin.user_id,
+    ))
+
+
+@bp.post("/api/v1/admin/email/campaigns")
+@require_platform_admin
+def send_email_campaign():
+    if not integration_status("smtp")["configured"]:
+        raise RoyaError(
+            "SMTP_NOT_CONFIGURED",
+            "Configure and test SMTP before sending a campaign.",
+            409,
+        )
+    body=_configuration_payload(EmailCampaignRequest)
+    return ok(queue_campaign(
+        audience=body.audience,
+        subject=body.subject.strip(),
+        body=body.body.strip(),
+        template_id=str(body.template_id) if body.template_id else None,
+        custom_recipients=[str(item) for item in body.custom_recipients],
+        actor_user_id=g.platform_admin.user_id,
+    ))
+
+
+@bp.post("/api/v1/admin/email/deliver")
+@require_platform_admin
+def deliver_admin_email_queue():
+    if not integration_status("smtp")["configured"]:
+        raise RoyaError("SMTP_NOT_CONFIGURED","Configure SMTP before processing email.",409)
+    return ok(deliver_email_queue(limit=100))
 
 
 @bp.put("/api/v1/admin/properties/<uuid:property_id>/verification")
