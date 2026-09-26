@@ -35,6 +35,85 @@
     </form>
   </div>
 </section>
+<section class="shell admin-email" aria-labelledby="admin-email-heading">
+  <div class="section-heading admin-email-heading">
+    <div><div class="eyebrow">Email operations</div><h2 id="admin-email-heading">Campaigns & templates</h2><p class="muted">Send through the configured SMTP account. The first 25 messages are attempted immediately; the remainder stay in the retry queue.</p></div>
+    <button class="button button-small button-secondary" type="button" data-email-deliver>Process queued email</button>
+  </div>
+
+  <div class="admin-email-grid">
+    <form class="card partner-form" data-email-campaign>
+      <div class="admin-card-head"><div><div class="eyebrow">Compose</div><h3>Send email campaign</h3></div><span class="integration-state">{{ 'SMTP ready' if smtp.configured else 'SMTP required' }}</span></div>
+      <label>Template
+        <select name="template_id" data-email-template-select>
+          <option value="">Start from scratch</option>
+          {% for item in email_templates %}<option value="{{ item.id }}">{{ item.name }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>Audience
+        <select name="audience" data-email-audience>
+          <option value="registered_all">All registered users</option>
+          <option value="registered_guests">Registered guests only</option>
+          <option value="registered_hotels">Registered hotel accounts only</option>
+          <option value="custom">External / non-registered emails</option>
+        </select>
+      </label>
+      <label data-custom-email-wrap hidden>External recipients
+        <textarea name="custom_recipients" rows="4" placeholder="one@example.com&#10;two@example.com"></textarea>
+        <span class="field-help">Separate addresses with commas, spaces or new lines. Maximum 500 per campaign.</span>
+      </label>
+      <label>Subject<input name="subject" required maxlength="180" placeholder="Your iRoya update"></label>
+      <label>Message<textarea name="body" required maxlength="20000" rows="10" placeholder="Hello {{name}},"></textarea></label>
+      <p class="field-help">Available placeholders: <code>{{'{{name}}'}}</code>, <code>{{'{{email}}'}}</code>, <code>{{'{{iroya_url}}'}}</code>.</p>
+      <div class="integration-actions"><button class="button" type="submit" {% if not smtp.configured %}disabled{% endif %}>Queue & send campaign</button></div>
+      <p class="form-message" role="status" aria-live="polite"></p>
+    </form>
+
+    <form class="card partner-form" data-email-template-form>
+      <div class="admin-card-head"><div><div class="eyebrow">Reusable copy</div><h3>Email templates</h3></div></div>
+      <input type="hidden" name="template_id">
+      <label>Edit existing template
+        <select data-email-template-edit>
+          <option value="">Create a new template</option>
+          {% for item in email_templates %}<option value="{{ item.id }}">{{ item.name }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>Template name<input name="name" required minlength="2" maxlength="120" placeholder="Hotel launch announcement"></label>
+      <label>Category
+        <select name="category">
+          <option value="marketing">Marketing</option>
+          <option value="general">General</option>
+          <option value="hotel_outreach">Hotel outreach</option>
+        </select>
+      </label>
+      <label>Subject<input name="subject" required maxlength="180"></label>
+      <label>Message<textarea name="body" required maxlength="20000" rows="8"></textarea></label>
+      <div class="integration-actions">
+        <button class="button button-small" type="submit">Save template</button>
+        <button class="button button-small button-secondary" type="button" data-email-template-new>New</button>
+        <button class="button button-small button-secondary danger-soft" type="button" data-email-template-delete hidden>Archive</button>
+      </div>
+      <p class="form-message" role="status" aria-live="polite"></p>
+    </form>
+  </div>
+
+  <div class="card admin-campaign-history">
+    <div class="section-heading"><div><div class="eyebrow">Delivery history</div><h3>Recent campaigns</h3></div></div>
+    {% if email_campaigns %}
+      <div class="campaign-list">
+      {% for item in email_campaigns %}
+        <article class="campaign-row">
+          <div><strong>{{ item.subject }}</strong><div class="muted">{{ item.audience|replace('_',' ')|title }}{% if item.template_name %} · {{ item.template_name }}{% endif %} · {{ item.created_at }}</div></div>
+          <div class="campaign-stats"><span>{{ item.sent_recipients }} sent</span><span>{{ item.queued_now }} queued</span><span>{{ item.failed_recipients }} failed</span></div>
+        </article>
+      {% endfor %}
+      </div>
+    {% else %}<p class="muted">No campaigns yet, or the email migration has not been applied.</p>{% endif %}
+    <p class="form-message" data-email-deliver-message role="status" aria-live="polite"></p>
+  </div>
+
+  <script type="application/json" id="admin-email-template-data">{{ email_templates|tojson }}</script>
+</section>
 <section class="shell card admin-verification"><div class="section-heading"><div><div class="eyebrow">Hotel verification</div><h2>Pending properties</h2></div></div>
 {% for p in pending %}
 <div class="admin-property-row" data-property-verification="{{ p.id }}">
