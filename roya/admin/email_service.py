@@ -21,7 +21,7 @@ def _dict(row):
 def list_templates():
     with db_connection() as conn:
         rows=conn.execute(
-            """select id::text id,name,subject,body,category,is_active,created_at,updated_at
+            """select id::text id,name,subject,body,category
                from private.email_templates
                where is_active=true
                order by name asc"""
