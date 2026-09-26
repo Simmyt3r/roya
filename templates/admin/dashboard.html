@@ -37,7 +37,7 @@
 </section>
 <section class="shell admin-email" aria-labelledby="admin-email-heading">
   <div class="section-heading admin-email-heading">
-    <div><div class="eyebrow">Email operations</div><h2 id="admin-email-heading">Campaigns & templates</h2><p class="muted">Send through the configured SMTP account. The first 25 messages are attempted immediately; the remainder stay in the retry queue.</p></div>
+    <div><div class="eyebrow">Email operations</div><h2 id="admin-email-heading">Campaigns & templates</h2><p class="muted">Marketing email is sent only to recipients with recorded consent. The first 10 messages are attempted immediately; the remainder stay in the retry queue.</p></div>
     <button class="button button-small button-secondary" type="button" data-email-deliver>Process queued email</button>
   </div>
 
@@ -52,15 +52,17 @@
       </label>
       <label>Audience
         <select name="audience" data-email-audience>
-          <option value="registered_all">All registered users</option>
-          <option value="registered_guests">Registered guests only</option>
-          <option value="registered_hotels">Registered hotel accounts only</option>
-          <option value="custom">External / non-registered emails</option>
+          <option value="all">All consented subscribers</option>
+          <option value="registered_all">Consented registered users</option>
+          <option value="registered_guests">Consented registered guests</option>
+          <option value="registered_hotels">Consented registered hotel accounts</option>
+          <option value="external">All consented external / non-registered subscribers</option>
+          <option value="custom">Selected consented email addresses</option>
         </select>
       </label>
-      <label data-custom-email-wrap hidden>External recipients
+      <label data-custom-email-wrap hidden>Selected recipients
         <textarea name="custom_recipients" rows="4" placeholder="one@example.com&#10;two@example.com"></textarea>
-        <span class="field-help">Separate addresses with commas, spaces or new lines. Maximum 500 per campaign.</span>
+        <span class="field-help">Only addresses with active marketing consent can be queued. Separate addresses with commas, spaces or new lines. Maximum 500.</span>
       </label>
       <label>Subject<input name="subject" required maxlength="180" placeholder="Your iRoya update"></label>
       <label>Message<textarea name="body" required maxlength="20000" rows="10" placeholder="Hello {{'{{name}}'}},"></textarea></label>
@@ -97,6 +99,25 @@
     </form>
   </div>
 
+
+  <div class="card marketing-consent-panel">
+    <div class="admin-card-head">
+      <div><div class="eyebrow">Audience permission</div><h3>Marketing consent</h3></div>
+      <span class="integration-state">{{ marketing_subscribers.active_total }} active</span>
+    </div>
+    <div class="consent-metrics">
+      <span><strong>{{ marketing_subscribers.active_registered }}</strong> registered</span>
+      <span><strong>{{ marketing_subscribers.active_external }}</strong> external</span>
+    </div>
+    <p class="muted">Use this only when a person has explicitly agreed to receive iRoya marketing email. Transactional booking email remains separate.</p>
+    <form class="marketing-consent-form" data-marketing-consent>
+      <label>Email address<input name="email" type="email" required maxlength="254" placeholder="person@example.com"></label>
+      <label class="consent-confirm"><input name="consent_confirmed" type="checkbox" value="true" required><span>I confirm this recipient explicitly opted in to iRoya marketing email.</span></label>
+      <button class="button button-small" type="submit">Record consent</button>
+      <p class="form-message" role="status" aria-live="polite"></p>
+    </form>
+  </div>
+
   <div class="card admin-campaign-history">
     <div class="section-heading"><div><div class="eyebrow">Delivery history</div><h3>Recent campaigns</h3></div></div>
     {% if email_campaigns %}
@@ -108,7 +129,7 @@
         </article>
       {% endfor %}
       </div>
-    {% else %}<p class="muted">No campaigns yet, or the email migration has not been applied.</p>{% endif %}
+    {% else %}<p class="muted">No campaigns yet.</p>{% endif %}
     <p class="form-message" data-email-deliver-message role="status" aria-live="polite"></p>
   </div>
 
