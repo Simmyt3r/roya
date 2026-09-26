@@ -63,7 +63,7 @@
         <span class="field-help">Separate addresses with commas, spaces or new lines. Maximum 500 per campaign.</span>
       </label>
       <label>Subject<input name="subject" required maxlength="180" placeholder="Your iRoya update"></label>
-      <label>Message<textarea name="body" required maxlength="20000" rows="10" placeholder="Hello {{name}},"></textarea></label>
+      <label>Message<textarea name="body" required maxlength="20000" rows="10" placeholder="Hello {{'{{name}}'}},"></textarea></label>
       <p class="field-help">Available placeholders: <code>{{'{{name}}'}}</code>, <code>{{'{{email}}'}}</code>, <code>{{'{{iroya_url}}'}}</code>.</p>
       <div class="integration-actions"><button class="button" type="submit" {% if not smtp.configured %}disabled{% endif %}>Queue & send campaign</button></div>
       <p class="form-message" role="status" aria-live="polite"></p>
