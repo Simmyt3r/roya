@@ -82,6 +82,39 @@ def test_admin_campaign_queues_registered_audience(monkeypatch):
     assert captured["custom_recipients"]==[]
 
 
+
+def test_record_marketing_consent_requires_explicit_confirmation(monkeypatch):
+    client=_client(monkeypatch)
+    response=client.post("/api/v1/admin/email/subscribers",json={
+        "email":"outside@example.com",
+        "consent_confirmed":False,
+    })
+    assert response.status_code==422
+    assert response.json["error"]["code"]=="VALIDATION_ERROR"
+
+
+def test_admin_can_record_confirmed_marketing_consent(monkeypatch):
+    client=_client(monkeypatch)
+    captured={}
+
+    def fake_record(**kwargs):
+        captured.update(kwargs)
+        return {
+            "id":str(uuid4()),
+            "email":kwargs["email"],
+            "linked_registered_user":False,
+            "consent_at":"2026-09-26T12:00:00+00:00",
+        }
+
+    monkeypatch.setattr(admin_routes,"record_marketing_consent",fake_record)
+    response=client.post("/api/v1/admin/email/subscribers",json={
+        "email":"outside@example.com",
+        "consent_confirmed":True,
+    })
+    assert response.status_code==200
+    assert captured["email"]=="outside@example.com"
+
+
 def test_campaign_requires_smtp(monkeypatch):
     client=_client(monkeypatch)
     monkeypatch.setattr(admin_routes,"integration_status",lambda _provider:{"configured":False})
@@ -128,6 +161,7 @@ def test_admin_dashboard_renders_email_workspace(monkeypatch):
         "category":"hotel_outreach",
     }])
     monkeypatch.setattr(admin_routes,"recent_campaigns",lambda:[])
+    monkeypatch.setattr(admin_routes,"subscriber_counts",lambda:{"active_total":3,"active_registered":2,"active_external":1})
     monkeypatch.setattr(admin_routes,"integration_status",lambda _provider:{
         "configured":True,
         "source":"dashboard",
@@ -146,6 +180,7 @@ def test_admin_dashboard_renders_email_workspace(monkeypatch):
     assert response.status_code==200
     assert b"Campaigns &amp; templates" in response.data
     assert b'data-email-campaign' in response.data
-    assert b"External / non-registered emails" in response.data
+    assert b"All consented external / non-registered subscribers" in response.data
     assert b"Hotel partner outreach" in response.data
+    assert b"Marketing consent" in response.data
     assert b"admin-email-template-data" in response.data
