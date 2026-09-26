@@ -845,3 +845,185 @@ document.querySelectorAll('[data-reservation-approval]').forEach(function(row){
     });
   });
 })();
+
+
+(function initAdminEmailWorkspace(){
+  const dataNode=document.getElementById('admin-email-template-data');
+  const campaignForm=document.querySelector('[data-email-campaign]');
+  const templateForm=document.querySelector('[data-email-template-form]');
+  if(!dataNode||(!campaignForm&&!templateForm))return;
+
+  let templates=[];
+  try{templates=JSON.parse(dataNode.textContent||'[]');}catch(_error){templates=[];}
+  const byId=new Map(templates.map(function(item){return [String(item.id),item];}));
+
+  function applyTemplate(form,item){
+    if(!form||!item)return;
+    const subject=form.querySelector('[name="subject"]');
+    const body=form.querySelector('[name="body"]');
+    if(subject)subject.value=item.subject||'';
+    if(body)body.value=item.body||'';
+  }
+
+  if(campaignForm){
+    const templateSelect=campaignForm.querySelector('[data-email-template-select]');
+    const audience=campaignForm.querySelector('[data-email-audience]');
+    const customWrap=campaignForm.querySelector('[data-custom-email-wrap]');
+    const message=campaignForm.querySelector('.form-message');
+
+    function syncAudience(){
+      const custom=audience&&audience.value==='custom';
+      if(customWrap)customWrap.hidden=!custom;
+      const field=customWrap&&customWrap.querySelector('textarea');
+      if(field)field.required=Boolean(custom);
+    }
+
+    if(templateSelect)templateSelect.addEventListener('change',function(){
+      applyTemplate(campaignForm,byId.get(String(templateSelect.value)));
+    });
+    if(audience){
+      audience.addEventListener('change',syncAudience);
+      syncAudience();
+    }
+
+    campaignForm.addEventListener('submit',async function(event){
+      event.preventDefault();
+      const submit=campaignForm.querySelector('[type="submit"]');
+      const raw=Object.fromEntries(new FormData(campaignForm).entries());
+      const custom=String(raw.custom_recipients||'')
+        .split(/[\s,;]+/)
+        .map(function(value){return value.trim();})
+        .filter(Boolean);
+      const audienceLabel=audience&&audience.options[audience.selectedIndex]?
+        audience.options[audience.selectedIndex].text:'selected audience';
+      if(!window.confirm('Queue this email for '+audienceLabel+'?'))return;
+
+      const payload={
+        audience:raw.audience,
+        subject:raw.subject,
+        body:raw.body,
+        template_id:raw.template_id||null,
+        custom_recipients:raw.audience==='custom'?custom:[]
+      };
+      submit.disabled=true;
+      message.textContent='Queueing campaign…';
+      try{
+        const response=await fetch('/api/v1/admin/email/campaigns',{
+          method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)
+        });
+        const data=await response.json().catch(function(){return {};});
+        if(!response.ok){
+          message.textContent=(data.error&&data.error.message)||'Campaign could not be queued.';
+          return;
+        }
+        const result=data.data||{};
+        const immediate=result.immediate_delivery||{};
+        message.textContent='Queued '+(result.queued||0)+' recipient(s). '+
+          (immediate.sent||0)+' sent immediately; remaining messages stay in the retry queue.';
+        setTimeout(function(){window.location.reload();},1200);
+      }catch(_error){
+        message.textContent='Campaign request could not complete.';
+      }finally{
+        submit.disabled=false;
+      }
+    });
+  }
+
+  if(templateForm){
+    const editSelect=templateForm.querySelector('[data-email-template-edit]');
+    const idField=templateForm.querySelector('[name="template_id"]');
+    const deleteButton=templateForm.querySelector('[data-email-template-delete]');
+    const newButton=templateForm.querySelector('[data-email-template-new]');
+    const message=templateForm.querySelector('.form-message');
+
+    function resetTemplateForm(){
+      templateForm.reset();
+      idField.value='';
+      if(editSelect)editSelect.value='';
+      if(deleteButton)deleteButton.hidden=true;
+      message.textContent='';
+    }
+
+    function loadTemplate(){
+      const item=byId.get(String(editSelect.value));
+      if(!item){resetTemplateForm();return;}
+      idField.value=String(item.id);
+      templateForm.querySelector('[name="name"]').value=item.name||'';
+      templateForm.querySelector('[name="category"]').value=item.category||'marketing';
+      applyTemplate(templateForm,item);
+      deleteButton.hidden=false;
+    }
+
+    if(editSelect)editSelect.addEventListener('change',loadTemplate);
+    if(newButton)newButton.addEventListener('click',resetTemplateForm);
+
+    templateForm.addEventListener('submit',async function(event){
+      event.preventDefault();
+      const submit=templateForm.querySelector('[type="submit"]');
+      const raw=Object.fromEntries(new FormData(templateForm).entries());
+      const id=raw.template_id;
+      const endpoint=id?'/api/v1/admin/email/templates/'+id:'/api/v1/admin/email/templates';
+      submit.disabled=true;
+      message.textContent=id?'Updating template…':'Creating template…';
+      try{
+        const response=await fetch(endpoint,{
+          method:id?'PUT':'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({name:raw.name,category:raw.category,subject:raw.subject,body:raw.body})
+        });
+        const data=await response.json().catch(function(){return {};});
+        if(!response.ok){
+          message.textContent=(data.error&&data.error.message)||'Template could not be saved.';
+          return;
+        }
+        message.textContent='Template saved.';
+        setTimeout(function(){window.location.reload();},700);
+      }catch(_error){
+        message.textContent='Template request could not complete.';
+      }finally{
+        submit.disabled=false;
+      }
+    });
+
+    if(deleteButton)deleteButton.addEventListener('click',async function(){
+      const id=idField.value;
+      if(!id||!window.confirm('Archive this email template?'))return;
+      deleteButton.disabled=true;
+      message.textContent='Archiving template…';
+      try{
+        const response=await fetch('/api/v1/admin/email/templates/'+id,{method:'DELETE'});
+        const data=await response.json().catch(function(){return {};});
+        if(!response.ok){
+          message.textContent=(data.error&&data.error.message)||'Template could not be archived.';
+          return;
+        }
+        window.location.reload();
+      }catch(_error){
+        message.textContent='Template request could not complete.';
+      }finally{
+        deleteButton.disabled=false;
+      }
+    });
+  }
+
+  const deliver=document.querySelector('[data-email-deliver]');
+  const deliverMessage=document.querySelector('[data-email-deliver-message]');
+  if(deliver)deliver.addEventListener('click',async function(){
+    deliver.disabled=true;
+    if(deliverMessage)deliverMessage.textContent='Processing up to 100 queued emails…';
+    try{
+      const response=await fetch('/api/v1/admin/email/deliver',{
+        method:'POST',headers:{'Content-Type':'application/json'},body:'{}'
+      });
+      const data=await response.json().catch(function(){return {};});
+      const result=data.data||{};
+      if(deliverMessage)deliverMessage.textContent=response.ok?
+        'Checked '+(result.checked||0)+': '+(result.sent||0)+' sent, '+(result.retrying||0)+' retrying, '+(result.failed||0)+' failed.':
+        (data.error&&data.error.message)||'Queued email could not be processed.';
+    }catch(_error){
+      if(deliverMessage)deliverMessage.textContent='Queue processing could not complete.';
+    }finally{
+      deliver.disabled=false;
+    }
+  });
+})();
