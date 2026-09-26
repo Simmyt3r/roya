@@ -13,7 +13,8 @@ from roya.common.response import ok
 from .service import require_platform_admin
 from .email_service import (
     create_template, delete_template, deliver_email_queue, list_templates,
-    queue_campaign, recent_campaigns, update_template,
+    queue_campaign, recent_campaigns, record_marketing_consent,
+    subscriber_counts, update_template,
 )
 
 bp=Blueprint("admin",__name__)
@@ -63,7 +64,7 @@ class EmailTemplateConfiguration(BaseModel):
 
 
 class EmailCampaignRequest(BaseModel):
-    audience: Literal["registered_all","registered_guests","registered_hotels","custom"]
+    audience: Literal["all","external","registered_all","registered_guests","registered_hotels","custom"]
     subject: str = Field(min_length=2,max_length=180)
     body: str = Field(min_length=2,max_length=20000)
     template_id: UUID | None = None
@@ -75,6 +76,17 @@ class EmailCampaignRequest(BaseModel):
             raise ValueError("Add at least one external email recipient.")
         if self.audience!="custom" and self.custom_recipients:
             raise ValueError("Custom recipients are only valid for the custom audience.")
+        return self
+
+
+class MarketingConsentRequest(BaseModel):
+    email: EmailStr
+    consent_confirmed: bool
+
+    @model_validator(mode="after")
+    def require_confirmation(self):
+        if not self.consent_confirmed:
+            raise ValueError("Confirm that the recipient explicitly opted in to marketing email.")
         return self
 
 
@@ -114,15 +126,18 @@ def dashboard():
     try:
         email_templates=list_templates()
         email_campaigns=recent_campaigns()
+        marketing_subscribers=subscriber_counts()
     except Exception as exc:
         current_app.logger.warning("Admin email tools unavailable until migration is applied: %s",exc)
         email_templates=[]
         email_campaigns=[]
+        marketing_subscribers={"active_total":0,"active_registered":0,"active_external":0}
     return render_template(
         "admin/dashboard.html",metrics=metrics,pending=pending,
         smtp=integration_status("smtp"),paystack=integration_status("paystack"),
         paystack_webhook_url=(current_app.config["APP_URL"].rstrip("/")+"/api/webhooks/paystack"),
         email_templates=email_templates,email_campaigns=email_campaigns,
+        marketing_subscribers=marketing_subscribers,
     )
 
 
@@ -198,6 +213,15 @@ def archive_email_template(template_id):
     ))
 
 
+@bp.post("/api/v1/admin/email/subscribers")
+@require_platform_admin
+def add_marketing_subscriber():
+    body=_configuration_payload(MarketingConsentRequest)
+    return ok(record_marketing_consent(
+        email=str(body.email),actor_user_id=g.platform_admin.user_id,
+    ))
+
+
 @bp.post("/api/v1/admin/email/campaigns")
 @require_platform_admin
 def send_email_campaign():
@@ -223,7 +247,7 @@ def send_email_campaign():
 def deliver_admin_email_queue():
     if not integration_status("smtp")["configured"]:
         raise RoyaError("SMTP_NOT_CONFIGURED","Configure SMTP before processing email.",409)
-    return ok(deliver_email_queue(limit=100))
+    return ok(deliver_email_queue(limit=50))
 
 
 @bp.put("/api/v1/admin/properties/<uuid:property_id>/verification")
