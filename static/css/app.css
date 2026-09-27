@@ -288,3 +288,189 @@ html{scroll-behavior:smooth}
 @media(max-width:800px){.admin-email{padding-top:8px}.admin-email-heading{align-items:stretch;flex-direction:column}.admin-email-heading .button{width:100%}.admin-email-grid{grid-template-columns:1fr}.admin-card-head{align-items:flex-start;flex-direction:column}.campaign-row{grid-template-columns:1fr}.campaign-stats{justify-content:flex-start}.admin-email .integration-actions{display:grid;grid-template-columns:1fr}.admin-email .integration-actions .button{width:100%}}
 
 .marketing-consent-panel{margin-bottom:18px}.consent-metrics{display:flex;gap:10px;flex-wrap:wrap;margin:4px 0 12px}.consent-metrics span{padding:8px 11px;border-radius:12px;background:#f3f6f5;color:var(--muted);font-size:.8rem}.consent-metrics strong{color:var(--ink);margin-right:4px}.marketing-consent-form{display:grid;grid-template-columns:minmax(220px,1fr) minmax(260px,1.4fr) auto;gap:12px;align-items:end}.marketing-consent-form input[type="email"]{width:100%}.consent-confirm{display:flex!important;flex-direction:row!important;align-items:center;gap:9px;min-height:44px}.consent-confirm input{width:auto!important;flex:0 0 auto}.consent-confirm span{font-size:.78rem;line-height:1.35}.marketing-consent-form .form-message{grid-column:1/-1;margin:0}@media(max-width:800px){.marketing-consent-form{grid-template-columns:1fr}.marketing-consent-form .button{width:100%}}
+
+
+/* Mobile-first hardening */
+html{-webkit-text-size-adjust:100%}body{min-width:0;overflow-x:hidden}button,a,input,select,textarea{-webkit-tap-highlight-color:transparent}.button,.nav-toggle,.nav-signout,.install-app-button{touch-action:manipulation}.property-card,.stay-card,.partner-property-card{min-width:0}.property-body,.notification-copy,.admin-property-row>div,.campaign-row>div,.team-row>div{min-width:0;overflow-wrap:anywhere}
+@media(max-width:860px){
+  body.mobile-nav-open{overflow:hidden}
+  .shell{width:min(100% - 24px,1160px)}
+  .topbar{
+    height:64px;
+    padding-left:max(12px,env(safe-area-inset-left));
+    padding-right:max(12px,env(safe-area-inset-right));
+    padding-top:env(safe-area-inset-top);
+    z-index:90
+  }
+  .brand-lockup{gap:8px;font-size:1.05rem;min-width:0}
+  .brand-lockup span{display:inline}
+  .brand-lockup img{width:38px;height:38px;border-radius:10px}
+  .nav-toggle{display:block;width:46px;height:46px;margin-left:auto;padding:11px;flex:0 0 auto}
+  .main-nav{
+    position:fixed;
+    top:calc(64px + env(safe-area-inset-top));
+    left:8px;
+    right:8px;
+    max-height:calc(100dvh - 76px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    overflow-y:auto;
+    overscroll-behavior:contain;
+    border-radius:18px;
+    padding:10px;
+    box-shadow:0 22px 70px #102a2a2b;
+    z-index:100
+  }
+  .topbar .main-nav>a:not(.button),.main-nav .nav-signout,.main-nav .install-app-button,.main-nav .button{
+    min-height:48px;
+    display:flex!important;
+    align-items:center;
+    justify-content:flex-start;
+    padding:12px 13px;
+    border-radius:11px
+  }
+  .main-nav .button{justify-content:center}
+  .main-nav .account-role{margin:5px 8px 7px}
+  .button{min-height:48px;padding:12px 16px}
+  .button-small{min-height:44px;padding:10px 13px}
+  input,select,textarea{font-size:16px;min-height:48px}
+  textarea{line-height:1.45}
+  .card,.property-card,.room-card,.metric{border-radius:15px}
+  .card,.room-card,.metric{padding:20px}
+  .page-head{flex-direction:column;align-items:stretch;gap:14px;padding:32px 0 18px}
+  .page-head>div{min-width:0}
+  .page-head h1{font-size:clamp(2rem,9vw,3.2rem);line-height:1.02;overflow-wrap:anywhere}
+  .page-head>.button,.account-head>.button,.partner-page-head>.button{width:100%}
+  .section-heading{align-items:stretch;flex-direction:column;gap:12px}
+  .section-heading h2{font-size:1.7rem}
+  .section-heading>.button,.section-heading>a.button{width:100%}
+  .metric-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .metric{min-height:104px;justify-content:center}
+  .metric strong{font-size:1.7rem;line-height:1.1;overflow-wrap:anywhere}
+  .property-grid{grid-template-columns:1fr;gap:12px;padding-bottom:48px}
+  .property-card{display:grid;grid-template-columns:124px minmax(0,1fr);align-items:stretch}
+  .property-image{aspect-ratio:auto;min-height:132px;height:100%;font-size:2.4rem}
+  .property-body{padding:15px}
+  .property-body h2{font-size:1.08rem;line-height:1.25}
+  .property-meta{gap:10px;align-items:flex-end;flex-wrap:wrap}
+  .gallery{min-height:0;aspect-ratio:4/3}
+  .gallery img,.gallery-placeholder{border-radius:12px}
+  .property-layout,.split,.reservation-layout{gap:12px;padding-top:22px;padding-bottom:48px}
+  .room-card{gap:16px}
+  .room-price{width:100%;align-items:stretch;text-align:left}
+  .room-price .button{width:100%}
+  .auth-shell{min-height:auto;place-items:start stretch;padding-top:28px;padding-bottom:56px}
+  .auth-card,.auth-card-wide{width:100%;padding:22px}
+  .account-layout{gap:14px;padding-bottom:48px}
+  .account-sidebar{gap:10px}
+  .account-summary,.profile-form{padding:18px}
+  .stay-list{gap:10px}
+  .stay-card{padding:18px;gap:14px}
+  .partner-section{padding:16px 0 42px}
+  .partner-overview{gap:10px;padding-bottom:18px}
+  .approval-actions{width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .approval-actions .button{width:100%;white-space:normal}
+  .admin-verification{margin-bottom:48px}
+  .admin-property-row{padding:14px 0}
+  .notification-list{gap:9px;padding-bottom:48px}
+  .notification-card{padding:17px}
+  .notification-actions{width:100%}
+  .notification-actions .button{flex:1}
+  .form-shell{padding-bottom:48px}
+  .setup-disclosure>summary{min-height:48px;padding:15px 17px}
+  .integration-actions{display:grid;grid-template-columns:1fr}
+  .integration-actions .button{width:100%}
+  .marketing-consent-form{align-items:stretch}
+  .campaign-stats{justify-content:flex-start}
+}
+@media(max-width:620px){
+  .shell{width:calc(100% - 20px)}
+  .card,.room-card,.metric{padding:16px}
+  .metric-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .metric{min-height:96px}
+  .metric strong{font-size:1.5rem}
+  .metric span{font-size:.75rem}
+  .property-card{grid-template-columns:108px minmax(0,1fr)}
+  .property-image{min-height:122px}
+  .property-body{padding:13px}
+  .property-body .muted{font-size:.74rem}
+  .property-meta{font-size:.82rem}
+  .landing-hero{padding:28px 0 34px}
+  .landing-copy h1{font-size:clamp(2.65rem,13vw,3.7rem);line-height:.96;margin:18px 0 15px}
+  .landing-lead{line-height:1.62;margin-bottom:20px}
+  .landing-search{gap:0;padding:7px;border-radius:16px}
+  .landing-field{padding:10px 8px}
+  .landing-field input{font-size:16px;min-height:34px}
+  .landing-search-button{height:50px;margin-top:6px}
+  .landing-trust{display:grid;grid-template-columns:1fr 1fr;gap:9px 12px;font-size:.74rem}
+  .hospitality-scene{min-height:320px;margin-top:4px;border-radius:22px}
+  .scene-window{left:20px;right:20px;top:26px;height:190px;border-width:10px;border-bottom-width:14px}
+  .scene-sun{width:70px;height:70px;right:24px;top:18px}
+  .scene-building{left:36px;width:94px;height:96px;padding:14px 11px;gap:8px}
+  .scene-table{height:86px}
+  .scene-vase{transform:scale(.8);transform-origin:bottom left;left:56px;bottom:54px}
+  .scene-cup{transform:scale(.8);transform-origin:bottom right;right:62px;bottom:56px}
+  .floating-stay-card{top:214px;left:12px;width:calc(100% - 24px);padding:11px 12px}
+  .landing-proof{padding-top:48px;padding-bottom:34px}
+  .landing-benefits{gap:12px;padding-bottom:52px}
+  .hospitality-card{padding:22px;border-radius:20px;gap:22px}
+  .welcome-panel{padding:26px 18px;border-radius:20px}
+  .welcome-panel h2{font-size:2.25rem}
+  .welcome-actions{align-items:stretch;flex-direction:column;gap:14px}
+  .welcome-actions .button,.welcome-actions .text-link-light{width:100%;text-align:center}
+  .welcome-panel-badges span{padding:14px}
+  .landing-close{padding:54px 0;gap:20px}
+  .landing-close .button{width:100%}
+  .partner-start{padding-top:28px;padding-bottom:48px}
+  .partner-start-copy h1{font-size:2.65rem}
+  .partner-principles{display:grid;grid-template-columns:1fr}
+  .partner-principles span{text-align:center}
+  .partner-start-card{padding:18px}
+  .room-admin-card{padding:16px}
+  .compact-form{padding:16px}
+  .team-list{padding:6px 14px}
+  .team-avatar{width:34px;height:34px}
+  .team-controls{width:100%;display:grid;grid-template-columns:1fr 1fr}
+  .team-controls select{grid-column:1/-1;min-height:44px;font-size:16px}
+  .team-controls .button{width:100%}
+  .reservation-head{gap:10px}
+  .reservation-status{align-self:flex-start}
+  .reservation-meta,.price-breakdown{grid-template-columns:minmax(0,1fr) auto;gap:8px 12px;font-size:.88rem}
+  .reservation-meta strong,.price-breakdown strong{text-align:right;overflow-wrap:anywhere}
+  .notice-card{padding:13px 14px;flex-direction:column;gap:4px}
+  .reservation-table-wrap{
+    overflow-x:auto;
+    border-radius:14px;
+    scrollbar-width:thin;
+    -webkit-overflow-scrolling:touch;
+    scroll-snap-type:x proximity
+  }
+  .reservation-table{min-width:680px}
+  .reservation-table-row{padding:12px 13px;gap:10px}
+  .search-filter-form{padding:16px;gap:12px}
+  .search-filter-actions{gap:8px}
+  .search-filter-actions .button,.search-filter-actions .text-link{min-height:48px;display:flex;align-items:center;justify-content:center;border-radius:11px}
+  .search-more-filters>summary{min-height:48px;display:flex;align-items:center}
+  .property-photo-grid{grid-template-columns:1fr}
+  .media-editor-actions{display:grid;grid-template-columns:1fr}
+  .media-editor-actions .button{width:100%}
+  .invite-actions{gap:8px}
+  .admin-email-heading p{line-height:1.5}
+  .campaign-row{padding:13px 0}
+  .campaign-stats span{font-size:.7rem}
+  .consent-metrics{display:grid;grid-template-columns:1fr 1fr}
+}
+@media(max-width:390px){
+  .shell{width:calc(100% - 16px)}
+  .topbar{padding-left:8px;padding-right:8px}
+  .brand-lockup span{font-size:1rem}
+  .metric{padding:14px 12px}
+  .metric strong{font-size:1.35rem}
+  .property-card{grid-template-columns:96px minmax(0,1fr)}
+  .property-image{min-height:116px}
+  .property-body{padding:11px}
+  .landing-copy h1{font-size:2.5rem}
+  .landing-trust{grid-template-columns:1fr}
+  .hospitality-scene{min-height:300px}
+  .floating-stay-card{top:204px}
+  .approval-actions,.team-controls{grid-template-columns:1fr}
+  .consent-metrics{grid-template-columns:1fr}
+}
