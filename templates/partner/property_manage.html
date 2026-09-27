@@ -132,10 +132,10 @@
 
 <details class="setup-disclosure inner-disclosure">
   <summary>Next 30 days</summary>
-  <div class="reservation-table-wrap"><div class="reservation-table">
+  <div class="reservation-table-wrap"><div class="reservation-table responsive-data-table">
     <div class="reservation-table-row reservation-table-head"><span>Date</span><span>Total</span><span>Held</span><span>Sold</span><span>Available</span><span>Rules</span></div>
     {% for day in room.calendar %}
-      <div class="reservation-table-row"><strong>{{ day.date }}</strong><span>{{ day.total_inventory }}</span><span>{{ day.held_inventory }}</span><span>{{ day.sold_inventory }}</span><strong>{{ day.available_inventory }}</strong><span>{% if day.stop_sell %}Stop sell{% else %}Min {{ day.min_stay }} night{% if day.min_stay != 1 %}s{% endif %}{% endif %}</span></div>
+      <div class="reservation-table-row"><strong data-label="Date">{{ day.date }}</strong><span data-label="Total">{{ day.total_inventory }}</span><span data-label="Held">{{ day.held_inventory }}</span><span data-label="Sold">{{ day.sold_inventory }}</span><strong data-label="Available">{{ day.available_inventory }}</strong><span data-label="Rules">{% if day.stop_sell %}Stop sell{% else %}Min {{ day.min_stay }} night{% if day.min_stay != 1 %}s{% endif %}{% endif %}</span></div>
     {% else %}<div class="empty"><p>No inventory loaded for the next 30 days.</p></div>{% endfor %}
   </div></div>
 </details>
