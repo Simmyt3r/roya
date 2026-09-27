@@ -474,3 +474,54 @@ html{-webkit-text-size-adjust:100%}body{min-width:0;overflow-x:hidden}button,a,i
   .approval-actions,.team-controls{grid-template-columns:1fr}
   .consent-metrics{grid-template-columns:1fr}
 }
+
+
+@media(max-width:620px){
+  .reservation-table-wrap:has(.responsive-data-table){
+    overflow:visible;
+    padding:0;
+    border:0;
+    background:transparent
+  }
+  .responsive-data-table{
+    min-width:0;
+    display:grid;
+    gap:10px
+  }
+  .responsive-data-table .reservation-table-head{display:none}
+  .responsive-data-table .reservation-table-row:not(.reservation-table-head){
+    display:grid;
+    grid-template-columns:1fr;
+    gap:0;
+    padding:8px 14px;
+    border:1px solid var(--line);
+    border-radius:14px;
+    background:#fff
+  }
+  .responsive-data-table .reservation-table-row:not(.reservation-table-head)>[data-label]{
+    display:grid;
+    grid-template-columns:minmax(86px,.42fr) minmax(0,1fr);
+    gap:12px;
+    align-items:start;
+    padding:9px 0;
+    border-top:1px solid #eef2f1;
+    text-align:left;
+    min-width:0;
+    overflow-wrap:anywhere
+  }
+  .responsive-data-table .reservation-table-row:not(.reservation-table-head)>[data-label]:first-child{border-top:0}
+  .responsive-data-table [data-label]::before{
+    content:attr(data-label);
+    color:var(--muted);
+    font-size:.7rem;
+    font-weight:850;
+    letter-spacing:.04em;
+    text-transform:uppercase
+  }
+  .responsive-data-table [data-label] small{margin-top:2px}
+  .responsive-data-table [data-label] .approval-actions{
+    grid-column:auto;
+    margin-top:8px
+  }
+  .responsive-data-table [data-label="Action"] .button{width:100%}
+}
