@@ -417,22 +417,38 @@ document.querySelectorAll('[data-property-verification]').forEach(function(row){
 (function initNavigation(){
   const toggle=document.querySelector('[data-nav-toggle]');
   const nav=document.querySelector('[data-main-nav]');
+  const closeButton=document.querySelector('[data-nav-close]');
   if(toggle&&nav){
     const closeNav=function(){
       nav.classList.remove('is-open');
+      toggle.classList.remove('is-open');
       toggle.setAttribute('aria-expanded','false');
+      toggle.setAttribute('aria-label','Open menu');
       document.body.classList.remove('mobile-nav-open');
     };
     const openNav=function(){
       nav.classList.add('is-open');
+      toggle.classList.add('is-open');
       toggle.setAttribute('aria-expanded','true');
+      toggle.setAttribute('aria-label','Close menu');
       document.body.classList.add('mobile-nav-open');
     };
 
-    toggle.addEventListener('click',function(){
+    toggle.addEventListener('click',function(event){
+      event.preventDefault();
+      event.stopPropagation();
       if(nav.classList.contains('is-open'))closeNav();
       else openNav();
     });
+
+    if(closeButton){
+      closeButton.addEventListener('click',function(event){
+        event.preventDefault();
+        event.stopPropagation();
+        closeNav();
+        toggle.focus({preventScroll:true});
+      });
+    }
 
     nav.querySelectorAll('a,button').forEach(function(item){
       item.addEventListener('click',function(){
