@@ -573,3 +573,10 @@ html{-webkit-text-size-adjust:100%}body{min-width:0;overflow-x:hidden}button,a,i
   .nav-toggle.is-open>span:not(.sr-only):nth-child(3){transform:translateY(-6px) rotate(-45deg)}
   .nav-toggle>span:not(.sr-only){transition:transform .18s ease,opacity .18s ease}
 }
+
+
+/* Mobile nav visibility authority */
+@media(max-width:860px){
+  .topbar .main-nav{display:none!important}
+  .topbar .main-nav.is-open{display:flex!important}
+}
