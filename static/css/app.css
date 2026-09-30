@@ -580,3 +580,34 @@ html{-webkit-text-size-adjust:100%}body{min-width:0;overflow-x:hidden}button,a,i
   .topbar .main-nav{display:none!important}
   .topbar .main-nav.is-open{display:flex!important}
 }
+
+
+/* Marketing subscriber controls and email preferences */
+.subscriber-directory{margin-top:22px;padding-top:18px;border-top:1px solid var(--line)}
+.subscriber-directory-head{display:flex;align-items:end;justify-content:space-between;gap:18px;margin-bottom:10px}
+.subscriber-directory-head h4{margin:.2rem 0;font-size:1.08rem}
+.subscriber-directory-head>.muted{max-width:520px;text-align:right;font-size:.78rem}
+.subscriber-list{display:grid}
+.subscriber-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px 16px;align-items:center;padding:13px 0;border-top:1px solid #eef2f1}
+.subscriber-row:first-child{border-top:0}
+.subscriber-copy{display:grid;gap:2px;min-width:0}
+.subscriber-copy strong,.subscriber-copy span,.subscriber-copy small{overflow-wrap:anywhere}
+.subscriber-copy span{font-size:.84rem}
+.subscriber-copy small{color:var(--muted);font-size:.73rem}
+.subscriber-state{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.subscriber-row>.form-message{grid-column:1/-1;margin:0}
+.preference-shell{padding-block:44px 72px}
+.preference-card h1{margin:.2rem 0 .45rem;font-size:2rem;letter-spacing:-.04em}
+.preference-card>p{margin:.35rem 0}
+.preference-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+@media(max-width:700px){
+  .subscriber-directory-head{align-items:flex-start;flex-direction:column;gap:6px}
+  .subscriber-directory-head>.muted{text-align:left}
+  .subscriber-row{grid-template-columns:1fr;padding:14px 0}
+  .subscriber-state{justify-content:flex-start}
+  .subscriber-state .button{width:100%}
+  .preference-shell{padding-top:28px}
+}
+@media(max-width:480px){
+  .preference-actions{grid-template-columns:1fr}
+}
