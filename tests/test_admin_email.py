@@ -161,7 +161,15 @@ def test_admin_dashboard_renders_email_workspace(monkeypatch):
         "category":"hotel_outreach",
     }])
     monkeypatch.setattr(admin_routes,"recent_campaigns",lambda:[])
-    monkeypatch.setattr(admin_routes,"subscriber_counts",lambda:{"active_total":3,"active_registered":2,"active_external":1})
+    monkeypatch.setattr(admin_routes,"subscriber_counts",lambda:{"active_total":3,"active_registered":2,"active_external":1,"unsubscribed_total":4})
+    monkeypatch.setattr(admin_routes,"list_subscribers",lambda:[{
+        "id":str(uuid4()),
+        "email":"outside@example.com",
+        "name":"",
+        "account_type":"external",
+        "consent_source":"admin_confirmed",
+        "unsubscribed_at":None,
+    }])
     monkeypatch.setattr(admin_routes,"integration_status",lambda _provider:{
         "configured":True,
         "source":"dashboard",
@@ -183,4 +191,21 @@ def test_admin_dashboard_renders_email_workspace(monkeypatch):
     assert b"All consented external / non-registered subscribers" in response.data
     assert b"Hotel partner outreach" in response.data
     assert b"Marketing consent" in response.data
+    assert b"Recent marketing contacts" in response.data
+    assert b"outside@example.com" in response.data
     assert b"admin-email-template-data" in response.data
+
+
+def test_admin_can_suppress_marketing_subscriber(monkeypatch):
+    client=_client(monkeypatch)
+    subscriber_id=uuid4()
+    captured={}
+
+    def fake_suppress(**kwargs):
+        captured.update(kwargs)
+        return {"id":str(subscriber_id),"email":"outside@example.com","unsubscribed":True}
+
+    monkeypatch.setattr(admin_routes,"suppress_marketing_subscriber",fake_suppress)
+    response=client.delete(f"/api/v1/admin/email/subscribers/{subscriber_id}")
+    assert response.status_code==200
+    assert captured["subscriber_id"]==str(subscriber_id)
