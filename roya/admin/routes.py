@@ -12,9 +12,9 @@ from roya.common.integrations import (
 from roya.common.response import ok
 from .service import require_platform_admin
 from .email_service import (
-    create_template, delete_template, deliver_email_queue, list_templates,
+    create_template, delete_template, deliver_email_queue, list_subscribers, list_templates,
     queue_campaign, recent_campaigns, record_marketing_consent,
-    subscriber_counts, update_template,
+    subscriber_counts, suppress_marketing_subscriber, update_template,
 )
 
 bp=Blueprint("admin",__name__)
@@ -127,17 +127,20 @@ def dashboard():
         email_templates=list_templates()
         email_campaigns=recent_campaigns()
         marketing_subscribers=subscriber_counts()
+        marketing_subscriber_rows=list_subscribers()
     except Exception as exc:
         current_app.logger.warning("Admin email tools unavailable until migration is applied: %s",exc)
         email_templates=[]
         email_campaigns=[]
-        marketing_subscribers={"active_total":0,"active_registered":0,"active_external":0}
+        marketing_subscribers={"active_total":0,"active_registered":0,"active_external":0,"unsubscribed_total":0}
+        marketing_subscriber_rows=[]
     return render_template(
         "admin/dashboard.html",metrics=metrics,pending=pending,
         smtp=integration_status("smtp"),paystack=integration_status("paystack"),
         paystack_webhook_url=(current_app.config["APP_URL"].rstrip("/")+"/api/webhooks/paystack"),
         email_templates=email_templates,email_campaigns=email_campaigns,
         marketing_subscribers=marketing_subscribers,
+        marketing_subscriber_rows=marketing_subscriber_rows,
     )
 
 
@@ -219,6 +222,15 @@ def add_marketing_subscriber():
     body=_configuration_payload(MarketingConsentRequest)
     return ok(record_marketing_consent(
         email=str(body.email),actor_user_id=g.platform_admin.user_id,
+    ))
+
+
+@bp.delete("/api/v1/admin/email/subscribers/<uuid:subscriber_id>")
+@require_platform_admin
+def suppress_marketing_subscription(subscriber_id):
+    return ok(suppress_marketing_subscriber(
+        subscriber_id=str(subscriber_id),
+        actor_user_id=g.platform_admin.user_id,
     ))
 
 
