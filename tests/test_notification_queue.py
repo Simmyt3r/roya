@@ -14,3 +14,4 @@ def test_email_queue_skips_cleanly_when_smtp_is_not_configured():
     assert result["configured"] is False
     assert result["checked"]==0
     assert result["sent"]==0
+    assert result["suppressed"]==0
