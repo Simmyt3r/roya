@@ -5,6 +5,7 @@ from flask import current_app
 
 from roya.common.db import db_connection
 from roya.common.errors import RoyaError
+from roya.marketing.service import unsubscribe_url as marketing_unsubscribe_url
 from roya.notifications.service import NotificationService
 
 
@@ -39,7 +40,10 @@ def subscriber_counts():
                  count(*) filter (
                    where ms.consent_at is not null and ms.unsubscribed_at is null
                      and u.id is null
-                 ) active_external
+                 ) active_external,
+                 count(*) filter (
+                   where ms.unsubscribed_at is not null
+                 ) unsubscribed_total
                from private.marketing_subscribers ms
                left join auth.users u on lower(u.email)=lower(ms.email)"""
         ).fetchone()
@@ -47,7 +51,50 @@ def subscriber_counts():
         "active_total":int(row["active_total"] or 0),
         "active_registered":int(row["active_registered"] or 0),
         "active_external":int(row["active_external"] or 0),
+        "unsubscribed_total":int(row["unsubscribed_total"] or 0),
     }
+
+
+def list_subscribers(limit=100):
+    with db_connection() as conn:
+        rows=conn.execute(
+            """select ms.id::text id,lower(ms.email) email,ms.consent_source,
+                      ms.consent_at,ms.unsubscribed_at,ms.updated_at,
+                      (u.id is not null) registered,
+                      coalesce(p.name,'') name,
+                      coalesce(p.account_type,'external') account_type
+               from private.marketing_subscribers ms
+               left join auth.users u on lower(u.email)=lower(ms.email)
+               left join public.profiles p on p.id=u.id
+               order by ms.updated_at desc,ms.created_at desc
+               limit %s""",
+            (max(1,min(int(limit),250)),),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def suppress_marketing_subscriber(*,subscriber_id,actor_user_id):
+    with db_connection() as conn:
+        with conn.transaction():
+            row=conn.execute(
+                """update private.marketing_subscribers
+                   set unsubscribed_at=coalesce(unsubscribed_at,now()),
+                       updated_at=now()
+                   where id=%s
+                   returning id::text id,email,unsubscribed_at""",
+                (subscriber_id,),
+            ).fetchone()
+            if not row:
+                raise RoyaError("MARKETING_SUBSCRIBER_NOT_FOUND","Marketing subscriber not found.",404)
+            conn.execute(
+                """insert into audit_logs(actor_user_id,action,entity_type,entity_id,after_json)
+                   values(%s,'marketing_consent.suppressed','marketing_subscriber',%s,%s::jsonb)""",
+                (
+                    actor_user_id,row["id"],
+                    json.dumps({"email":row["email"],"unsubscribed_at":str(row["unsubscribed_at"])}),
+                ),
+            )
+    return {"id":row["id"],"email":row["email"],"unsubscribed":True}
 
 
 def recent_campaigns(limit=8):
@@ -206,12 +253,13 @@ def record_marketing_consent(*,email,actor_user_id):
     }
 
 
-def _personalize(text,*,name,email):
+def _personalize(text,*,name,email,unsubscribe_href=""):
     value=text
     replacements={
         "{{name}}":(name or "there").strip() or "there",
         "{{email}}":email,
         "{{iroya_url}}":(current_app.config.get("APP_URL") or "").rstrip("/"),
+        "{{unsubscribe_url}}":unsubscribe_href,
     }
     for token,replacement in replacements.items():
         value=value.replace(token,replacement)
@@ -367,12 +415,21 @@ def queue_campaign(
             )
 
             for recipient in recipients:
+                unsubscribe_href=marketing_unsubscribe_url(recipient["email"])
                 personalized_subject=_personalize(
-                    subject,name=recipient["name"],email=recipient["email"]
+                    subject,name=recipient["name"],email=recipient["email"],
+                    unsubscribe_href=unsubscribe_href,
                 )
                 personalized_body=_personalize(
-                    body,name=recipient["name"],email=recipient["email"]
+                    body,name=recipient["name"],email=recipient["email"],
+                    unsubscribe_href=unsubscribe_href,
                 )
+                if "{{unsubscribe_url}}" not in body:
+                    personalized_body+=(
+                        "\n\n---\n"
+                        "You are receiving this because you opted in to iRoya marketing email.\n"
+                        f"Unsubscribe: {unsubscribe_href}"
+                    )
                 row=conn.execute(
                     """insert into public.notifications(
                          user_id,reservation_id,channel,event_type,recipient,status,payload,next_attempt_at
@@ -388,6 +445,7 @@ def queue_campaign(
                             "subject":personalized_subject,
                             "body":personalized_body,
                             "href":"/",
+                            "unsubscribe_url":unsubscribe_href,
                         }),
                     ),
                 ).fetchone()
