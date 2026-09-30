@@ -1081,6 +1081,33 @@ document.querySelectorAll('[data-reservation-approval]').forEach(function(row){
     }
   });
 
+  document.querySelectorAll('[data-marketing-subscriber]').forEach(function(row){
+    const suppress=row.querySelector('[data-marketing-suppress]');
+    const message=row.querySelector('.form-message');
+    if(!suppress)return;
+    suppress.addEventListener('click',async function(){
+      if(!window.confirm('Stop marketing email for this subscriber?'))return;
+      suppress.disabled=true;
+      if(message)message.textContent='Suppressing marketing email…';
+      try{
+        const response=await fetch('/api/v1/admin/email/subscribers/'+row.dataset.marketingSubscriber,{
+          method:'DELETE'
+        });
+        const data=await response.json().catch(function(){return {};});
+        if(!response.ok){
+          if(message)message.textContent=(data.error&&data.error.message)||'Subscriber could not be suppressed.';
+          return;
+        }
+        if(message)message.textContent='Marketing email suppressed.';
+        setTimeout(function(){window.location.reload();},500);
+      }catch(_error){
+        if(message)message.textContent='Subscriber update could not complete.';
+      }finally{
+        suppress.disabled=false;
+      }
+    });
+  });
+
   const deliver=document.querySelector('[data-email-deliver]');
   const deliverMessage=document.querySelector('[data-email-deliver-message]');
   if(deliver)deliver.addEventListener('click',async function(){
@@ -1093,7 +1120,7 @@ document.querySelectorAll('[data-reservation-approval]').forEach(function(row){
       const data=await response.json().catch(function(){return {};});
       const result=data.data||{};
       if(deliverMessage)deliverMessage.textContent=response.ok?
-        'Checked '+(result.checked||0)+': '+(result.sent||0)+' sent, '+(result.retrying||0)+' retrying, '+(result.failed||0)+' failed.':
+        'Checked '+(result.checked||0)+': '+(result.sent||0)+' sent, '+(result.retrying||0)+' retrying, '+(result.failed||0)+' failed, '+(result.suppressed||0)+' suppressed.':
         (data.error&&data.error.message)||'Queued email could not be processed.';
     }catch(_error){
       if(deliverMessage)deliverMessage.textContent='Queue processing could not complete.';
