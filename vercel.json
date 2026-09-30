@@ -30,7 +30,7 @@
     },
     {
       "path": "/api/internal/cron/send-notifications",
-      "schedule": "0 * * * *"
+      "schedule": "0 18 * * *"
     }
   ]
 }
