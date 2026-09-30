@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Email preferences · iRoya{% endblock %}
+{% block content %}
+<section class="shell auth-shell preference-shell">
+  <article class="card auth-card preference-card">
+    {% if invalid %}
+      <div class="eyebrow">Email preferences</div>
+      <h1>Link unavailable</h1>
+      <p class="muted">This unsubscribe link is invalid. No email preference was changed.</p>
+      <a class="button button-secondary" href="/">Return to iRoya</a>
+    {% elif completed %}
+      <div class="eyebrow">Email preferences</div>
+      <h1>You are unsubscribed</h1>
+      <p>Marketing email to <strong>{{ masked_email }}</strong> has been stopped.</p>
+      <p class="muted">Reservation confirmations, payment notices and other service emails are separate and may still be sent when needed for your bookings or hotel account.</p>
+      <a class="button button-secondary" href="/">Return to iRoya</a>
+    {% else %}
+      <div class="eyebrow">Email preferences</div>
+      <h1>Stop marketing email?</h1>
+      <p>Confirm that you want to unsubscribe <strong>{{ masked_email }}</strong> from iRoya marketing email.</p>
+      <p class="muted">This does not disable transactional reservation, payment or account messages.</p>
+      <form method="post" class="preference-actions">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="button" type="submit">Unsubscribe</button>
+        <a class="button button-secondary" href="/">Keep emails</a>
+      </form>
+    {% endif %}
+  </article>
+</section>
+{% endblock %}
