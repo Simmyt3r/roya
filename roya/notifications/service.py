@@ -90,7 +90,29 @@ class NotificationService:
                 "sent":0,
                 "retrying":0,
                 "failed":0,
+                "suppressed":0,
             }
+
+        suppressed=0
+        with db_connection() as conn:
+            suppression=conn.execute(
+                """update notifications n
+                   set status='failed',
+                       last_error='marketing_consent_inactive',
+                       next_attempt_at=now()
+                   where n.channel='email'
+                     and n.status='queued'
+                     and n.event_type='marketing.campaign'
+                     and not exists (
+                       select 1
+                       from private.marketing_subscribers ms
+                       where lower(ms.email)=lower(n.recipient)
+                         and ms.consent_at is not null
+                         and ms.unsubscribed_at is null
+                     )"""
+            )
+            suppressed=max(int(suppression.rowcount or 0),0)
+            conn.commit()
 
         params=[]
         where=["channel='email'","status='queued'","next_attempt_at<=now()"]
@@ -185,12 +207,13 @@ class NotificationService:
             "sent":sent,
             "retrying":retrying,
             "failed":failed,
+            "suppressed":suppressed,
         }
 
     def _deliver_new(self,email_ids):
         email_ids=[item for item in email_ids if item]
         if not email_ids:
-            return {"configured":self._smtp_configured(),"checked":0,"sent":0,"retrying":0,"failed":0}
+            return {"configured":self._smtp_configured(),"checked":0,"sent":0,"retrying":0,"failed":0,"suppressed":0}
         return self.deliver_pending_emails(
             limit=len(email_ids),
             notification_ids=email_ids,
