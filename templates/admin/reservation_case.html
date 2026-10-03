@@ -49,7 +49,7 @@
     <article class="card admin-case-card">
       <div class="eyebrow">Room</div><h3>Booked items</h3>
       <div class="case-list">
-        {% for item in case.items %}
+        {% for item in case['items'] %}
           <div class="case-row">
             <span><strong>{{ item.room_type_name }}</strong><small>{{ item.rate_plan_name }} · {{ item.guarantee_type|replace('_',' ')|title }} · quantity {{ item.quantity }}</small></span>
             <strong>{{ r.currency }} {{ '%.2f'|format(item.total_price_minor/100) }}</strong>
