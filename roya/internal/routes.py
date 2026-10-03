@@ -2,6 +2,7 @@ from datetime import date, timedelta
 
 from flask import Blueprint
 
+from roya.admin.operations_service import expire_overdue_holds, sync_operational_alerts
 from roya.common.db import db_connection
 from roya.common.response import ok
 from roya.common.security import require_cron_secret
@@ -20,6 +21,25 @@ def expire_holds():
         row = conn.execute("select expired from expire_reservation_holds()").fetchone()
         conn.commit()
     return ok({"expired": int(row["expired"] if row else 0)})
+
+
+@bp.get("/api/internal/cron/operations-scan")
+@require_cron_secret
+def operations_scan():
+    service=PaymentService()
+    money={
+        "payments":service.reconcile_pending(),
+        "refunds":service.reconcile_refunds(),
+    }
+    holds=expire_overdue_holds()
+    queued_delivery=NotificationService(SmtpNotificationAdapter()).deliver_pending_emails(limit=100)
+    alerts=sync_operational_alerts()
+    return ok({
+        "money":money,
+        "holds":holds,
+        "queued_delivery":queued_delivery,
+        "alerts":alerts,
+    })
 
 
 @bp.get("/api/internal/cron/payment-reconcile")
