@@ -15,6 +15,7 @@ from .operations_service import (
     acknowledge_operational_alert, expire_overdue_holds, list_operational_alerts,
     operations_snapshot, reservation_case, search_reservation_cases, sync_operational_alerts,
 )
+from .review_service import list_reviews, review_counts, set_review_visibility
 from .user_service import change_user_status, search_user_accounts, user_account_counts
 from .email_service import (
     create_template, delete_template, deliver_email_queue, list_subscribers, list_templates,
@@ -82,6 +83,10 @@ class EmailCampaignRequest(BaseModel):
         if self.audience!="custom" and self.custom_recipients:
             raise ValueError("Custom recipients are only valid for the custom audience.")
         return self
+
+
+class ReviewVisibilityRequest(BaseModel):
+    is_visible: bool
 
 
 class UserStatusRequest(BaseModel):
@@ -169,6 +174,35 @@ def dashboard():
         marketing_subscriber_rows=marketing_subscriber_rows,
         operations=operations,operational_alerts=operational_alerts,
     )
+
+
+@bp.get("/admin/reviews")
+@require_platform_admin
+def admin_reviews():
+    query=(request.args.get("q") or "").strip()
+    if len(query)>160:
+        raise RoyaError("VALIDATION_ERROR","Review search is too long.",422)
+    visibility=(request.args.get("visibility") or "").strip()
+    if visibility not in {"","visible","hidden"}:
+        raise RoyaError("VALIDATION_ERROR","Invalid review visibility filter.",422)
+    return render_template(
+        "admin/reviews.html",
+        query=query,
+        visibility_filter=visibility,
+        reviews=list_reviews(query=query,visibility=visibility),
+        counts=review_counts(),
+    )
+
+
+@bp.put("/api/v1/admin/reviews/<uuid:review_id>/visibility")
+@require_platform_admin
+def admin_review_visibility(review_id):
+    body=_configuration_payload(ReviewVisibilityRequest)
+    return ok(set_review_visibility(
+        review_id=str(review_id),
+        is_visible=body.is_visible,
+        actor_user_id=g.platform_admin.user_id,
+    ))
 
 
 @bp.get("/admin/users")
