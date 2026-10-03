@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Reservation cases · iRoya admin{% endblock %}
+{% block content %}
+<section class="shell page-head">
+  <div>
+    <div class="eyebrow">Platform operations</div>
+    <h1>Reservation case finder</h1>
+    <p>Search by reservation reference, guest name or email, Paystack reference, or refund reference.</p>
+  </div>
+  <a class="button button-secondary" href="/admin">Back to admin</a>
+</section>
+
+<section class="shell admin-case-shell">
+  <form class="card admin-case-search" method="get" action="/admin/reservations">
+    <label>Reservation or payment reference
+      <input name="q" value="{{ query }}" minlength="2" maxlength="254" placeholder="RYA-…, guest@example.com, Paystack reference" autofocus>
+    </label>
+    <button class="button" type="submit">Find case</button>
+  </form>
+
+  {% if query %}
+    <div class="section-heading"><div><div class="eyebrow">Search results</div><h2>{{ results|length }} match{% if results|length != 1 %}es{% endif %}</h2></div></div>
+    {% if results %}
+      <div class="admin-case-results">
+        {% for row in results %}
+          <a class="card admin-case-result" href="/admin/reservations/{{ row.id }}">
+            <span><strong>{{ row.reference }}</strong><small>{{ row.guest_name }} · {{ row.guest_email }}</small></span>
+            <span><strong>{{ row.property_name }}</strong><small>{{ row.check_in }} → {{ row.check_out }}</small></span>
+            <span><strong>{{ row.status|replace('_',' ')|title }}</strong><small>{{ row.payment_status|replace('_',' ')|title }} · {{ row.currency }} {{ '%.2f'|format(row.amount_paid_minor/100) }}</small></span>
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="card operations-empty"><strong>No matching reservation found.</strong><span>Check the reference, guest details, or provider reference and try again.</span></div>
+    {% endif %}
+  {% else %}
+    <div class="card operations-empty"><strong>Search across booking operations.</strong><span>No guest password, secret key, or payment card data is exposed here.</span></div>
+  {% endif %}
+</section>
+{% endblock %}
