@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}{{ case.reservation.reference }} · iRoya admin{% endblock %}
+{% block content %}
+{% set r=case.reservation %}
+<section class="shell page-head">
+  <div>
+    <div class="eyebrow">Reservation case</div>
+    <h1>{{ r.reference }}</h1>
+    <p>{{ r.property_name }} · {{ r.guest_name }} · {{ r.check_in }} → {{ r.check_out }}</p>
+  </div>
+  <a class="button button-secondary" href="/admin/reservations?q={{ r.reference }}">Back to results</a>
+</section>
+
+<section class="shell admin-case-shell">
+  <div class="admin-case-grid">
+    <article class="card admin-case-card">
+      <div class="eyebrow">Reservation</div><h3>Booking state</h3>
+      <div class="case-kv">
+        <span>Status</span><strong>{{ r.status|replace('_',' ')|title }}</strong>
+        <span>Payment</span><strong>{{ r.payment_status|replace('_',' ')|title }}</strong>
+        <span>Guarantee</span><strong>{{ r.guarantee_type|replace('_',' ')|title }}</strong>
+        <span>Stay</span><strong>{{ r.check_in }} → {{ r.check_out }} · {{ r.nights }} night{% if r.nights != 1 %}s{% endif %}</strong>
+        <span>Guests</span><strong>{{ r.adults }} adult{% if r.adults != 1 %}s{% endif %}{% if r.children %} · {{ r.children }} child{% if r.children != 1 %}ren{% endif %}{% endif %}</strong>
+        <span>Created</span><strong>{{ r.created_at }}</strong>
+        {% if r.expires_at %}<span>Hold expires</span><strong>{{ r.expires_at }}</strong>{% endif %}
+      </div>
+    </article>
+
+    <article class="card admin-case-card">
+      <div class="eyebrow">Money</div><h3>Financial state</h3>
+      <div class="case-kv">
+        <span>Total</span><strong>{{ r.currency }} {{ '%.2f'|format(r.total_price_minor/100) }}</strong>
+        <span>Required online</span><strong>{{ r.currency }} {{ '%.2f'|format(r.amount_due_minor/100) }}</strong>
+        <span>Recorded paid</span><strong>{{ r.currency }} {{ '%.2f'|format(r.amount_paid_minor/100) }}</strong>
+        <span>Property</span><strong>{{ r.property_name }}, {{ r.property_city }}, {{ r.property_state }}</strong>
+        <span>Organization</span><strong>{{ r.organization_name }}</strong>
+      </div>
+    </article>
+
+    <article class="card admin-case-card">
+      <div class="eyebrow">Guest</div><h3>Contact</h3>
+      <div class="case-kv">
+        <span>Name</span><strong>{{ r.guest_name }}</strong>
+        <span>Email</span><strong>{{ r.guest_email }}</strong>
+        <span>Phone</span><strong>{{ r.guest_phone }}</strong>
+      </div>
+    </article>
+
+    <article class="card admin-case-card">
+      <div class="eyebrow">Room</div><h3>Booked items</h3>
+      <div class="case-list">
+        {% for item in case.items %}
+          <div class="case-row">
+            <span><strong>{{ item.room_type_name }}</strong><small>{{ item.rate_plan_name }} · {{ item.guarantee_type|replace('_',' ')|title }} · quantity {{ item.quantity }}</small></span>
+            <strong>{{ r.currency }} {{ '%.2f'|format(item.total_price_minor/100) }}</strong>
+          </div>
+        {% else %}<div class="case-empty">No reservation items recorded.</div>{% endfor %}
+      </div>
+    </article>
+  </div>
+
+  <div class="admin-case-grid">
+    <article class="card admin-case-card">
+      <div class="eyebrow">Payments</div><h3>Provider transactions</h3>
+      <div class="case-list">
+        {% for item in case.transactions %}
+          <div class="case-row">
+            <span><strong>{{ item.provider_reference }}</strong><small>{{ item.provider|title }} · {{ item.created_at }}{% if item.paid_at %} · paid {{ item.paid_at }}{% endif %}</small></span>
+            <span class="case-status">{{ item.status|replace('_',' ') }} · {{ item.currency }} {{ '%.2f'|format(item.amount_minor/100) }}</span>
+          </div>
+        {% else %}<div class="case-empty">No payment transactions.</div>{% endfor %}
+      </div>
+    </article>
+
+    <article class="card admin-case-card">
+      <div class="eyebrow">Refunds</div><h3>Refund history</h3>
+      <div class="case-list">
+        {% for item in case.refunds %}
+          <div class="case-row">
+            <span><strong>{{ item.provider_reference or 'Provider reference pending' }}</strong><small>{{ item.reason or 'No reason recorded' }} · {{ item.created_at }}</small></span>
+            <span class="case-status">{{ item.status|replace('_',' ') }} · {{ item.currency }} {{ '%.2f'|format(item.amount_minor/100) }}</span>
+          </div>
+        {% else %}<div class="case-empty">No refund records.</div>{% endfor %}
+      </div>
+    </article>
+  </div>
+
+  <div class="admin-case-grid">
+    <article class="card admin-case-card">
+      <div class="eyebrow">Notifications</div><h3>Delivery trail</h3>
+      <div class="case-list">
+        {% for item in case.notifications %}
+          <div class="case-row">
+            <span><strong>{{ item.event_type }}</strong><small>{{ item.channel|title }} to {{ item.recipient }} · {{ item.created_at }}{% if item.last_error %}<span class="case-error"> · {{ item.last_error }}</span>{% endif %}</small></span>
+            <span class="case-status">{{ item.status }}{% if item.attempts %} · {{ item.attempts }} attempt{% if item.attempts != 1 %}s{% endif %}{% endif %}</span>
+          </div>
+        {% else %}<div class="case-empty">No reservation notifications recorded.</div>{% endfor %}
+      </div>
+    </article>
+
+    <article class="card admin-case-card">
+      <div class="eyebrow">Audit</div><h3>Reservation activity</h3>
+      <div class="case-list">
+        {% for item in case.audit %}
+          <div class="case-row">
+            <span><strong>{{ item.action|replace('_',' ') }}</strong><small>{{ item.created_at }}{% if item.actor_user_id %} · actor {{ item.actor_user_id }}{% endif %}</small></span>
+          </div>
+        {% else %}<div class="case-empty">No reservation audit events recorded.</div>{% endfor %}
+      </div>
+    </article>
+  </div>
+</section>
+{% endblock %}
