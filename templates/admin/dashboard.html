@@ -38,11 +38,19 @@
     {% if operations.issues %}
       <div class="operations-issue-list">
         {% for issue in operations.issues %}
+          {% if issue.link %}
           <a class="operations-issue-row severity-{{ issue.severity }}" href="{{ issue.link }}">
             <span class="operations-severity">{{ issue.severity|title }}</span>
             <span class="operations-issue-copy"><strong>{{ issue.title }}</strong><small>{{ issue.reference }} · {{ issue.detail }}</small></span>
             <span class="operations-issue-time">{{ issue.occurred_at }}</span>
           </a>
+          {% else %}
+          <div class="operations-issue-row severity-{{ issue.severity }}">
+            <span class="operations-severity">{{ issue.severity|title }}</span>
+            <span class="operations-issue-copy"><strong>{{ issue.title }}</strong><small>{{ issue.reference }} · {{ issue.detail }}</small></span>
+            <span class="operations-issue-time">{{ issue.occurred_at }}</span>
+          </div>
+          {% endif %}
         {% endfor %}
       </div>
     {% else %}
