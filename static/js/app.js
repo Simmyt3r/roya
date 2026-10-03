@@ -1241,3 +1241,39 @@ document.querySelectorAll('[data-reservation-approval]').forEach(function(row){
   });
 
 })();
+
+
+(function initGuestReview(){
+  const form=document.querySelector('[data-review-form]');
+  if(!form)return;
+  const message=form.querySelector('.form-message');
+  form.addEventListener('submit',async function(event){
+    event.preventDefault();
+    const submit=form.querySelector('[type="submit"]');
+    const raw=Object.fromEntries(new FormData(form).entries());
+    submit.disabled=true;
+    if(message)message.textContent='Publishing your verified review…';
+    try{
+      const response=await fetch('/api/v1/reviews',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          reservation_id:raw.reservation_id,
+          rating:Number(raw.rating),
+          comment:raw.comment||''
+        })
+      });
+      const data=await response.json().catch(function(){return {};});
+      if(!response.ok){
+        if(message)message.textContent=(data.error&&data.error.message)||'Review could not be published.';
+        return;
+      }
+      if(message)message.textContent='Review published. Thank you.';
+      setTimeout(function(){window.location.reload();},650);
+    }catch(_error){
+      if(message)message.textContent='Review request could not complete.';
+    }finally{
+      submit.disabled=false;
+    }
+  });
+})();
