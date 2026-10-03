@@ -78,6 +78,8 @@ def booking_page():
         check_in=date.fromisoformat(request.args.get("check_in","")); check_out=date.fromisoformat(request.args.get("check_out",""))
     except ValueError as exc:
         raise RoyaError("VALIDATION_ERROR","Valid stay dates are required.",422) from exc
+    if check_in<date.today():
+        raise RoyaError("VALIDATION_ERROR","Check-in cannot be in the past.",422)
     if check_out<=check_in:
         raise RoyaError("VALIDATION_ERROR","Check-out must be after check-in.",422)
     with db_connection() as conn:
