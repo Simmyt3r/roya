@@ -160,6 +160,8 @@ def current_identity(required: bool=False) -> Identity | None:
         ensure_account_not_suspended(identity,raw_session_id if cookie_backed else None)
         g.roya_identity=identity
         return identity
+    except RoyaError:
+        raise
     except Exception as original_exc:
         if cookie_backed and raw_session_id and refresh_token:
             try:
@@ -175,6 +177,8 @@ def current_identity(required: bool=False) -> Identity | None:
                     ensure_account_not_suspended(identity,raw_session_id)
                     g.roya_identity=identity
                     return identity
+            except RoyaError:
+                raise
             except Exception:
                 try:
                     revoke_server_session(raw_session_id)
