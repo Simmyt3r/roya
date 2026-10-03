@@ -240,6 +240,122 @@ class PaymentService:
         }
 
 
+    @staticmethod
+    def _paystack_transaction_id(raw_payload):
+        payload=raw_payload or {}
+        if isinstance(payload,str):
+            try:
+                payload=json.loads(payload)
+            except json.JSONDecodeError:
+                return None
+        if not isinstance(payload,dict):
+            return None
+        value=payload.get("id")
+        return str(value) if value not in (None,"") else None
+
+    @staticmethod
+    def _matching_provider_refund(candidates,amount_minor):
+        matches=[
+            item for item in candidates or []
+            if int(item.get("amount") or 0)==int(amount_minor)
+            and item.get("id") not in (None,"")
+        ]
+        return matches[0] if len(matches)==1 else None
+
+    def reconcile_refunds(self,limit=50):
+        provider=PaystackProvider()
+        with db_connection() as conn:
+            rows=list(conn.execute(
+                """select rf.id::text id,rf.reservation_id::text reservation_id,
+                          rf.provider_reference,rf.amount_minor,
+                          pt.provider_reference transaction_reference,pt.raw_payload
+                   from refunds rf
+                   join payment_transactions pt on pt.id=rf.payment_transaction_id
+                   where pt.provider='paystack'
+                     and rf.status='processing'
+                     and rf.updated_at<now()-interval '5 minutes'
+                   order by rf.updated_at asc
+                   limit %s""",
+                (max(1,min(int(limit),100)),),
+            ).fetchall())
+
+        processed=0
+        failed=0
+        pending=0
+        attention=0
+        errors=0
+
+        for row in rows:
+            try:
+                provider_ref=row["provider_reference"]
+                if provider_ref:
+                    data=provider.fetch_refund(provider_ref)
+                else:
+                    transaction_id=self._paystack_transaction_id(row["raw_payload"])
+                    if not transaction_id:
+                        current_app.logger.warning(
+                            "Refund %s cannot be reconciled because the Paystack transaction ID is unavailable",
+                            row["id"],
+                        )
+                        attention+=1
+                        continue
+                    candidates=provider.list_refunds(transaction_id)
+                    data=self._matching_provider_refund(candidates,row["amount_minor"])
+                    if not data:
+                        pending+=1
+                        continue
+                    provider_ref=str(data.get("id") or "")
+
+                provider_status=str(data.get("status") or "pending").lower()
+                finalized=None
+                with db_connection() as conn:
+                    with conn.transaction():
+                        locked=conn.execute(
+                            "select status from refunds where id=%s for update",
+                            (row["id"],),
+                        ).fetchone()
+                        if not locked or locked["status"]!="processing":
+                            continue
+                        if provider_ref:
+                            conn.execute(
+                                "update refunds set provider_reference=%s,updated_at=now() where id=%s",
+                                (provider_ref,row["id"]),
+                            )
+                        if provider_status=="processed":
+                            finalized=self._finalize_refund(conn,row["id"],True,data)
+                            processed+=1
+                        elif provider_status=="failed":
+                            finalized=self._finalize_refund(conn,row["id"],False,data)
+                            failed+=1
+                        elif provider_status=="needs-attention":
+                            attention+=1
+                        else:
+                            conn.execute(
+                                "update refunds set updated_at=now() where id=%s",
+                                (row["id"],),
+                            )
+                            pending+=1
+
+                if finalized:
+                    NotificationService().notify_refund_status(
+                        str(finalized["reservation_id"]),
+                        finalized.get("status") or provider_status,
+                        finalized.get("payment_status"),
+                    )
+            except Exception:
+                current_app.logger.exception("Refund reconciliation failed for refund %s",row["id"])
+                errors+=1
+
+        return {
+            "checked":len(rows),
+            "processed":processed,
+            "failed":failed,
+            "pending":pending,
+            "attention":attention,
+            "errors":errors,
+        }
+
+
     def request_refund(self,reservation_id,user_id,reason):
         reason=(reason or "Guest requested cancellation and refund").strip()[:1000]
         with db_connection() as conn:
