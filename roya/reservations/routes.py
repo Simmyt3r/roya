@@ -7,9 +7,11 @@ from roya.common.errors import RoyaError
 from roya.common.response import ok
 from .schemas import PartnerReservationDecision, PartnerReservationStatusChange, ReservationCreate
 from .service import ReservationService
+from roya.reviews.service import ReviewService
 
 bp=Blueprint("reservations",__name__)
 service=ReservationService()
+review_service=ReviewService()
 
 
 @bp.post("/api/v1/reservations")
@@ -142,4 +144,6 @@ def booking_page():
 @login_required
 def reservation_page(reservation_id):
     identity=current_identity(required=True)
-    return render_template("guest/reservation.html",reservation=service.get_for_user(str(reservation_id),identity.user_id))
+    reservation=service.get_for_user(str(reservation_id),identity.user_id)
+    review=review_service.for_reservation(str(reservation_id),identity.user_id)
+    return render_template("guest/reservation.html",reservation=reservation,review=review)
