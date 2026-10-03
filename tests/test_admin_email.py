@@ -186,7 +186,7 @@ def test_admin_dashboard_renders_email_workspace(monkeypatch):
 
     response=client.get("/admin")
     assert response.status_code==200
-    assert b"Campaigns &amp; templates" in response.data
+    assert b"Campaigns & templates" in response.data
     assert b'data-email-campaign' in response.data
     assert b"All consented external / non-registered subscribers" in response.data
     assert b"Hotel partner outreach" in response.data
