@@ -1153,3 +1153,55 @@ document.querySelectorAll('[data-reservation-approval]').forEach(function(row){
     }
   });
 })();
+
+
+(function initAdminOperations(){
+  const section=document.querySelector('.admin-operations');
+  if(!section)return;
+  const message=section.querySelector('[data-ops-message]');
+  const buttons=section.querySelectorAll('[data-ops-action]');
+
+  function setBusy(value){
+    buttons.forEach(function(button){button.disabled=value;});
+  }
+
+  buttons.forEach(function(button){
+    button.addEventListener('click',async function(){
+      const action=button.dataset.opsAction;
+      if(action==='refresh'){
+        window.location.reload();
+        return;
+      }
+      const endpoint=action==='reconcile-money'?
+        '/api/v1/admin/operations/reconcile-money':
+        '/api/v1/admin/operations/expire-holds';
+      setBusy(true);
+      if(message)message.textContent=action==='reconcile-money'?
+        'Reconciling pending payments and refunds…':
+        'Expiring overdue reservation holds…';
+      try{
+        const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+        const data=await response.json().catch(function(){return {};});
+        if(!response.ok){
+          if(message)message.textContent=(data.error&&data.error.message)||'Operation could not complete.';
+          return;
+        }
+        if(action==='reconcile-money'){
+          const result=data.data||{};
+          const payments=result.payments||{};
+          const refunds=result.refunds||{};
+          if(message)message.textContent=
+            'Payments: '+(payments.reconciled||0)+' reconciled, '+(payments.errors||0)+' errors. '+
+            'Refunds: '+(refunds.processed||0)+' processed, '+(refunds.failed||0)+' failed, '+(refunds.errors||0)+' errors.';
+        }else{
+          if(message)message.textContent='Expired '+((data.data&&data.data.expired)||0)+' overdue hold(s).';
+        }
+        setTimeout(function(){window.location.reload();},900);
+      }catch(_error){
+        if(message)message.textContent='Operational recovery request could not complete.';
+      }finally{
+        setBusy(false);
+      }
+    });
+  });
+})();
