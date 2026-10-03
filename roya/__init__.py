@@ -53,6 +53,7 @@ def create_app(test_config=None):
     from .internal.routes import bp as internal_bp
     from .notifications.routes import bp as notifications_bp
     from .marketing.routes import bp as marketing_bp
+    from .reviews.routes import bp as reviews_bp
 
     app.register_blueprint(properties_bp)
     app.register_blueprint(auth_bp)
@@ -66,6 +67,7 @@ def create_app(test_config=None):
     app.register_blueprint(internal_bp)
     app.register_blueprint(notifications_bp)
     app.register_blueprint(marketing_bp)
+    app.register_blueprint(reviews_bp)
 
     for api_blueprint in (
         auth_bp,
@@ -78,6 +80,7 @@ def create_app(test_config=None):
         rates_bp,
         properties_bp,
         notifications_bp,
+        reviews_bp,
     ):
         csrf.exempt(api_blueprint)
 
