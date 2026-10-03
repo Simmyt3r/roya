@@ -27,6 +27,7 @@
   <div class="operations-actions">
     <button class="button button-small" type="button" data-ops-action="reconcile-money">Reconcile money</button>
     <button class="button button-small button-secondary" type="button" data-ops-action="expire-holds">Expire overdue holds</button>
+    <button class="button button-small button-secondary" type="button" data-ops-action="scan-alerts">Scan now</button>
     <button class="button button-small button-secondary" type="button" data-ops-action="refresh">Refresh health</button>
     <a class="button button-small button-secondary" href="/admin/reservations">Find reservation</a>
     <p class="form-message" data-ops-message role="status" aria-live="polite"></p>
@@ -56,6 +57,33 @@
       </div>
     {% else %}
       <div class="operations-empty"><strong>No operational exceptions detected.</strong><span>Current payment, refund, hold, inventory and email checks are clean.</span></div>
+    {% endif %}
+  </div>
+  <div class="card operations-alert-ledger">
+    <div class="admin-card-head">
+      <div><div class="eyebrow">Incident ledger</div><h3>Tracked operational alerts</h3></div>
+      <span class="integration-state">{{ operational_alerts|length }} recent</span>
+    </div>
+    {% if operational_alerts %}
+      <div class="operations-alert-list">
+        {% for alert in operational_alerts %}
+          <div class="operations-alert-row severity-{{ alert.severity }} status-{{ alert.status }}" data-operational-alert="{{ alert.id }}">
+            <span class="operations-alert-state">{{ alert.status|title }}</span>
+            <div class="operations-alert-copy">
+              <strong>{{ alert.title }}</strong>
+              <small>{{ alert.reference or alert.kind }} · {{ alert.detail }}</small>
+              <small>First {{ alert.first_seen_at }} · Last {{ alert.last_seen_at }} · {{ alert.occurrences }} detection{% if alert.occurrences != 1 %}s{% endif %}{% if alert.acknowledged_by_name %} · acknowledged by {{ alert.acknowledged_by_name }}{% endif %}</small>
+            </div>
+            <div class="operations-alert-actions">
+              {% if alert.link %}<a class="button button-small button-secondary" href="{{ alert.link }}">Inspect</a>{% endif %}
+              {% if alert.status == 'open' %}<button class="button button-small button-secondary" type="button" data-alert-ack>Acknowledge</button>{% endif %}
+            </div>
+            <p class="form-message" role="status" aria-live="polite"></p>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="operations-empty"><strong>No incident history yet.</strong><span>The scheduled operations scanner will record anomalies here when they occur.</span></div>
     {% endif %}
   </div>
 </section>
