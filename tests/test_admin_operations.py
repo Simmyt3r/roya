@@ -5,6 +5,8 @@ from uuid import uuid4
 from roya import create_app
 from roya.admin import routes as admin_routes
 from roya.admin import service as admin_service
+from roya.common import security as security_module
+from roya.internal import routes as internal_routes
 
 
 @contextmanager
@@ -125,3 +127,71 @@ def test_admin_can_acknowledge_operational_alert(monkeypatch):
     assert response.status_code==200
     assert response.json["data"]["status"]=="acknowledged"
     assert captured["alert_id"]==str(alert_id)
+
+
+def test_operations_scan_rejects_invalid_vault_bearer(monkeypatch):
+    @contextmanager
+    def vault_lookup():
+        class Connection:
+            def execute(self,*_args,**_kwargs):
+                return self
+
+            def fetchone(self):
+                return {"decrypted_secret":"correct-secret"}
+
+        yield Connection()
+
+    monkeypatch.setattr(security_module,"db_connection",lambda:vault_lookup())
+    app=create_app({"TESTING":True,"WTF_CSRF_ENABLED":False,"DATABASE_URL":""})
+    client=app.test_client()
+    response=client.get(
+        "/api/internal/cron/operations-scan",
+        headers={"Authorization":"Bearer wrong-secret"},
+    )
+    assert response.status_code==403
+
+
+def test_operations_scan_accepts_vault_bearer_and_runs_recovery(monkeypatch):
+    @contextmanager
+    def vault_lookup():
+        class Connection:
+            def execute(self,*_args,**_kwargs):
+                return self
+
+            def fetchone(self):
+                return {"decrypted_secret":"correct-secret"}
+
+        yield Connection()
+
+    class FakePaymentService:
+        def reconcile_pending(self):
+            return {"reconciled":1,"pending":0,"errors":0}
+
+        def reconcile_refunds(self):
+            return {"processed":1,"failed":0,"errors":0}
+
+    class FakeNotificationService:
+        def __init__(self,*_args,**_kwargs):
+            pass
+
+        def deliver_pending_emails(self,limit=100):
+            return {"checked":0,"sent":0,"retrying":0,"failed":0,"suppressed":0}
+
+    monkeypatch.setattr(security_module,"db_connection",lambda:vault_lookup())
+    monkeypatch.setattr(internal_routes,"PaymentService",FakePaymentService)
+    monkeypatch.setattr(internal_routes,"NotificationService",FakeNotificationService)
+    monkeypatch.setattr(internal_routes,"SmtpNotificationAdapter",lambda:object())
+    monkeypatch.setattr(internal_routes,"expire_overdue_holds",lambda:{"expired":0})
+    monkeypatch.setattr(internal_routes,"sync_operational_alerts",lambda:{
+        "new_alerts":0,"reopened_alerts":0,"resolved_alerts":0,
+    })
+
+    app=create_app({"TESTING":True,"WTF_CSRF_ENABLED":False,"DATABASE_URL":""})
+    client=app.test_client()
+    response=client.get(
+        "/api/internal/cron/operations-scan",
+        headers={"Authorization":"Bearer correct-secret"},
+    )
+    assert response.status_code==200
+    assert response.json["data"]["money"]["payments"]["reconciled"]==1
+    assert response.json["data"]["money"]["refunds"]["processed"]==1
