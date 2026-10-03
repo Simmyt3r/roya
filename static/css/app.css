@@ -731,3 +731,39 @@ html{-webkit-text-size-adjust:100%}body{min-width:0;overflow-x:hidden}button,a,i
   .review-summary{justify-items:start}
   .property-reviews .section-heading{align-items:flex-start;flex-direction:column}
 }
+
+
+/* Admin user account management */
+.admin-user-shell{padding-bottom:64px}
+.admin-user-metrics{margin-bottom:14px}
+.admin-user-search{display:grid;grid-template-columns:minmax(0,1fr) 220px auto;gap:12px;align-items:end;padding:18px;margin-bottom:14px}
+.admin-user-search-actions{display:flex;gap:8px;align-items:center}
+.admin-user-list{display:grid;gap:10px}
+.admin-user-row{display:grid;grid-template-columns:minmax(190px,1.15fr) minmax(300px,1.5fr) minmax(130px,.65fr);gap:14px 18px;align-items:center;padding:16px 18px}
+.admin-user-row.status-suspended{border-color:#e8b9b1;background:#fffafa}
+.admin-user-identity{display:grid;gap:2px;min-width:0}
+.admin-user-identity strong,.admin-user-identity span,.admin-user-identity small{overflow-wrap:anywhere}
+.admin-user-identity span{font-size:.82rem}
+.admin-user-identity small,.admin-user-dates small{color:var(--muted);font-size:.72rem}
+.admin-user-meta{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.admin-user-meta span{display:grid;gap:2px}
+.admin-user-meta small{font-size:.65rem;color:var(--muted)}
+.admin-user-state{display:grid;justify-items:end;gap:8px}
+.admin-user-dates{grid-column:1/-1;display:flex;gap:14px;flex-wrap:wrap;padding-top:9px;border-top:1px solid #eef2f1}
+.admin-user-row>.form-message{grid-column:1/-1;margin:0}
+@media(max-width:920px){
+  .admin-user-search{grid-template-columns:minmax(0,1fr) 190px}
+  .admin-user-search-actions{grid-column:1/-1}
+  .admin-user-row{grid-template-columns:1fr auto}
+  .admin-user-meta{grid-column:1/-1;order:3}
+}
+@media(max-width:620px){
+  .admin-user-search{grid-template-columns:1fr}
+  .admin-user-search-actions{grid-column:auto;display:grid;grid-template-columns:1fr}
+  .admin-user-search-actions .button{width:100%}
+  .admin-user-row{grid-template-columns:1fr;padding:15px}
+  .admin-user-state{justify-items:start}
+  .admin-user-state .button{width:100%}
+  .admin-user-meta{grid-template-columns:1fr 1fr}
+  .admin-user-dates{display:grid;gap:3px}
+}
