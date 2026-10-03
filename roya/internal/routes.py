@@ -5,7 +5,7 @@ from flask import Blueprint
 from roya.admin.operations_service import expire_overdue_holds, sync_operational_alerts
 from roya.common.db import db_connection
 from roya.common.response import ok
-from roya.common.security import require_cron_secret
+from roya.common.security import require_cron_secret, require_vault_bearer_secret
 from roya.notifications.service import NotificationService
 from roya.notifications.smtp import SmtpNotificationAdapter
 from roya.payments.service import PaymentService
@@ -24,7 +24,7 @@ def expire_holds():
 
 
 @bp.get("/api/internal/cron/operations-scan")
-@require_cron_secret
+@require_vault_bearer_secret("iroya_operations_scan_secret")
 def operations_scan():
     service=PaymentService()
     money={
