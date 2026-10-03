@@ -3,6 +3,53 @@
 {% block content %}
 <section class="shell page-head"><div><div class="eyebrow">Platform operations</div><h1>iRoya admin</h1></div></section>
 <section class="shell metric-grid"><div class="metric"><strong>{{ metrics.pending_properties }}</strong><span>Pending hotels</span></div><div class="metric"><strong>{{ metrics.verified_properties }}</strong><span>Verified hotels</span></div><div class="metric"><strong>{{ metrics.reservations_this_month }}</strong><span>Bookings this month</span></div><div class="metric"><strong>₦{{ '%.0f'|format(metrics.volume_this_month_minor/100) }}</strong><span>Paid volume</span></div></section>
+<section class="shell admin-operations" aria-labelledby="operations-heading">
+  <div class="section-heading admin-operations-heading">
+    <div>
+      <div class="eyebrow">Reliability watch</div>
+      <h2 id="operations-heading">Operations health</h2>
+      <p class="muted">Booking, payment, refund, inventory and notification exceptions that need human attention.</p>
+    </div>
+    <span class="operations-state {{ 'is-healthy' if operations.healthy else 'has-alerts' }}">
+      {% if operations.healthy %}Healthy{% else %}{{ operations.critical }} critical · {{ operations.warning }} warning{% endif %}
+    </span>
+  </div>
+  <div class="operations-metrics">
+    <div class="operations-metric {{ 'has-alert' if operations.counts.stuck_payments else '' }}"><strong>{{ operations.counts.stuck_payments }}</strong><span>Stuck payments</span></div>
+    <div class="operations-metric {{ 'has-alert' if operations.counts.stuck_refunds else '' }}"><strong>{{ operations.counts.stuck_refunds }}</strong><span>Stuck refunds</span></div>
+    <div class="operations-metric {{ 'has-alert' if operations.counts.overdue_holds else '' }}"><strong>{{ operations.counts.overdue_holds }}</strong><span>Overdue holds</span></div>
+    <div class="operations-metric {{ 'has-warning' if operations.counts.expiring_holds else '' }}"><strong>{{ operations.counts.expiring_holds }}</strong><span>Expiring ≤30m</span></div>
+    <div class="operations-metric {{ 'has-warning' if operations.counts.failed_email_24h else '' }}"><strong>{{ operations.counts.failed_email_24h }}</strong><span>Email failures 24h</span></div>
+    <div class="operations-metric {{ 'has-warning' if operations.counts.overdue_email_queue else '' }}"><strong>{{ operations.counts.overdue_email_queue }}</strong><span>Overdue email queue</span></div>
+    <div class="operations-metric {{ 'has-alert' if operations.counts.inventory_anomalies else '' }}"><strong>{{ operations.counts.inventory_anomalies }}</strong><span>Inventory anomalies</span></div>
+    <div class="operations-metric {{ 'has-warning' if operations.counts.active_hotels_without_30d_inventory else '' }}"><strong>{{ operations.counts.active_hotels_without_30d_inventory }}</strong><span>Hotels without 30d stock</span></div>
+  </div>
+  <div class="operations-actions">
+    <button class="button button-small" type="button" data-ops-action="reconcile-money">Reconcile money</button>
+    <button class="button button-small button-secondary" type="button" data-ops-action="expire-holds">Expire overdue holds</button>
+    <button class="button button-small button-secondary" type="button" data-ops-action="refresh">Refresh health</button>
+    <p class="form-message" data-ops-message role="status" aria-live="polite"></p>
+  </div>
+  <div class="card operations-issue-card">
+    <div class="admin-card-head">
+      <div><div class="eyebrow">Exceptions</div><h3>Needs attention</h3></div>
+      <span class="integration-state">{{ operations.issues|length }} shown</span>
+    </div>
+    {% if operations.issues %}
+      <div class="operations-issue-list">
+        {% for issue in operations.issues %}
+          <a class="operations-issue-row severity-{{ issue.severity }}" href="{{ issue.link }}">
+            <span class="operations-severity">{{ issue.severity|title }}</span>
+            <span class="operations-issue-copy"><strong>{{ issue.title }}</strong><small>{{ issue.reference }} · {{ issue.detail }}</small></span>
+            <span class="operations-issue-time">{{ issue.occurred_at }}</span>
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="operations-empty"><strong>No operational exceptions detected.</strong><span>Current payment, refund, hold, inventory and email checks are clean.</span></div>
+    {% endif %}
+  </div>
+</section>
 <section class="shell admin-integrations" aria-labelledby="integrations-heading">
   <div class="section-heading"><div><div class="eyebrow">Platform configuration</div><h2 id="integrations-heading">Integrations</h2></div></div>
   <div class="admin-integration-grid">
