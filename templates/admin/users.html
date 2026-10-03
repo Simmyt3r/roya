@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}User accounts · iRoya admin{% endblock %}
+{% block content %}
+<section class="shell page-head">
+  <div>
+    <div class="eyebrow">Platform administration</div>
+    <h1>User accounts</h1>
+    <p>Search accounts, review account type and activity, and suspend or reactivate non-admin users.</p>
+  </div>
+  <a class="button button-secondary" href="/admin">Back to admin</a>
+</section>
+
+<section class="shell admin-user-shell">
+  <div class="operations-metrics admin-user-metrics">
+    <div class="operations-metric"><strong>{{ counts.total }}</strong><span>Total accounts</span></div>
+    <div class="operations-metric"><strong>{{ counts.active }}</strong><span>Active</span></div>
+    <div class="operations-metric {{ 'has-alert' if counts.suspended else '' }}"><strong>{{ counts.suspended }}</strong><span>Suspended</span></div>
+    <div class="operations-metric"><strong>{{ counts.hotels }}</strong><span>Hotel accounts</span></div>
+  </div>
+
+  <form class="card admin-user-search" method="get" action="/admin/users">
+    <label>Search
+      <input name="q" value="{{ query }}" maxlength="120" placeholder="Name, email or phone">
+    </label>
+    <label>Status
+      <select name="status">
+        <option value="" {% if not status_filter %}selected{% endif %}>All statuses</option>
+        <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+        <option value="suspended" {% if status_filter == 'suspended' %}selected{% endif %}>Suspended</option>
+        <option value="pending_verification" {% if status_filter == 'pending_verification' %}selected{% endif %}>Pending verification</option>
+      </select>
+    </label>
+    <div class="admin-user-search-actions">
+      <button class="button" type="submit">Search users</button>
+      {% if query or status_filter %}<a class="button button-secondary" href="/admin/users">Clear</a>{% endif %}
+    </div>
+  </form>
+
+  <div class="admin-user-list">
+    {% for user in users %}
+      <article class="card admin-user-row status-{{ user.status }}" data-admin-user="{{ user.id }}">
+        <div class="admin-user-identity">
+          <strong>{{ user.name or 'Unnamed account' }}</strong>
+          <span>{{ user.email }}</span>
+          {% if user.phone %}<small>{{ user.phone }}</small>{% endif %}
+        </div>
+        <div class="admin-user-meta">
+          <span><strong>{{ user.account_type|title }}</strong><small>Account type</small></span>
+          <span><strong>{{ user.platform_role|title }}</strong><small>Platform role</small></span>
+          <span><strong>{{ user.reservation_count }}</strong><small>Reservations</small></span>
+          <span><strong>{{ user.organization_count }}</strong><small>Organizations</small></span>
+        </div>
+        <div class="admin-user-state">
+          <span class="status-pill status-{{ user.status }}">{{ user.status|replace('_',' ')|title }}</span>
+          {% if user.platform_role == 'admin' %}
+            <small class="muted">Admin status is protected.</small>
+          {% elif user.status == 'suspended' %}
+            <button class="button button-small" type="button" data-user-status="active">Reactivate</button>
+          {% else %}
+            <button class="button button-small button-secondary danger-soft" type="button" data-user-status="suspended">Suspend</button>
+          {% endif %}
+        </div>
+        <div class="admin-user-dates">
+          <small>Joined {{ user.created_at }}</small>
+          <small>{% if user.last_sign_in_at %}Last sign-in {{ user.last_sign_in_at }}{% else %}No sign-in recorded{% endif %}</small>
+        </div>
+        <p class="form-message" role="status" aria-live="polite"></p>
+      </article>
+    {% else %}
+      <div class="card operations-empty"><strong>No accounts matched.</strong><span>Try a different name, email, phone number, or status filter.</span></div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
