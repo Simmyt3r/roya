@@ -110,3 +110,20 @@ def change_user_status(user_id,status,actor_user_id):
     result["previous_status"]=before["status"]
     result["revoked_sessions"]=revoked_sessions
     return result
+
+
+def user_account_counts():
+    with db_connection() as conn:
+        row=conn.execute(
+            """select
+                 count(*) total,
+                 count(*) filter(where status='active') active,
+                 count(*) filter(where status='suspended') suspended,
+                 count(*) filter(where status='pending_verification') pending_verification,
+                 count(*) filter(where account_type='guest') guests,
+                 count(*) filter(where account_type='hotel') hotels
+               from profiles"""
+        ).fetchone()
+    return dict(row) if row else {
+        "total":0,"active":0,"suspended":0,"pending_verification":0,"guests":0,"hotels":0,
+    }
