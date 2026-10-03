@@ -4,6 +4,7 @@ from urllib.parse import urlsplit
 
 from flask import current_app, request, session
 
+from .db import db_connection
 from .errors import RoyaError
 
 
@@ -19,6 +20,31 @@ def require_cron_secret(view):
 
     return wrapped
 
+
+
+def require_vault_bearer_secret(secret_name):
+    def decorator(view):
+        @wraps(view)
+        def wrapped(*args, **kwargs):
+            supplied=request.headers.get("Authorization","")
+            candidate=supplied.removeprefix("Bearer ").strip()
+            if not candidate:
+                raise RoyaError("FORBIDDEN","Invalid internal authorization.",403)
+
+            with db_connection() as conn:
+                row=conn.execute(
+                    """select decrypted_secret
+                       from vault.decrypted_secrets
+                       where name=%s""",
+                    (secret_name,),
+                ).fetchone()
+            configured=(row["decrypted_secret"] if row else "") or ""
+            if not configured or not hmac.compare_digest(candidate,configured):
+                raise RoyaError("FORBIDDEN","Invalid internal authorization.",403)
+            return view(*args,**kwargs)
+
+        return wrapped
+    return decorator
 
 def enforce_same_origin_for_cookie_mutations():
     if request.method in {"GET", "HEAD", "OPTIONS"}:
