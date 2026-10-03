@@ -11,19 +11,59 @@ from .paystack import PaystackProvider
 
 
 class PaymentService:
+    @staticmethod
+    def _record_successful_payment(conn,reference,data):
+        try:
+            return conn.execute(
+                "select * from record_successful_payment(%s::text,%s::bigint,%s::jsonb)",
+                (reference,int(data.get("amount") or 0),json.dumps(data)),
+            ).fetchone()
+        except RoyaError:
+            raise
+        except Exception as exc:
+            message=str(exc)
+            if "BOOKING_CONFLICT" in message:
+                raise RoyaError(
+                    "PAYMENT_INVENTORY_CONFLICT",
+                    "Payment was reported successful, but the reserved inventory could not be confirmed. Do not make another payment; iRoya support must review this reservation.",
+                    409,
+                ) from exc
+            if "PAYMENT_AMOUNT_MISMATCH" in message:
+                raise RoyaError(
+                    "PAYMENT_AMOUNT_MISMATCH",
+                    "The payment amount does not match the reservation transaction.",
+                    409,
+                ) from exc
+            if "RESERVATION_NOT_PAYABLE" in message:
+                raise RoyaError(
+                    "RESERVATION_NOT_PAYABLE",
+                    "This reservation can no longer accept this payment.",
+                    409,
+                ) from exc
+            if "PAYMENT_REFERENCE_NOT_FOUND" in message:
+                raise RoyaError("PAYMENT_NOT_FOUND","Payment transaction not found.",404) from exc
+            raise
+
     def initialize(self,reservation_id,user_id,idempotency_key):
         if not idempotency_key:
             raise RoyaError("IDEMPOTENCY_KEY_REQUIRED","A valid Idempotency-Key header is required.",400)
         with db_connection() as conn:
             reservation=conn.execute(
                 """select r.id,r.reference,r.total_price_minor,r.amount_due_minor,r.amount_paid_minor,
-                          r.currency,r.guest_email,r.status,r.payment_status
+                          r.currency,r.guest_email,r.status,r.payment_status,r.expires_at,
+                          (r.expires_at is not null and r.expires_at<=now()) hold_expired
                    from reservations r where r.id=%s and r.user_id=%s""",(reservation_id,user_id)
             ).fetchone()
             if not reservation:
                 raise RoyaError("NOT_FOUND","Reservation not found.",404)
-            if reservation["status"] in {"cancelled","expired","checked_out"}:
+            if reservation["status"] in {"cancelled","expired","checked_out","no_show"}:
                 raise RoyaError("RESERVATION_NOT_PAYABLE","This reservation cannot be paid.",409)
+            if reservation["status"] in {"held","pending_confirmation"} and reservation["hold_expired"]:
+                raise RoyaError(
+                    "RESERVATION_HOLD_EXPIRED",
+                    "This reservation hold has expired. Search again to create a new booking.",
+                    409,
+                )
             existing=conn.execute(
                 "select response_json from idempotency_keys where user_id=%s and scope='payment_init' and key=%s",
                 (user_id,idempotency_key),
@@ -88,10 +128,7 @@ class PaymentService:
                     "provider_status":data.get("status") or "pending"}
 
         with db_connection() as conn:
-            row=conn.execute(
-                "select * from record_successful_payment(%s::text,%s::bigint,%s::jsonb)",
-                (reference,int(data.get("amount") or 0),json.dumps(data)),
-            ).fetchone()
+            row=self._record_successful_payment(conn,reference,data)
             conn.commit()
         NotificationService().notify_payment_success(str(row["reservation_id"]))
         return {"verified":True,"reservation_id":row["reservation_id"],
@@ -131,10 +168,7 @@ class PaymentService:
                 if not inserted:
                     response={"duplicate":True}
                 elif event=="charge.success" and reference:
-                    row=conn.execute(
-                        "select * from record_successful_payment(%s::text,%s::bigint,%s::jsonb)",
-                        (reference,int(data.get("amount") or 0),json.dumps(data)),
-                    ).fetchone()
+                    row=self._record_successful_payment(conn,reference,data)
                     conn.execute(
                         "update payment_webhook_events set processing_status='processed',processed_at=now() where id=%s",
                         (inserted["id"],),
@@ -178,19 +212,32 @@ class PaymentService:
                    order by created_at asc limit %s""",(limit,)
             ).fetchall())
         reconciled=0
+        pending=0
+        errors=0
         for row in rows:
-            data=provider.verify_payment(row["provider_reference"])
-            if data.get("status")=="success":
+            try:
+                data=provider.verify_payment(row["provider_reference"])
+                if data.get("status")!="success":
+                    pending+=1
+                    continue
                 with db_connection() as conn:
-                    settled=conn.execute(
-                        "select * from record_successful_payment(%s::text,%s::bigint,%s::jsonb)",
-                        (row["provider_reference"],int(data.get("amount") or 0),json.dumps(data)),
-                    ).fetchone()
+                    settled=self._record_successful_payment(conn,row["provider_reference"],data)
                     conn.commit()
                 if settled:
                     NotificationService().notify_payment_success(str(settled["reservation_id"]))
                 reconciled+=1
-        return {"checked":len(rows),"reconciled":reconciled}
+            except Exception:
+                current_app.logger.exception(
+                    "Payment reconciliation failed for reference %s",
+                    row["provider_reference"],
+                )
+                errors+=1
+        return {
+            "checked":len(rows),
+            "reconciled":reconciled,
+            "pending":pending,
+            "errors":errors,
+        }
 
 
     def request_refund(self,reservation_id,user_id,reason):
