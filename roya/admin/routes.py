@@ -12,7 +12,8 @@ from roya.common.integrations import (
 from roya.common.response import ok
 from .service import require_platform_admin
 from .operations_service import (
-    expire_overdue_holds, operations_snapshot, reservation_case, search_reservation_cases,
+    acknowledge_operational_alert, expire_overdue_holds, list_operational_alerts,
+    operations_snapshot, reservation_case, search_reservation_cases, sync_operational_alerts,
 )
 from .email_service import (
     create_template, delete_template, deliver_email_queue, list_subscribers, list_templates,
@@ -139,6 +140,11 @@ def dashboard():
             "issues":[],"critical":0,"warning":0,"healthy":True,
         }
     try:
+        operational_alerts=list_operational_alerts()
+    except Exception as exc:
+        current_app.logger.warning("Admin operational alert ledger unavailable: %s",exc)
+        operational_alerts=[]
+    try:
         email_templates=list_templates()
         email_campaigns=recent_campaigns()
         marketing_subscribers=subscriber_counts()
@@ -156,7 +162,7 @@ def dashboard():
         email_templates=email_templates,email_campaigns=email_campaigns,
         marketing_subscribers=marketing_subscribers,
         marketing_subscriber_rows=marketing_subscriber_rows,
-        operations=operations,
+        operations=operations,operational_alerts=operational_alerts,
     )
 
 
@@ -181,6 +187,21 @@ def admin_reservation_case(reservation_id):
 @require_platform_admin
 def admin_operations_snapshot():
     return ok(operations_snapshot())
+
+
+@bp.post("/api/v1/admin/operations/scan")
+@require_platform_admin
+def admin_operations_scan():
+    return ok(sync_operational_alerts())
+
+
+@bp.post("/api/v1/admin/operations/alerts/<uuid:alert_id>/acknowledge")
+@require_platform_admin
+def admin_acknowledge_operational_alert(alert_id):
+    row=acknowledge_operational_alert(str(alert_id),g.platform_admin.user_id)
+    if not row:
+        raise RoyaError("NOT_FOUND","Active operational alert not found.",404)
+    return ok(row)
 
 
 @bp.post("/api/v1/admin/operations/expire-holds")
