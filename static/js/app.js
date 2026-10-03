@@ -408,7 +408,7 @@ document.querySelectorAll('[data-amenities-form]').forEach(function(form){
 });
 
 
-document.querySelectorAll('[data-pay-reservation]').forEach(function(button){button.addEventListener('click',async function(){const msg=document.querySelector('[data-reservation-message]');button.disabled=true;if(msg)msg.textContent='Starting secure payment…';const res=await fetch('/api/v1/payments/initiate',{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':crypto.randomUUID()},body:JSON.stringify({reservation_id:button.dataset.payReservation})});const data=await res.json().catch(function(){return {};});if(res.ok&&data.data&&data.data.authorization_url){window.location.href=data.data.authorization_url;return;}if(msg)msg.textContent=(data.error&&data.error.message)||'Payment could not be started.';button.disabled=false;});});
+document.querySelectorAll('[data-pay-reservation]').forEach(function(button){button.addEventListener('click',async function(){const msg=document.querySelector('[data-reservation-message]');button.disabled=true;if(msg)msg.textContent='Starting secure payment…';const res=await fetch('/api/v1/payments/initiate',{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':'payment-'+button.dataset.payReservation},body:JSON.stringify({reservation_id:button.dataset.payReservation})});const data=await res.json().catch(function(){return {};});if(res.ok&&data.data&&data.data.authorization_url){window.location.href=data.data.authorization_url;return;}if(msg)msg.textContent=(data.error&&data.error.message)||'Payment could not be started.';button.disabled=false;});});
 document.querySelectorAll('[data-cancel-reservation]').forEach(function(button){button.addEventListener('click',async function(){const msg=document.querySelector('[data-reservation-message]');const reason=window.prompt('Why are you cancelling this reservation?','Plans changed');if(reason===null)return;button.disabled=true;if(msg)msg.textContent='Cancelling reservation…';const res=await fetch('/api/v1/reservations/'+button.dataset.cancelReservation+'/cancel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reason:reason})});const data=await res.json().catch(function(){return {};});if(!res.ok){if(msg)msg.textContent=(data.error&&data.error.message)||'Reservation could not be cancelled.';button.disabled=false;return;}window.location.reload();});});
 document.querySelectorAll('[data-property-verification]').forEach(function(row){row.querySelectorAll('[data-verification-status]').forEach(function(button){button.addEventListener('click',async function(){const msg=row.querySelector('.form-message');const status=button.dataset.verificationStatus;const notes=status==='verified'?null:window.prompt('Verification note:','');if(status!=='verified'&&notes===null)return;row.querySelectorAll('button').forEach(function(item){item.disabled=true;});if(msg)msg.textContent='Updating verification…';const res=await fetch('/api/v1/admin/properties/'+row.dataset.propertyVerification+'/verification',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:status,notes:notes})});const data=await res.json().catch(function(){return {};});if(!res.ok){if(msg)msg.textContent=(data.error&&data.error.message)||'Verification update failed.';row.querySelectorAll('button').forEach(function(item){item.disabled=false;});return;}window.location.reload();});});});
 
@@ -773,23 +773,47 @@ if('serviceWorker' in navigator){
     button.hidden=true;
   });
 })();
+function requestKey(prefix){
+  if(window.crypto&&typeof window.crypto.randomUUID==='function')return prefix+'-'+window.crypto.randomUUID();
+  return prefix+'-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);
+}
+
 const bookingForm=document.getElementById('booking-form');
-if(bookingForm){bookingForm.addEventListener('submit',async function(e){
-  e.preventDefault(); const msg=bookingForm.querySelector('.form-message'); msg.textContent='Creating a live inventory hold…';
-  const f=Object.fromEntries(new FormData(bookingForm).entries());
-  const body={property_id:bookingForm.dataset.property,room_type_id:bookingForm.dataset.room,rate_plan_id:bookingForm.dataset.rate,check_in:bookingForm.dataset.checkin,check_out:bookingForm.dataset.checkout,quantity:1,adults:Number(f.adults||1),children:Number(f.children||0),guest_name:f.guest_name,guest_email:f.guest_email,guest_phone:f.guest_phone,guarantee_type:bookingForm.dataset.guarantee};
-  const res=await fetch('/api/v1/reservations',{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':crypto.randomUUID()},body:JSON.stringify(body)});
-  const data=await res.json().catch(function(){return {};});
-  if(!res.ok){msg.textContent=(data.error&&data.error.message)||'Reservation failed.';return;}
-  const r=data.data;
-  if(Number(r.amount_due_minor)>0){
-    const pay=await fetch('/api/v1/payments/initiate',{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':crypto.randomUUID()},body:JSON.stringify({reservation_id:r.reservation_id})});
-    const pd=await pay.json().catch(function(){return {};});
-    if(pay.ok&&pd.data&&pd.data.authorization_url){window.location.href=pd.data.authorization_url;return;}
-    msg.textContent=(pd.error&&pd.error.message)||'Reservation held, but payment could not start.';return;
-  }
-  window.location.href='/reservation/'+r.reservation_id;
-});}
+if(bookingForm){
+  const reservationKey=requestKey('reservation');
+  const submit=bookingForm.querySelector('button[type="submit"]');
+  let bookingBusy=false;
+  bookingForm.addEventListener('submit',async function(e){
+    e.preventDefault();
+    if(bookingBusy)return;
+    bookingBusy=true;
+    if(submit)submit.disabled=true;
+    const msg=bookingForm.querySelector('.form-message');
+    msg.textContent='Creating a live inventory hold…';
+    const f=Object.fromEntries(new FormData(bookingForm).entries());
+    const body={property_id:bookingForm.dataset.property,room_type_id:bookingForm.dataset.room,rate_plan_id:bookingForm.dataset.rate,check_in:bookingForm.dataset.checkin,check_out:bookingForm.dataset.checkout,quantity:1,adults:Number(f.adults||1),children:Number(f.children||0),guest_name:f.guest_name,guest_email:f.guest_email,guest_phone:f.guest_phone,guarantee_type:bookingForm.dataset.guarantee};
+    try{
+      const res=await fetch('/api/v1/reservations',{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':reservationKey},body:JSON.stringify(body)});
+      const data=await res.json().catch(function(){return {};});
+      if(!res.ok){msg.textContent=(data.error&&data.error.message)||'Reservation failed.';return;}
+      const r=data.data;
+      if(Number(r.amount_due_minor)>0){
+        const paymentKey='payment-'+r.reservation_id;
+        const pay=await fetch('/api/v1/payments/initiate',{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':paymentKey},body:JSON.stringify({reservation_id:r.reservation_id})});
+        const pd=await pay.json().catch(function(){return {};});
+        if(pay.ok&&pd.data&&pd.data.authorization_url){window.location.href=pd.data.authorization_url;return;}
+        msg.textContent=(pd.error&&pd.error.message)||'Reservation held, but payment could not start.';
+        return;
+      }
+      window.location.href='/reservation/'+r.reservation_id;
+    }catch(_error){
+      msg.textContent='The booking request could not complete. You can retry safely.';
+    }finally{
+      bookingBusy=false;
+      if(submit)submit.disabled=false;
+    }
+  });
+}
 
 
 document.querySelectorAll('[data-reservation-approval]').forEach(function(row){
