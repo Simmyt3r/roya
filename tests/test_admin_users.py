@@ -154,3 +154,26 @@ def test_active_identity_remains_allowed(monkeypatch):
     result=auth_service.ensure_account_not_suspended(identity)
     assert result==identity
     assert connection.revoked is False
+
+
+def test_current_identity_preserves_suspension_error(monkeypatch):
+    user_id=str(uuid4())
+    identity=Identity(user_id=user_id,email="guest@example.com")
+    monkeypatch.setattr(
+        auth_service,
+        "_extract_access_context",
+        lambda:("valid-token",False,None,None),
+    )
+    monkeypatch.setattr(auth_service,"supabase_anon_client",lambda:object())
+    monkeypatch.setattr(auth_service,"_identity_from_token",lambda _client,_token:identity)
+
+    def suspended(_identity,_raw_session_id=None):
+        raise RoyaError("ACCOUNT_SUSPENDED","Suspended.",403)
+
+    monkeypatch.setattr(auth_service,"ensure_account_not_suspended",suspended)
+    app=create_app({"TESTING":True,"WTF_CSRF_ENABLED":False,"DATABASE_URL":""})
+    with app.test_request_context("/api/v1/auth/me"):
+        with pytest.raises(RoyaError) as raised:
+            auth_service.current_identity(required=True)
+    assert raised.value.code=="ACCOUNT_SUSPENDED"
+    assert raised.value.status_code==403
