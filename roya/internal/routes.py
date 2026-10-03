@@ -25,7 +25,11 @@ def expire_holds():
 @bp.get("/api/internal/cron/payment-reconcile")
 @require_cron_secret
 def payment_reconcile():
-    return ok(PaymentService().reconcile_pending())
+    service=PaymentService()
+    return ok({
+        "payments":service.reconcile_pending(),
+        "refunds":service.reconcile_refunds(),
+    })
 
 
 @bp.get("/api/internal/cron/send-notifications")
