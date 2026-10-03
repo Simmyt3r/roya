@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ property.name }} · iRoya{% endblock %}
 {% block content %}
-<section class="shell page-head"><div><div class="eyebrow">Verified hotel</div><h1>{{ property.name }}</h1><p>{{ property.address }}, {{ property.city }}, {{ property.state }}</p></div><div class="rating">★ {{ property.rating }}</div></section>
+<section class="shell page-head"><div><div class="eyebrow">Verified hotel</div><h1>{{ property.name }}</h1><p>{{ property.address }}, {{ property.city }}, {{ property.state }}</p></div><div class="rating">★ {{ review_summary.average_rating }} <small>({{ review_summary.review_count }})</small></div></section>
 <section class="shell gallery">{% for image in images[:4] %}<img src="{{ image.path }}" alt="{{ image.alt_text or property.name }}">{% else %}<div class="gallery-placeholder">iRoya</div>{% endfor %}</section>
 <section class="shell property-layout">
   <article><h2>About this stay</h2><p>{{ property.description }}</p><p class="muted">Check-in {{ property.check_in_time }} · Check-out {{ property.check_out_time }}</p>
@@ -13,4 +13,23 @@
 {% for room in rooms %}<article class="room-card room-card-with-media">{% if room.cover_image %}<img class="room-card-image" src="{{ room.cover_image }}" alt="{{ room.cover_alt or room.name }}">{% endif %}<div><div class="muted">{{ room.rate_plan_name }} · {{ room.meal_plan|replace('_',' ')|title }}</div><h3>{{ room.name }}</h3><p>{{ room.description }}</p><small>Up to {{ room.capacity_adults }} adults · {{ room.guarantee_type|replace('_',' ')|title }} · {% if room.refundable %}Free cancellation until {{ room.cancellation_policy.get("free_cancellation_hours",24) if room.cancellation_policy else 24 }}h before check-in{% else %}Non-refundable{% endif %}</small></div><div class="room-price"><strong>{{ room.currency }} {{ '%.2f'|format(room.base_price_minor/100) }}</strong><span>per night</span>{% if check_in and check_out %}<a class="button button-small" href="/book?room_type_id={{ room.id }}&rate_plan_id={{ room.rate_plan_id }}&check_in={{ check_in }}&check_out={{ check_out }}">Reserve</a>{% endif %}</div></article>
 {% else %}<div class="empty">Choose dates to see live sellable room rates.</div>{% endfor %}
 </div></section>
+<section class="shell property-reviews" aria-labelledby="guest-reviews-heading">
+  <div class="section-heading">
+    <div><div class="eyebrow">Verified stays</div><h2 id="guest-reviews-heading">Guest reviews</h2></div>
+    <div class="review-summary"><strong>★ {{ review_summary.average_rating }}</strong><span>{{ review_summary.review_count }} review{% if review_summary.review_count != 1 %}s{% endif %}</span></div>
+  </div>
+  {% if reviews %}
+    <div class="review-grid">
+      {% for item in reviews %}
+        <article class="card review-card">
+          <div class="review-card-head"><strong>{{ item.reviewer_name }}</strong><span aria-label="{{ item.rating }} out of 5 stars">{{ '★' * item.rating }}{{ '☆' * (5-item.rating) }}</span></div>
+          {% if item.comment %}<p>{{ item.comment }}</p>{% endif %}
+          <small class="muted">Verified iRoya stay · {{ item.created_at.strftime('%d %b %Y') if item.created_at else '' }}</small>
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="card operations-empty"><strong>No reviews yet.</strong><span>Completed iRoya stays can leave a verified review after checkout.</span></div>
+  {% endif %}
+</section>
 {% endblock %}
