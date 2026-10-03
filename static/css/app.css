@@ -706,3 +706,28 @@ html{-webkit-text-size-adjust:100%}body{min-width:0;overflow-x:hidden}button,a,i
   .operations-alert-actions .button{width:100%}
   .operations-alert-row>.form-message{grid-column:1;margin-top:2px}
 }
+
+
+/* Verified guest review surfaces */
+.property-reviews,.reservation-review{padding-bottom:52px}
+.review-summary{display:grid;justify-items:end;gap:1px}
+.review-summary strong{font-size:1.2rem}
+.review-summary span{font-size:.74rem;color:var(--muted)}
+.review-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.review-card,.review-submitted{padding:18px}
+.review-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.review-card-head>span{font-size:.82rem;letter-spacing:.04em;white-space:nowrap}
+.review-card p,.review-submitted p{margin:.75rem 0;line-height:1.6}
+.review-form{max-width:720px}
+.review-form textarea{resize:vertical}
+.rating small{font-size:.68rem;color:var(--muted);font-weight:700}
+@media(max-width:700px){
+  .review-grid{grid-template-columns:1fr}
+  .property-reviews .section-heading{align-items:flex-end}
+  .review-card,.review-submitted{padding:16px}
+}
+@media(max-width:420px){
+  .review-card-head{align-items:flex-start;flex-direction:column;gap:5px}
+  .review-summary{justify-items:start}
+  .property-reviews .section-heading{align-items:flex-start;flex-direction:column}
+}
