@@ -14,4 +14,36 @@
 {% endif %}
 <p class="form-message" data-reservation-message aria-live="polite"></p></aside>
 </section>
+{% if reservation.status == "checked_out" %}
+<section class="shell reservation-review">
+  <div class="section-heading"><div><div class="eyebrow">Your stay</div><h2>Review {{ reservation.property_name }}</h2></div></div>
+  {% if review %}
+    <article class="card review-submitted">
+      <div class="review-card-head"><strong>Your verified review</strong><span aria-label="{{ review.rating }} out of 5 stars">{{ '★' * review.rating }}{{ '☆' * (5-review.rating) }}</span></div>
+      {% if review.comment %}<p>{{ review.comment }}</p>{% endif %}
+      <small class="muted">Submitted {{ review.created_at.strftime('%d %b %Y') if review.created_at else '' }}</small>
+    </article>
+  {% else %}
+    <form class="card partner-form review-form" data-review-form>
+      <input type="hidden" name="reservation_id" value="{{ reservation.id }}">
+      <p class="muted">Reviews are tied to completed iRoya reservations, so other guests know this came from a real stay.</p>
+      <label>Overall rating
+        <select name="rating" required>
+          <option value="">Choose a rating</option>
+          <option value="5">5 · Excellent</option>
+          <option value="4">4 · Very good</option>
+          <option value="3">3 · Good</option>
+          <option value="2">2 · Fair</option>
+          <option value="1">1 · Poor</option>
+        </select>
+      </label>
+      <label>Your review
+        <textarea name="comment" maxlength="2000" rows="5" placeholder="What should another guest know about this stay?"></textarea>
+      </label>
+      <button class="button" type="submit">Publish verified review</button>
+      <p class="form-message" role="status" aria-live="polite"></p>
+    </form>
+  {% endif %}
+</section>
+{% endif %}
 {% endblock %}
