@@ -7,7 +7,7 @@ from roya.common.errors import RoyaError
 from roya.common.response import ok
 from .schemas import LoginInput, RegisterInput
 from .service import (
-    account_profile, create_server_session, current_identity, ensure_account_not_suspended,
+    Identity, account_profile, create_server_session, current_identity, ensure_account_not_suspended,
     login_required, revoke_server_session,
 )
 
@@ -112,7 +112,7 @@ def login():
 
     profile = account_profile(str(result.user.id))
     ensure_account_not_suspended(
-        type("LoginIdentity",(),{"user_id":str(result.user.id),"email":getattr(result.user,"email",None)})()
+        Identity(user_id=str(result.user.id),email=getattr(result.user,"email",None))
     )
     _store_session(result, profile["account_type"], profile.get("name"), profile["platform_role"])
     safe_next=_safe_next_path(body.next_path)
