@@ -98,3 +98,30 @@ def test_admin_reservation_case_renders_operational_history(monkeypatch):
     assert b"Provider transactions" in response.data
     assert b"roya_case" in response.data
     assert b"Delivery trail" in response.data
+
+
+def test_admin_can_run_operational_scan(monkeypatch):
+    client=_client(monkeypatch)
+    monkeypatch.setattr(admin_routes,"sync_operational_alerts",lambda:{
+        "new_alerts":1,"reopened_alerts":0,"resolved_alerts":2,
+    })
+    response=client.post("/api/v1/admin/operations/scan")
+    assert response.status_code==200
+    assert response.json["data"]["new_alerts"]==1
+
+
+def test_admin_can_acknowledge_operational_alert(monkeypatch):
+    client=_client(monkeypatch)
+    alert_id=uuid4()
+    captured={}
+
+    def fake_ack(alert_id,actor_user_id):
+        captured["alert_id"]=alert_id
+        captured["actor_user_id"]=actor_user_id
+        return {"id":alert_id,"status":"acknowledged"}
+
+    monkeypatch.setattr(admin_routes,"acknowledge_operational_alert",fake_ack)
+    response=client.post(f"/api/v1/admin/operations/alerts/{alert_id}/acknowledge")
+    assert response.status_code==200
+    assert response.json["data"]["status"]=="acknowledged"
+    assert captured["alert_id"]==str(alert_id)
