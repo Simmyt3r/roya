@@ -611,3 +611,45 @@ html{-webkit-text-size-adjust:100%}body{min-width:0;overflow-x:hidden}button,a,i
 @media(max-width:480px){
   .preference-actions{grid-template-columns:1fr}
 }
+
+
+/* Admin reliability and anomaly monitoring */
+.admin-operations{padding-bottom:34px}
+.admin-operations-heading{align-items:flex-end}
+.operations-state{display:inline-flex;align-items:center;min-height:34px;padding:7px 11px;border-radius:999px;font-size:.76rem;font-weight:850;white-space:nowrap;border:1px solid var(--line)}
+.operations-state.is-healthy{background:#eef8f2;color:#17633a;border-color:#cce7d6}
+.operations-state.has-alerts{background:#fff5ed;color:#8b3a13;border-color:#f3d4c0}
+.operations-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:14px 0}
+.operations-metric{display:grid;gap:4px;padding:14px;border:1px solid var(--line);border-radius:14px;background:#fff}
+.operations-metric strong{font-size:1.45rem;line-height:1}
+.operations-metric span{font-size:.72rem;color:var(--muted);font-weight:750}
+.operations-metric.has-alert{border-color:#e8b9b1;background:#fff7f5}
+.operations-metric.has-warning{border-color:#ead7a4;background:#fffaf0}
+.operations-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:12px}
+.operations-actions .form-message{margin:0;flex:1 1 280px}
+.operations-issue-card{padding:18px}
+.operations-issue-list{display:grid;margin-top:8px}
+.operations-issue-row{display:grid;grid-template-columns:84px minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 0;border-top:1px solid #eef2f1;color:inherit;text-decoration:none}
+.operations-issue-row:first-child{border-top:0}
+.operations-severity{font-size:.68rem;font-weight:900;text-transform:uppercase;letter-spacing:.05em}
+.severity-critical .operations-severity{color:#9f2f21}
+.severity-warning .operations-severity{color:#8a6412}
+.operations-issue-copy{display:grid;gap:2px;min-width:0}
+.operations-issue-copy strong,.operations-issue-copy small{overflow-wrap:anywhere}
+.operations-issue-copy small,.operations-issue-time{color:var(--muted);font-size:.73rem}
+.operations-empty{display:grid;gap:4px;padding:22px 0 8px;color:var(--muted)}
+.operations-empty strong{color:var(--ink)}
+@media(max-width:900px){
+  .operations-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:620px){
+  .admin-operations-heading{align-items:flex-start;flex-direction:column}
+  .operations-actions{display:grid;grid-template-columns:1fr}
+  .operations-actions .button{width:100%}
+  .operations-issue-row{grid-template-columns:1fr;gap:5px;padding:14px 0}
+  .operations-issue-time{font-size:.68rem}
+}
+@media(max-width:390px){
+  .operations-metrics{grid-template-columns:1fr 1fr;gap:8px}
+  .operations-metric{padding:12px 10px}
+}
