@@ -19,6 +19,8 @@ class ReservationService:
                 ).fetchone(); conn.commit()
         except Exception as exc:
             message=str(exc)
+            if "PAST_CHECK_IN" in message:
+                raise RoyaError("VALIDATION_ERROR","Check-in cannot be in the past.",422) from exc
             if "BOOKING_CONFLICT" in message:
                 raise RoyaError("BOOKING_CONFLICT","One or more selected rooms are no longer available.",409) from exc
             if "RATE_NOT_AVAILABLE" in message:
