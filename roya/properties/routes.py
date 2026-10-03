@@ -61,6 +61,8 @@ def _search_query():
     except ValidationError as exc:
         raise RoyaError("VALIDATION_ERROR","Invalid search filters.",422,{"errors":exc.errors()}) from exc
 
+    if query.check_in and query.check_in<date.today():
+        raise RoyaError("VALIDATION_ERROR","Check-in cannot be in the past.",422)
     if query.check_in and query.check_out and query.check_out<=query.check_in:
         raise RoyaError("VALIDATION_ERROR","Check-out must be after check-in.",422)
     if (query.lat is None)!=(query.lng is None):
@@ -144,6 +146,8 @@ def property_page(slug):
     check_in=_date(request.args.get("check_in"))
     check_out=_date(request.args.get("check_out"))
     guests=_guest_count(request.args.get("guests","1"))
+    if check_in and check_in<date.today():
+        raise RoyaError("VALIDATION_ERROR","Check-in cannot be in the past.",422)
     if check_in and check_out and check_out<=check_in:
         raise RoyaError("VALIDATION_ERROR","Check-out must be after check-in.",422)
     prop,images,rooms=get_property_by_slug(slug,check_in,check_out,guests)
