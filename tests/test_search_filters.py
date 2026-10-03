@@ -1,3 +1,5 @@
+from datetime import date,timedelta
+
 from flask import Flask
 import pytest
 
@@ -63,3 +65,13 @@ def test_hotel_detail_rejects_invalid_guest_count_before_database_access(guests)
     response=app.test_client().get(f"/hotels/demo?guests={guests}")
     assert response.status_code==422
     assert response.get_json()["error"]["code"]=="VALIDATION_ERROR"
+
+
+def test_search_rejects_past_check_in_before_database_access():
+    app=Flask(__name__)
+    yesterday=(date.today()-timedelta(days=1)).isoformat()
+    tomorrow=(date.today()+timedelta(days=1)).isoformat()
+    with app.test_request_context(f"/search?check_in={yesterday}&check_out={tomorrow}"):
+        with pytest.raises(RoyaError) as exc:
+            _search_query()
+    assert exc.value.code=="VALIDATION_ERROR"
