@@ -14,9 +14,11 @@ from roya.common.integrations import integration_status
 from roya.common.response import ok
 from roya.common.slug import slugify
 from roya.organizations.service import require_organization_member
+from roya.reviews.service import ReviewService
 from .repository import get_property_by_slug, search_properties
 
 bp = Blueprint("properties", __name__)
+review_service = ReviewService()
 
 
 def _date(value):
@@ -160,7 +162,14 @@ def property_page(slug):
                where pa.property_id=%s order by coalesce(a.category,''),a.name""",
             (prop["id"],),
         ).fetchall())
-    return render_template("public/property.html",property=prop,images=images,rooms=rooms,amenities=amenities,check_in=check_in,check_out=check_out,guests=guests)
+    reviews=review_service.list_public(str(prop["id"]),limit=12)
+    review_summary=review_service.summary(str(prop["id"]))
+    return render_template(
+        "public/property.html",
+        property=prop,images=images,rooms=rooms,amenities=amenities,
+        check_in=check_in,check_out=check_out,guests=guests,
+        reviews=reviews,review_summary=review_summary,
+    )
 
 
 @bp.get("/partner/properties/new")
