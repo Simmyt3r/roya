@@ -57,7 +57,7 @@ def operations_snapshot(limit=30):
                    r.reference::text reference,
                    concat(p.name,' · expired ',to_char(r.expires_at,'YYYY-MM-DD HH24:MI'))::text detail,
                    r.expires_at occurred_at,
-                   null::text link
+                   ('/admin/reservations/'||r.id::text)::text link
                  from reservations r
                  join properties p on p.id=r.property_id
                  where r.status in ('held','pending_confirmation')
@@ -71,7 +71,7 @@ def operations_snapshot(limit=30):
                    r.reference,
                    concat(pt.provider_reference,' · ',pt.status,' · ',to_char(pt.created_at,'YYYY-MM-DD HH24:MI')),
                    pt.created_at,
-                   null::text
+                   ('/admin/reservations/'||r.id::text)
                  from payment_transactions pt
                  join reservations r on r.id=pt.reservation_id
                  where pt.status in ('initiated','pending')
@@ -84,7 +84,7 @@ def operations_snapshot(limit=30):
                    r.reference,
                    concat(rf.currency,' ',round(rf.amount_minor/100.0,2),' · updated ',to_char(rf.updated_at,'YYYY-MM-DD HH24:MI')),
                    rf.updated_at,
-                   null::text
+                   ('/admin/reservations/'||r.id::text)
                  from refunds rf
                  join reservations r on r.id=rf.reservation_id
                  where rf.status='processing'
@@ -111,7 +111,7 @@ def operations_snapshot(limit=30):
                    coalesce(r.reference,n.event_type),
                    concat(n.recipient,' · ',left(coalesce(n.last_error,'No provider error recorded'),180)),
                    n.created_at,
-                   null::text
+                   case when n.reservation_id is not null then '/admin/reservations/'||n.reservation_id::text else null::text end
                  from notifications n
                  left join reservations r on r.id=n.reservation_id
                  where n.channel='email'
@@ -125,7 +125,7 @@ def operations_snapshot(limit=30):
                    coalesce(r.reference,n.event_type),
                    concat(n.recipient,' · attempts ',n.attempts),
                    n.created_at,
-                   null::text
+                   case when n.reservation_id is not null then '/admin/reservations/'||n.reservation_id::text else null::text end
                  from notifications n
                  left join reservations r on r.id=n.reservation_id
                  where n.channel='email'
@@ -140,7 +140,7 @@ def operations_snapshot(limit=30):
                    rt.name,
                    concat(p.name,' · ',i.date,' · held ',i.held_inventory,' · sold ',i.sold_inventory,' / total ',i.total_inventory),
                    i.updated_at,
-                   ('/partner/properties/'||p.id::text)
+                   null::text
                  from inventory_days i
                  join room_types rt on rt.id=i.room_type_id
                  join properties p on p.id=rt.property_id
@@ -155,7 +155,7 @@ def operations_snapshot(limit=30):
                    p.name,
                    concat(p.city,', ',p.state,' · next 30 days'),
                    p.updated_at,
-                   ('/partner/properties/'||p.id::text)
+                   null::text
                  from properties p
                  where p.status='active'
                    and p.verification_status='verified'
@@ -197,3 +197,103 @@ def expire_overdue_holds():
         row=conn.execute("select expired from expire_reservation_holds()").fetchone()
         conn.commit()
     return {"expired":int(row["expired"] if row else 0)}
+
+
+def search_reservation_cases(query,limit=20):
+    query=(query or "").strip()
+    if len(query)<2:
+        return []
+    limit=max(1,min(int(limit),50))
+    needle=f"%{query}%"
+    with db_connection() as conn:
+        return [
+            dict(row) for row in conn.execute(
+                """select distinct
+                     r.id,r.reference,r.guest_name,r.guest_email,r.check_in,r.check_out,
+                     r.status,r.payment_status,r.total_price_minor,r.amount_paid_minor,r.currency,
+                     p.name property_name,r.created_at
+                   from reservations r
+                   join properties p on p.id=r.property_id
+                   left join payment_transactions pt on pt.reservation_id=r.id
+                   left join refunds rf on rf.reservation_id=r.id
+                   where r.reference ilike %s
+                      or r.guest_email ilike %s
+                      or r.guest_name ilike %s
+                      or coalesce(pt.provider_reference,'') ilike %s
+                      or coalesce(rf.provider_reference,'') ilike %s
+                   order by r.created_at desc
+                   limit %s""",
+                (needle,needle,needle,needle,needle,limit),
+            ).fetchall()
+        ]
+
+
+def reservation_case(reservation_id):
+    with db_connection() as conn:
+        reservation=conn.execute(
+            """select r.*,p.name property_name,p.city property_city,p.state property_state,
+                      o.name organization_name
+               from reservations r
+               join properties p on p.id=r.property_id
+               join organizations o on o.id=r.organization_id
+               where r.id=%s""",
+            (reservation_id,),
+        ).fetchone()
+        if not reservation:
+            return None
+
+        items=list(conn.execute(
+            """select ri.id,ri.quantity,ri.unit_price_minor,ri.total_price_minor,
+                      rt.name room_type_name,rp.name rate_plan_name,rp.guarantee_type
+               from reservation_items ri
+               join room_types rt on rt.id=ri.room_type_id
+               join rate_plans rp on rp.id=ri.rate_plan_id
+               where ri.reservation_id=%s
+               order by ri.created_at""",
+            (reservation_id,),
+        ).fetchall())
+
+        transactions=list(conn.execute(
+            """select id,provider,provider_reference,amount_minor,currency,status,
+                      paid_at,created_at,updated_at
+               from payment_transactions
+               where reservation_id=%s
+               order by created_at desc""",
+            (reservation_id,),
+        ).fetchall())
+
+        refunds=list(conn.execute(
+            """select id,provider_reference,amount_minor,currency,status,reason,created_at,updated_at
+               from refunds
+               where reservation_id=%s
+               order by created_at desc""",
+            (reservation_id,),
+        ).fetchall())
+
+        notifications=list(conn.execute(
+            """select id,channel,event_type,recipient,status,attempts,next_attempt_at,
+                      last_error,sent_at,created_at
+               from notifications
+               where reservation_id=%s
+               order by created_at desc
+               limit 100""",
+            (reservation_id,),
+        ).fetchall())
+
+        audit=list(conn.execute(
+            """select action,actor_user_id,before_json,after_json,created_at
+               from audit_logs
+               where entity_type='reservation' and entity_id=%s
+               order by created_at desc
+               limit 50""",
+            (reservation_id,),
+        ).fetchall())
+
+    return {
+        "reservation":dict(reservation),
+        "items":[dict(row) for row in items],
+        "transactions":[dict(row) for row in transactions],
+        "refunds":[dict(row) for row in refunds],
+        "notifications":[dict(row) for row in notifications],
+        "audit":[dict(row) for row in audit],
+    }
