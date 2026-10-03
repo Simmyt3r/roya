@@ -1277,3 +1277,40 @@ document.querySelectorAll('[data-reservation-approval]').forEach(function(row){
     }
   });
 })();
+
+
+(function initAdminUserAccounts(){
+  document.querySelectorAll('[data-admin-user]').forEach(function(row){
+    const buttons=row.querySelectorAll('[data-user-status]');
+    const message=row.querySelector('.form-message');
+    buttons.forEach(function(button){
+      button.addEventListener('click',async function(){
+        const status=button.dataset.userStatus;
+        const verb=status==='suspended'?'suspend':'reactivate';
+        if(!window.confirm('Are you sure you want to '+verb+' this account?'))return;
+        buttons.forEach(function(item){item.disabled=true;});
+        if(message)message.textContent=status==='suspended'?
+          'Suspending account and revoking sessions…':'Reactivating account…';
+        try{
+          const response=await fetch('/api/v1/admin/users/'+row.dataset.adminUser+'/status',{
+            method:'PUT',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({status:status})
+          });
+          const data=await response.json().catch(function(){return {};});
+          if(!response.ok){
+            if(message)message.textContent=(data.error&&data.error.message)||'Account status could not be changed.';
+            return;
+          }
+          if(message)message.textContent=status==='suspended'?
+            'Account suspended and active iRoya sessions revoked.':'Account reactivated.';
+          setTimeout(function(){window.location.reload();},600);
+        }catch(_error){
+          if(message)message.textContent='Account status request could not complete.';
+        }finally{
+          buttons.forEach(function(item){item.disabled=false;});
+        }
+      });
+    });
+  });
+})();
