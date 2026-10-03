@@ -117,6 +117,53 @@ class PaystackProvider(PaymentProvider):
             error_message="Refund request failed.",
         )
 
+    def fetch_refund(self,refund_id):
+        if refund_id in (None,""):
+            raise RoyaError("REFUND_REFERENCE_REQUIRED","Refund reference is required.",400)
+        return self._request(
+            "GET",
+            f"/refund/{quote(str(refund_id),safe='')}",
+            error_code="REFUND_VERIFICATION_FAILED",
+            error_message="Refund status could not be retrieved.",
+        )
+
+    def list_refunds(self,transaction_id):
+        if transaction_id in (None,""):
+            raise RoyaError("PAYMENT_REFERENCE_REQUIRED","Paystack transaction ID is required.",400)
+        try:
+            response=requests.get(
+                f"{self.base_url}/refund",
+                headers=self._headers(),
+                params={"transaction":str(transaction_id),"perPage":50},
+                timeout=12,
+            )
+        except requests.RequestException as exc:
+            raise RoyaError(
+                "PAYMENT_PROVIDER_UNAVAILABLE",
+                "Paystack is temporarily unreachable.",
+                502,
+            ) from exc
+
+        payload=self._json_payload(
+            response,
+            error_code="REFUND_VERIFICATION_FAILED",
+            error_message="Refund status could not be retrieved.",
+        )
+        if not response.ok or payload.get("status") is not True:
+            raise RoyaError(
+                "REFUND_VERIFICATION_FAILED",
+                str(payload.get("message") or "Refund status could not be retrieved.")[:300],
+                502,
+            )
+        data=payload.get("data")
+        if not isinstance(data,list):
+            raise RoyaError(
+                "REFUND_VERIFICATION_FAILED",
+                "Paystack returned an invalid refund list.",
+                502,
+            )
+        return [item for item in data if isinstance(item,dict)]
+
     def verify_webhook(self,raw_body,signature):
         if not self.secret or not signature:
             return False
