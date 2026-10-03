@@ -6,7 +6,10 @@ from roya.common.db import db_connection, supabase_anon_client
 from roya.common.errors import RoyaError
 from roya.common.response import ok
 from .schemas import LoginInput, RegisterInput
-from .service import account_profile, create_server_session, current_identity, login_required, revoke_server_session
+from .service import (
+    account_profile, create_server_session, current_identity, ensure_account_not_suspended,
+    login_required, revoke_server_session,
+)
 
 bp = Blueprint("auth", __name__)
 
@@ -108,6 +111,9 @@ def login():
         raise RoyaError("AUTH_FAILED", "Invalid email or password.", 401) from exc
 
     profile = account_profile(str(result.user.id))
+    ensure_account_not_suspended(
+        type("LoginIdentity",(),{"user_id":str(result.user.id),"email":getattr(result.user,"email",None)})()
+    )
     _store_session(result, profile["account_type"], profile.get("name"), profile["platform_role"])
     safe_next=_safe_next_path(body.next_path)
     redirect_to = f"/invite/{body.invite_token}" if body.invite_token else (safe_next or ("/partner" if profile["account_type"] == "hotel" else "/account"))
