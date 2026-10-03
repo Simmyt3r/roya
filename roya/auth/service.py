@@ -119,6 +119,30 @@ def _identity_from_token(client,token: str) -> Identity:
     return Identity(user_id=str(user.id),email=getattr(user,"email",None))
 
 
+
+def ensure_account_not_suspended(identity: Identity, raw_session_id: str | None = None) -> Identity:
+    with db_connection() as conn:
+        row=conn.execute(
+            "select status from profiles where id=%s",
+            (identity.user_id,),
+        ).fetchone()
+        if row and row["status"]=="suspended":
+            conn.execute(
+                """update private.app_sessions
+                   set revoked_at=coalesce(revoked_at,now()),updated_at=now()
+                   where user_id=%s and revoked_at is null""",
+                (identity.user_id,),
+            )
+            conn.commit()
+            if raw_session_id:
+                session.clear()
+            raise RoyaError(
+                "ACCOUNT_SUSPENDED",
+                "This iRoya account has been suspended. Contact iRoya support if you believe this is a mistake.",
+                403,
+            )
+    return identity
+
 def current_identity(required: bool=False) -> Identity | None:
     if hasattr(g,"roya_identity"):
         return g.roya_identity
@@ -133,6 +157,7 @@ def current_identity(required: bool=False) -> Identity | None:
     client=supabase_anon_client()
     try:
         identity=_identity_from_token(client,token)
+        ensure_account_not_suspended(identity,raw_session_id if cookie_backed else None)
         g.roya_identity=identity
         return identity
     except Exception as original_exc:
@@ -147,6 +172,7 @@ def current_identity(required: bool=False) -> Identity | None:
                         refreshed_session.refresh_token,
                     )
                     identity=_identity_from_token(client,refreshed_session.access_token)
+                    ensure_account_not_suspended(identity,raw_session_id)
                     g.roya_identity=identity
                     return identity
             except Exception:
