@@ -11,7 +11,9 @@ from roya.common.integrations import (
 )
 from roya.common.response import ok
 from .service import require_platform_admin
-from .operations_service import expire_overdue_holds, operations_snapshot
+from .operations_service import (
+    expire_overdue_holds, operations_snapshot, reservation_case, search_reservation_cases,
+)
 from .email_service import (
     create_template, delete_template, deliver_email_queue, list_subscribers, list_templates,
     queue_campaign, recent_campaigns, record_marketing_consent,
@@ -156,6 +158,23 @@ def dashboard():
         marketing_subscriber_rows=marketing_subscriber_rows,
         operations=operations,
     )
+
+
+@bp.get("/admin/reservations")
+@require_platform_admin
+def admin_reservation_search():
+    query=(request.args.get("q") or "").strip()
+    results=search_reservation_cases(query) if query else []
+    return render_template("admin/reservation_search.html",query=query,results=results)
+
+
+@bp.get("/admin/reservations/<uuid:reservation_id>")
+@require_platform_admin
+def admin_reservation_case(reservation_id):
+    case=reservation_case(str(reservation_id))
+    if not case:
+        raise RoyaError("NOT_FOUND","Reservation not found.",404)
+    return render_template("admin/reservation_case.html",case=case)
 
 
 @bp.get("/api/v1/admin/operations")
