@@ -43,19 +43,6 @@ def test_non_admin_cannot_send_marketing_email(monkeypatch):
 
 def test_custom_campaign_rejects_invalid_external_email(monkeypatch):
     client=_client(monkeypatch)
-    monkeypatch.setattr(admin_routes,"operations_snapshot",lambda:{
-        "counts":{
-            "stuck_payments":1,"stuck_refunds":0,"overdue_holds":0,"expiring_holds":2,
-            "failed_email_24h":0,"overdue_email_queue":0,"inventory_anomalies":0,
-            "active_hotels_without_30d_inventory":0,
-        },
-        "issues":[{
-            "kind":"stuck_payment","severity":"critical","title":"Payment needs reconciliation",
-            "reference":"RYA-TEST","detail":"paystack-ref · initiated","occurred_at":"2026-10-03 14:00",
-            "link":"/reservation/11111111-1111-1111-1111-111111111111",
-        }],
-        "critical":1,"warning":2,"healthy":False,
-    })
     monkeypatch.setattr(admin_routes,"integration_status",lambda _provider:{"configured":True})
     response=client.post("/api/v1/admin/email/campaigns",json={
         "audience":"custom",
@@ -166,6 +153,19 @@ def test_admin_dashboard_renders_email_workspace(monkeypatch):
             return []
 
     monkeypatch.setattr(admin_routes,"db_connection",lambda:DashboardConnection())
+    monkeypatch.setattr(admin_routes,"operations_snapshot",lambda:{
+        "counts":{
+            "stuck_payments":1,"stuck_refunds":0,"overdue_holds":0,"expiring_holds":2,
+            "failed_email_24h":0,"overdue_email_queue":0,"inventory_anomalies":0,
+            "active_hotels_without_30d_inventory":0,
+        },
+        "issues":[{
+            "kind":"stuck_payment","severity":"critical","title":"Payment needs reconciliation",
+            "reference":"RYA-TEST","detail":"paystack-ref · initiated","occurred_at":"2026-10-03 14:00",
+            "link":None,
+        }],
+        "critical":1,"warning":2,"healthy":False,
+    })
     monkeypatch.setattr(admin_routes,"list_templates",lambda:[{
         "id":str(uuid4()),
         "name":"Hotel partner outreach",
