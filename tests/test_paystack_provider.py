@@ -100,3 +100,33 @@ def test_paystack_false_provider_status_uses_provider_error(paystack_app,monkeyp
         PaystackProvider().refund_payment("ref-1",10000)
     assert exc.value.code=="REFUND_FAILED"
     assert "declined" in exc.value.message.lower()
+
+
+def test_paystack_fetch_refund(paystack_app,monkeypatch):
+    monkeypatch.setattr(
+        requests,
+        "request",
+        lambda *args,**kwargs: FakeResponse(
+            ok=True,
+            payload={"status":True,"data":{"id":321,"status":"processed","amount":10000}},
+        ),
+    )
+    with paystack_app.app_context():
+        data=PaystackProvider().fetch_refund(321)
+    assert data["id"]==321
+    assert data["status"]=="processed"
+
+
+def test_paystack_list_refunds_filters_transaction(paystack_app,monkeypatch):
+    captured={}
+    def fake_get(*args,**kwargs):
+        captured.update(kwargs)
+        return FakeResponse(
+            ok=True,
+            payload={"status":True,"data":[{"id":321,"status":"pending","amount":10000}]},
+        )
+    monkeypatch.setattr(requests,"get",fake_get)
+    with paystack_app.app_context():
+        rows=PaystackProvider().list_refunds(987654)
+    assert rows[0]["id"]==321
+    assert captured["params"]["transaction"]=="987654"
