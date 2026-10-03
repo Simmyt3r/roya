@@ -15,6 +15,7 @@ from .operations_service import (
     acknowledge_operational_alert, expire_overdue_holds, list_operational_alerts,
     operations_snapshot, reservation_case, search_reservation_cases, sync_operational_alerts,
 )
+from .user_service import change_user_status, search_user_accounts, user_account_counts
 from .email_service import (
     create_template, delete_template, deliver_email_queue, list_subscribers, list_templates,
     queue_campaign, recent_campaigns, record_marketing_consent,
@@ -81,6 +82,10 @@ class EmailCampaignRequest(BaseModel):
         if self.audience!="custom" and self.custom_recipients:
             raise ValueError("Custom recipients are only valid for the custom audience.")
         return self
+
+
+class UserStatusRequest(BaseModel):
+    status: Literal["active","suspended"]
 
 
 class MarketingConsentRequest(BaseModel):
@@ -164,6 +169,35 @@ def dashboard():
         marketing_subscriber_rows=marketing_subscriber_rows,
         operations=operations,operational_alerts=operational_alerts,
     )
+
+
+@bp.get("/admin/users")
+@require_platform_admin
+def admin_users():
+    query=(request.args.get("q") or "").strip()
+    if len(query)>120:
+        raise RoyaError("VALIDATION_ERROR","User search is too long.",422)
+    status=(request.args.get("status") or "").strip()
+    if status not in {"","active","suspended","pending_verification"}:
+        raise RoyaError("VALIDATION_ERROR","Invalid account status filter.",422)
+    return render_template(
+        "admin/users.html",
+        query=query,
+        status_filter=status,
+        users=search_user_accounts(query=query,status=status),
+        counts=user_account_counts(),
+    )
+
+
+@bp.put("/api/v1/admin/users/<uuid:user_id>/status")
+@require_platform_admin
+def admin_change_user_status(user_id):
+    body=_configuration_payload(UserStatusRequest)
+    return ok(change_user_status(
+        user_id=str(user_id),
+        status=body.status,
+        actor_user_id=g.platform_admin.user_id,
+    ))
 
 
 @bp.get("/admin/reservations")
