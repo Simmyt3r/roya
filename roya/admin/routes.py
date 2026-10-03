@@ -11,6 +11,7 @@ from roya.common.integrations import (
 )
 from roya.common.response import ok
 from .service import require_platform_admin
+from .operations_service import expire_overdue_holds, operations_snapshot
 from .email_service import (
     create_template, delete_template, deliver_email_queue, list_subscribers, list_templates,
     queue_campaign, recent_campaigns, record_marketing_consent,
@@ -124,6 +125,18 @@ def dashboard():
                order by p.created_at asc limit 50"""
         ).fetchall())
     try:
+        operations=operations_snapshot()
+    except Exception as exc:
+        current_app.logger.warning("Admin operations snapshot unavailable: %s",exc)
+        operations={
+            "counts":{
+                "stuck_payments":0,"stuck_refunds":0,"overdue_holds":0,"expiring_holds":0,
+                "failed_email_24h":0,"overdue_email_queue":0,"inventory_anomalies":0,
+                "active_hotels_without_30d_inventory":0,
+            },
+            "issues":[],"critical":0,"warning":0,"healthy":True,
+        }
+    try:
         email_templates=list_templates()
         email_campaigns=recent_campaigns()
         marketing_subscribers=subscriber_counts()
@@ -141,7 +154,31 @@ def dashboard():
         email_templates=email_templates,email_campaigns=email_campaigns,
         marketing_subscribers=marketing_subscribers,
         marketing_subscriber_rows=marketing_subscriber_rows,
+        operations=operations,
     )
+
+
+@bp.get("/api/v1/admin/operations")
+@require_platform_admin
+def admin_operations_snapshot():
+    return ok(operations_snapshot())
+
+
+@bp.post("/api/v1/admin/operations/expire-holds")
+@require_platform_admin
+def admin_expire_holds():
+    return ok(expire_overdue_holds())
+
+
+@bp.post("/api/v1/admin/operations/reconcile-money")
+@require_platform_admin
+def admin_reconcile_money():
+    from roya.payments.service import PaymentService
+    service=PaymentService()
+    return ok({
+        "payments":service.reconcile_pending(),
+        "refunds":service.reconcile_refunds(),
+    })
 
 
 @bp.put("/api/v1/admin/integrations/smtp")
