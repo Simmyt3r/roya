@@ -21,6 +21,8 @@ class ReservationCreate(BaseModel):
 
     @model_validator(mode="after")
     def validate_stay(self):
+        if self.check_in<date.today():
+            raise ValueError("check_in cannot be in the past")
         if self.check_out<=self.check_in:
             raise ValueError("check_out must be after check_in")
         if (self.check_out-self.check_in).days>90:
