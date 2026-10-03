@@ -1,8 +1,14 @@
+import hashlib
+import json
+
+from flask import current_app
+
+from roya.notifications.service import NotificationService
 from roya.common.db import db_connection
 
 
 def operations_snapshot(limit=30):
-    limit=max(1,min(int(limit),100))
+    limit=max(1,min(int(limit),1000))
     with db_connection() as conn:
         counts=conn.execute(
             """select
@@ -296,4 +302,227 @@ def reservation_case(reservation_id):
         "refunds":[dict(row) for row in refunds],
         "notifications":[dict(row) for row in notifications],
         "audit":[dict(row) for row in audit],
+    }
+
+
+def _alert_fingerprint(issue):
+    link=(issue.get("link") or "").strip()
+    stable=link or "|".join([
+        str(issue.get("reference") or ""),
+        str(issue.get("detail") or ""),
+    ])
+    raw=f"{issue.get('kind','unknown')}|{stable}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _alert_entity(issue):
+    link=(issue.get("link") or "").strip()
+    prefix="/admin/reservations/"
+    if link.startswith(prefix):
+        return "reservation",link[len(prefix):].split("/",1)[0]
+    return None,None
+
+
+def list_operational_alerts(limit=50):
+    limit=max(1,min(int(limit),100))
+    with db_connection() as conn:
+        return [
+            dict(row) for row in conn.execute(
+                """select a.*,p.name acknowledged_by_name
+                   from private.operational_alerts a
+                   left join profiles p on p.id=a.acknowledged_by
+                   order by
+                     case a.status when 'open' then 0 when 'acknowledged' then 1 else 2 end,
+                     case a.severity when 'critical' then 0 else 1 end,
+                     a.last_seen_at desc
+                   limit %s""",
+                (limit,),
+            ).fetchall()
+        ]
+
+
+def acknowledge_operational_alert(alert_id,actor_user_id):
+    with db_connection() as conn:
+        with conn.transaction():
+            row=conn.execute(
+                """update private.operational_alerts
+                   set status=case when status='open' then 'acknowledged' else status end,
+                       acknowledged_at=case when status='open' then now() else acknowledged_at end,
+                       acknowledged_by=case when status='open' then %s else acknowledged_by end,
+                       updated_at=now()
+                   where id=%s and status in ('open','acknowledged')
+                   returning *""",
+                (actor_user_id,alert_id),
+            ).fetchone()
+            if row:
+                conn.execute(
+                    """insert into audit_logs(
+                         actor_user_id,action,entity_type,entity_id,after_json
+                       ) values(%s,'operations.alert_acknowledged','operational_alert',%s,%s::jsonb)""",
+                    (
+                        actor_user_id,
+                        str(alert_id),
+                        json.dumps({
+                            "status":row["status"],
+                            "kind":row["kind"],
+                            "severity":row["severity"],
+                        }),
+                    ),
+                )
+    return dict(row) if row else None
+
+
+def sync_operational_alerts():
+    snapshot=operations_snapshot(limit=1000)
+    issues=snapshot["issues"]
+    active_fingerprints=[]
+    new_alerts=0
+    reopened_alerts=0
+    resolved_alerts=0
+    in_app_created=0
+    email_ids=[]
+
+    with db_connection() as conn:
+        with conn.transaction():
+            admins=list(conn.execute(
+                """select p.id,p.name,u.email
+                   from profiles p
+                   join auth.users u on u.id=p.id
+                   where p.platform_role='admin' and p.status='active'"""
+            ).fetchall())
+
+            for issue in issues:
+                fingerprint=_alert_fingerprint(issue)
+                active_fingerprints.append(fingerprint)
+                entity_type,entity_id=_alert_entity(issue)
+                existing=conn.execute(
+                    """select id,status,notification_sent_at
+                       from private.operational_alerts
+                       where fingerprint=%s
+                       for update""",
+                    (fingerprint,),
+                ).fetchone()
+
+                if existing:
+                    was_resolved=existing["status"]=="resolved"
+                    row=conn.execute(
+                        """update private.operational_alerts
+                           set kind=%s,severity=%s,title=%s,reference=%s,detail=%s,
+                               entity_type=%s,entity_id=%s,link=%s,
+                               status=case when status='resolved' then 'open' else status end,
+                               acknowledged_at=case when status='resolved' then null else acknowledged_at end,
+                               acknowledged_by=case when status='resolved' then null else acknowledged_by end,
+                               resolved_at=null,
+                               notification_sent_at=case when status='resolved' then null else notification_sent_at end,
+                               last_seen_at=now(),occurrences=occurrences+1,updated_at=now()
+                           where id=%s
+                           returning *""",
+                        (
+                            issue["kind"],issue["severity"],issue["title"],issue["reference"],
+                            issue["detail"],entity_type,entity_id,issue.get("link"),existing["id"],
+                        ),
+                    ).fetchone()
+                    if was_resolved:
+                        reopened_alerts+=1
+                else:
+                    row=conn.execute(
+                        """insert into private.operational_alerts(
+                             fingerprint,kind,severity,title,reference,detail,
+                             entity_type,entity_id,link
+                           ) values(%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                           returning *""",
+                        (
+                            fingerprint,issue["kind"],issue["severity"],issue["title"],
+                            issue["reference"],issue["detail"],entity_type,entity_id,issue.get("link"),
+                        ),
+                    ).fetchone()
+                    new_alerts+=1
+
+                if row["notification_sent_at"] is not None:
+                    continue
+
+                href=row["link"] or "/admin"
+                body=f"{row['reference'] or row['kind']} · {row['detail']}"
+                for admin in admins:
+                    payload={
+                        "operational_alert_id":str(row["id"]),
+                        "severity":row["severity"],
+                        "title":row["title"],
+                        "body":body,
+                        "href":href,
+                    }
+                    inserted=conn.execute(
+                        """insert into notifications(
+                             user_id,channel,event_type,recipient,status,payload,sent_at
+                           ) values(%s,'in_app','operations.alert',%s,'sent',%s::jsonb,now())
+                           on conflict do nothing
+                           returning id""",
+                        (admin["id"],str(admin["id"]),json.dumps(payload)),
+                    ).fetchone()
+                    if inserted:
+                        in_app_created+=1
+
+                    if row["severity"]=="critical" and admin["email"]:
+                        email_payload={
+                            "operational_alert_id":str(row["id"]),
+                            "severity":row["severity"],
+                            "subject":f"iRoya operations: {row['title']}",
+                            "body":(
+                                f"{row['title']}\n\n{body}\n\n"
+                                f"Review: {NotificationService._absolute_url(href)}"
+                            ),
+                            "href":href,
+                        }
+                        queued=conn.execute(
+                            """insert into notifications(
+                                 user_id,channel,event_type,recipient,status,payload,next_attempt_at
+                               ) values(%s,'email','operations.alert',%s,'queued',%s::jsonb,now())
+                               on conflict do nothing
+                               returning id""",
+                            (admin["id"],admin["email"],json.dumps(email_payload)),
+                        ).fetchone()
+                        if queued:
+                            email_ids.append(str(queued["id"]))
+
+                conn.execute(
+                    """update private.operational_alerts
+                       set notification_sent_at=now(),updated_at=now()
+                       where id=%s""",
+                    (row["id"],),
+                )
+
+            total_active=int(snapshot["critical"] or 0)+int(snapshot["warning"] or 0)
+            complete_scan=total_active<=len(issues)
+            if complete_scan:
+                if active_fingerprints:
+                    result=conn.execute(
+                        """update private.operational_alerts
+                           set status='resolved',resolved_at=now(),updated_at=now()
+                           where status in ('open','acknowledged')
+                             and not (fingerprint=any(%s::text[]))""",
+                        (active_fingerprints,),
+                    )
+                else:
+                    result=conn.execute(
+                        """update private.operational_alerts
+                           set status='resolved',resolved_at=now(),updated_at=now()
+                           where status in ('open','acknowledged')"""
+                    )
+                resolved_alerts=max(int(result.rowcount or 0),0)
+
+    delivery=NotificationService().deliver_pending_emails(
+        limit=max(1,len(email_ids)),
+        notification_ids=email_ids,
+    ) if email_ids else {
+        "configured":None,"checked":0,"sent":0,"retrying":0,"failed":0,"suppressed":0,
+    }
+
+    return {
+        "snapshot":snapshot,
+        "new_alerts":new_alerts,
+        "reopened_alerts":reopened_alerts,
+        "resolved_alerts":resolved_alerts,
+        "in_app_created":in_app_created,
+        "critical_emails_queued":len(email_ids),
+        "critical_email_delivery":delivery,
     }
