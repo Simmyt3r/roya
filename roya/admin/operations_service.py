@@ -57,7 +57,7 @@ def operations_snapshot(limit=30):
                    r.reference::text reference,
                    concat(p.name,' · expired ',to_char(r.expires_at,'YYYY-MM-DD HH24:MI'))::text detail,
                    r.expires_at occurred_at,
-                   ('/reservation/'||r.id::text)::text link
+                   null::text link
                  from reservations r
                  join properties p on p.id=r.property_id
                  where r.status in ('held','pending_confirmation')
@@ -71,7 +71,7 @@ def operations_snapshot(limit=30):
                    r.reference,
                    concat(pt.provider_reference,' · ',pt.status,' · ',to_char(pt.created_at,'YYYY-MM-DD HH24:MI')),
                    pt.created_at,
-                   ('/reservation/'||r.id::text)
+                   null::text
                  from payment_transactions pt
                  join reservations r on r.id=pt.reservation_id
                  where pt.status in ('initiated','pending')
@@ -84,7 +84,7 @@ def operations_snapshot(limit=30):
                    r.reference,
                    concat(rf.currency,' ',round(rf.amount_minor/100.0,2),' · updated ',to_char(rf.updated_at,'YYYY-MM-DD HH24:MI')),
                    rf.updated_at,
-                   ('/reservation/'||r.id::text)
+                   null::text
                  from refunds rf
                  join reservations r on r.id=rf.reservation_id
                  where rf.status='processing'
@@ -97,7 +97,7 @@ def operations_snapshot(limit=30):
                    r.reference,
                    concat(p.name,' · expires ',to_char(r.expires_at,'YYYY-MM-DD HH24:MI')),
                    r.expires_at,
-                   ('/reservation/'||r.id::text)
+                   null::text
                  from reservations r
                  join properties p on p.id=r.property_id
                  where r.status in ('held','pending_confirmation')
@@ -111,7 +111,7 @@ def operations_snapshot(limit=30):
                    coalesce(r.reference,n.event_type),
                    concat(n.recipient,' · ',left(coalesce(n.last_error,'No provider error recorded'),180)),
                    n.created_at,
-                   case when n.reservation_id is not null then '/reservation/'||n.reservation_id::text else '/admin' end
+                   null::text
                  from notifications n
                  left join reservations r on r.id=n.reservation_id
                  where n.channel='email'
@@ -125,7 +125,7 @@ def operations_snapshot(limit=30):
                    coalesce(r.reference,n.event_type),
                    concat(n.recipient,' · attempts ',n.attempts),
                    n.created_at,
-                   case when n.reservation_id is not null then '/reservation/'||n.reservation_id::text else '/admin' end
+                   null::text
                  from notifications n
                  left join reservations r on r.id=n.reservation_id
                  where n.channel='email'
