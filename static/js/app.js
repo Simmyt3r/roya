@@ -1174,11 +1174,15 @@ document.querySelectorAll('[data-reservation-approval]').forEach(function(row){
       }
       const endpoint=action==='reconcile-money'?
         '/api/v1/admin/operations/reconcile-money':
-        '/api/v1/admin/operations/expire-holds';
+        action==='scan-alerts'?
+          '/api/v1/admin/operations/scan':
+          '/api/v1/admin/operations/expire-holds';
       setBusy(true);
       if(message)message.textContent=action==='reconcile-money'?
         'Reconciling pending payments and refunds…':
-        'Expiring overdue reservation holds…';
+        action==='scan-alerts'?
+          'Running recovery and anomaly scan…':
+          'Expiring overdue reservation holds…';
       try{
         const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
         const data=await response.json().catch(function(){return {};});
@@ -1193,6 +1197,11 @@ document.querySelectorAll('[data-reservation-approval]').forEach(function(row){
           if(message)message.textContent=
             'Payments: '+(payments.reconciled||0)+' reconciled, '+(payments.errors||0)+' errors. '+
             'Refunds: '+(refunds.processed||0)+' processed, '+(refunds.failed||0)+' failed, '+(refunds.errors||0)+' errors.';
+        }else if(action==='scan-alerts'){
+          const result=data.data||{};
+          if(message)message.textContent=
+            'Scan complete: '+(result.new_alerts||0)+' new, '+(result.reopened_alerts||0)+
+            ' reopened, '+(result.resolved_alerts||0)+' resolved.';
         }else{
           if(message)message.textContent='Expired '+((data.data&&data.data.expired)||0)+' overdue hold(s).';
         }
@@ -1204,4 +1213,31 @@ document.querySelectorAll('[data-reservation-approval]').forEach(function(row){
       }
     });
   });
+
+  section.querySelectorAll('[data-operational-alert]').forEach(function(row){
+    const button=row.querySelector('[data-alert-ack]');
+    const message=row.querySelector('.form-message');
+    if(!button)return;
+    button.addEventListener('click',async function(){
+      button.disabled=true;
+      if(message)message.textContent='Acknowledging incident…';
+      try{
+        const response=await fetch('/api/v1/admin/operations/alerts/'+row.dataset.operationalAlert+'/acknowledge',{
+          method:'POST',headers:{'Content-Type':'application/json'},body:'{}'
+        });
+        const data=await response.json().catch(function(){return {};});
+        if(!response.ok){
+          if(message)message.textContent=(data.error&&data.error.message)||'Incident could not be acknowledged.';
+          return;
+        }
+        if(message)message.textContent='Incident acknowledged.';
+        setTimeout(function(){window.location.reload();},500);
+      }catch(_error){
+        if(message)message.textContent='Incident update could not complete.';
+      }finally{
+        button.disabled=false;
+      }
+    });
+  });
+
 })();
