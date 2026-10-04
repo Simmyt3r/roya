@@ -5,6 +5,7 @@ from datetime import timedelta
 class Config:
     SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "dev-only-change-me")
     APP_URL = os.getenv("APP_URL", "http://localhost:5000")
+    HOTEL_DOMAIN_BASE = os.getenv("HOTEL_DOMAIN_BASE", "iroya.ng")
 
     SUPABASE_URL = os.getenv("SUPABASE_URL", "")
     SUPABASE_PUBLISHABLE_KEY = os.getenv("SUPABASE_PUBLISHABLE_KEY", "") or os.getenv("SUPABASE_ANON_KEY", "")
