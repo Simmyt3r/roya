@@ -41,6 +41,7 @@
         <div>
           <strong>{{ p.name }}</strong>
           <p class="muted">{{ p.city }} · {{ p.organization_name }}</p>
+          {% if p.mini_domain %}<small class="mini-domain-inline">{{ p.mini_domain }}.iroya.ng</small>{% endif %}
         </div>
         <div class="status-row">
           <span class="status-pill">{{ p.verification_status|title }}</span>
