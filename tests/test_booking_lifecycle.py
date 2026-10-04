@@ -216,6 +216,7 @@ def test_booking_health_endpoint_has_release_gate_shape(monkeypatch):
         "database_configured":True,
         "database_reachable":True,
         "booking_ready":True,
+        "blockers":[],
         "schema":{
             "create_reservation":True,
             "record_successful_payment":True,
