@@ -800,3 +800,42 @@ html{-webkit-text-size-adjust:100%}body{min-width:0;overflow-x:hidden}button,a,i
   .admin-head-actions .button{width:100%}
   .admin-review-meta{display:grid;gap:4px}
 }
+
+
+/* Admin audit trail */
+.admin-audit-shell{padding-bottom:64px}
+.admin-audit-metrics{margin-bottom:14px}
+.admin-audit-search{display:grid;grid-template-columns:minmax(0,1.2fr) 170px 220px 140px auto;gap:10px;align-items:end;padding:18px;margin-bottom:14px}
+.admin-audit-search-actions{display:flex;gap:8px;align-items:center}
+.admin-audit-list{display:grid;gap:10px}
+.admin-audit-row{display:grid;gap:12px;padding:17px 18px}
+.admin-audit-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.admin-audit-head>div{display:grid;gap:2px;min-width:0}
+.admin-audit-head strong,.admin-audit-head span{overflow-wrap:anywhere}
+.admin-audit-head>div span,.admin-audit-head time{font-size:.72rem;color:var(--muted)}
+.admin-audit-context{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.admin-audit-context span,.admin-audit-request span{display:grid;gap:2px;font-size:.78rem;overflow-wrap:anywhere}
+.admin-audit-context strong,.admin-audit-request strong{font-size:.65rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.admin-audit-actions{display:grid;gap:8px}
+.admin-audit-actions>.button{justify-self:start}
+.admin-audit-details{border-top:1px solid #eef2f1;padding-top:9px}
+.admin-audit-details summary{cursor:pointer;font-weight:800;font-size:.78rem}
+.admin-audit-json-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}
+.admin-audit-json-grid>div{min-width:0}
+.admin-audit-json-grid pre{max-height:320px;overflow:auto;margin:6px 0 0;padding:12px;border-radius:10px;background:#f6f8f8;font-size:.7rem;white-space:pre-wrap;overflow-wrap:anywhere}
+.admin-audit-request{display:grid;gap:7px;margin-top:10px}
+@media(max-width:1100px){
+  .admin-audit-search{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .admin-audit-search-actions{grid-column:1/-1}
+}
+@media(max-width:720px){
+  .admin-audit-context{grid-template-columns:1fr}
+  .admin-audit-json-grid{grid-template-columns:1fr}
+}
+@media(max-width:600px){
+  .admin-audit-search{grid-template-columns:1fr}
+  .admin-audit-search-actions{grid-column:auto;display:grid;grid-template-columns:1fr}
+  .admin-audit-search-actions .button{width:100%}
+  .admin-audit-head{flex-direction:column;gap:5px}
+  .admin-audit-actions>.button{width:100%}
+}
