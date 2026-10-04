@@ -10,6 +10,7 @@ from roya.common.integrations import (
     integration_status, paystack_settings, save_integration, smtp_settings,
 )
 from roya.common.response import ok
+from roya.common.readiness import booking_readiness_snapshot
 from .service import require_platform_admin
 from .operations_service import (
     acknowledge_operational_alert, expire_overdue_holds, list_operational_alerts,
@@ -138,6 +139,7 @@ def dashboard():
                where p.verification_status='pending'
                order by p.created_at asc limit 50"""
         ).fetchall())
+    readiness=booking_readiness_snapshot()
     try:
         operations=operations_snapshot()
     except Exception as exc:
@@ -174,6 +176,7 @@ def dashboard():
         marketing_subscribers=marketing_subscribers,
         marketing_subscriber_rows=marketing_subscriber_rows,
         operations=operations,operational_alerts=operational_alerts,
+        readiness=readiness,
     )
 
 
@@ -281,6 +284,12 @@ def admin_reservation_case(reservation_id):
     if not case:
         raise RoyaError("NOT_FOUND","Reservation not found.",404)
     return render_template("admin/reservation_case.html",case=case)
+
+
+@bp.get("/api/v1/admin/readiness")
+@require_platform_admin
+def admin_readiness():
+    return ok(booking_readiness_snapshot())
 
 
 @bp.get("/api/v1/admin/operations")
