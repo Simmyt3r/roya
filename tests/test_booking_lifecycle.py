@@ -215,8 +215,13 @@ def test_booking_health_endpoint_has_release_gate_shape(monkeypatch):
     monkeypatch.setattr(property_routes,"booking_readiness_snapshot",lambda:{
         "database_configured":True,
         "database_reachable":True,
+        "core_ready":True,
+        "release_ready":True,
         "booking_ready":True,
+        "core_blockers":[],
+        "release_blockers":[],
         "blockers":[],
+        "deferred":[],
         "schema":{
             "create_reservation":True,
             "record_successful_payment":True,
@@ -239,7 +244,10 @@ def test_booking_health_endpoint_has_release_gate_shape(monkeypatch):
     response=app.test_client().get("/health")
     assert response.status_code==200
     data=response.get_json()["data"]
+    assert data["core_ready"] is True
+    assert data["release_ready"] is True
     assert data["booking_ready"] is True
+    assert data["deferred"]==[]
     assert data["checks"]=={
         "booking_schema_ready":True,
         "inventory_consistent":True,
