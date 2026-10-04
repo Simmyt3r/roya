@@ -13,6 +13,9 @@ def test_health_endpoint():
     assert payload["data"]["integrations"]["payments_configured"] is False
     assert payload["data"]["integrations"]["storage_admin_configured"] is False
     assert payload["data"]["integrations"]["notifications_configured"] is False
+    assert payload["data"]["booking_ready"] is False
+    assert payload["data"]["checks"]["booking_schema_ready"] is False
+    assert payload["data"]["checks"]["operations_scan_active"] is False
 
 
 def test_internal_cron_routes_require_secret():
