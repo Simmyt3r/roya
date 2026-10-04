@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}iRoya admin{% endblock %}
 {% block content %}
-<section class="shell page-head"><div><div class="eyebrow">Platform operations</div><h1>iRoya admin</h1></div><div class="admin-head-actions"><a class="button button-secondary" href="/admin/users">Manage users</a><a class="button button-secondary" href="/admin/reviews">Review moderation</a></div></section>
+<section class="shell page-head"><div><div class="eyebrow">Platform operations</div><h1>iRoya admin</h1></div><div class="admin-head-actions"><a class="button button-secondary" href="/admin/users">Manage users</a><a class="button button-secondary" href="/admin/reviews">Review moderation</a><a class="button button-secondary" href="/admin/audit">Audit trail</a></div></section>
 <section class="shell metric-grid"><div class="metric"><strong>{{ metrics.pending_properties }}</strong><span>Pending hotels</span></div><div class="metric"><strong>{{ metrics.verified_properties }}</strong><span>Verified hotels</span></div><div class="metric"><strong>{{ metrics.reservations_this_month }}</strong><span>Bookings this month</span></div><div class="metric"><strong>₦{{ '%.0f'|format(metrics.volume_this_month_minor/100) }}</strong><span>Paid volume</span></div></section>
 <section class="shell admin-operations" aria-labelledby="operations-heading">
   <div class="section-heading admin-operations-heading">
