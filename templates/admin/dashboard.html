@@ -28,6 +28,16 @@
     <span><strong>Last successful payment</strong>{{ readiness.activity.last_successful_payment_at or 'None yet' }}</span>
     <span><strong>Last ops scan</strong>{{ readiness.operations.operations_scan_last_success or 'No successful run recorded' }}</span>
   </div>
+  {% if readiness.blockers %}
+    <div class="readiness-blockers">
+      <strong>Release blockers</strong>
+      <ul>
+        {% for blocker in readiness.blockers %}
+          <li>{{ blocker|replace('_',' ')|title }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
 </section>
 <section class="shell admin-operations" aria-labelledby="operations-heading">
   <div class="section-heading admin-operations-heading">
