@@ -8,8 +8,13 @@ def _empty_snapshot(configured=False):
     return {
         "database_configured":configured,
         "database_reachable":False,
+        "core_ready":False,
+        "release_ready":False,
         "booking_ready":False,
+        "core_blockers":[],
+        "release_blockers":[],
         "blockers":[],
+        "deferred":[],
         "schema":{
             "create_reservation":False,
             "record_successful_payment":False,
@@ -133,21 +138,31 @@ def booking_readiness_snapshot():
             "storage_admin_configured":bool(current_app.config.get("SUPABASE_SERVICE_ROLE_KEY")),
         }
 
-        blockers=[]
+        core_blockers=[]
         if not snapshot["database_reachable"]:
-            blockers.append("database_unreachable")
+            core_blockers.append("database_unreachable")
         if not all(snapshot["schema"].values()):
-            blockers.append("booking_schema_incomplete")
+            core_blockers.append("booking_schema_incomplete")
         if snapshot["operations"]["inventory_anomalies"] not in (0,None):
-            blockers.append("inventory_anomalies")
+            core_blockers.append("inventory_anomalies")
         if snapshot["operations"]["overdue_holds"] not in (0,None):
-            blockers.append("overdue_reservation_holds")
-        if not snapshot["integrations"]["payments_configured"]:
-            blockers.append("paystack_not_configured")
+            core_blockers.append("overdue_reservation_holds")
         if not snapshot["operations"]["operations_scan_active"]:
-            blockers.append("operations_scan_inactive")
-        snapshot["blockers"]=blockers
-        snapshot["booking_ready"]=not blockers
+            core_blockers.append("operations_scan_inactive")
+
+        release_blockers=list(core_blockers)
+        deferred=[]
+        if not snapshot["integrations"]["payments_configured"]:
+            release_blockers.append("paystack_not_configured")
+            deferred.append("paystack_configuration")
+
+        snapshot["core_blockers"]=core_blockers
+        snapshot["release_blockers"]=release_blockers
+        snapshot["blockers"]=release_blockers
+        snapshot["deferred"]=deferred
+        snapshot["core_ready"]=not core_blockers
+        snapshot["release_ready"]=not release_blockers
+        snapshot["booking_ready"]=snapshot["release_ready"]
         return snapshot
     except Exception:
         current_app.logger.exception("Booking readiness check failed")
