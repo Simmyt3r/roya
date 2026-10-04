@@ -1348,3 +1348,54 @@ document.querySelectorAll('[data-reservation-approval]').forEach(function(row){
     });
   });
 })();
+
+
+(function initHotelMiniDomain(){
+  const form=document.querySelector('[data-mini-domain-form]');
+  if(form){
+    const message=form.querySelector('.form-message');
+    form.addEventListener('submit',async function(event){
+      event.preventDefault();
+      const button=form.querySelector('[type="submit"]');
+      const value=(new FormData(form).get('mini_domain')||'').toString();
+      button.disabled=true;
+      if(message)message.textContent='Saving mini-domain…';
+      try{
+        const response=await fetch('/api/v1/properties/'+form.dataset.property+'/mini-domain',{
+          method:'PUT',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({mini_domain:value})
+        });
+        const data=await response.json().catch(function(){return {};});
+        if(!response.ok){
+          if(message)message.textContent=(data.error&&data.error.message)||'Mini-domain could not be saved.';
+          return;
+        }
+        if(message)message.textContent='Mini-domain saved.';
+        const output=document.querySelector('[data-mini-domain-url]');
+        const copy=document.querySelector('[data-copy-mini-domain]');
+        if(output)output.textContent=data.data.mini_domain_url;
+        if(copy)copy.dataset.url=data.data.mini_domain_url;
+      }catch(_error){
+        if(message)message.textContent='Mini-domain request could not complete.';
+      }finally{
+        button.disabled=false;
+      }
+    });
+  }
+
+  const copy=document.querySelector('[data-copy-mini-domain]');
+  if(copy){
+    copy.addEventListener('click',async function(){
+      const value=copy.dataset.url||'';
+      try{
+        await navigator.clipboard.writeText(value);
+        const original=copy.textContent;
+        copy.textContent='Copied';
+        setTimeout(function(){copy.textContent=original;},1000);
+      }catch(_error){
+        window.prompt('Copy hotel address:',value);
+      }
+    });
+  }
+})();
