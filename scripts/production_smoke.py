@@ -39,6 +39,7 @@ def run(base_url=None):
         "database_reachable":data.get("database_reachable"),
         "checks":checks,
         "integrations":data.get("integrations") or {},
+        "blockers":data.get("blockers") or [],
     }
 
 
