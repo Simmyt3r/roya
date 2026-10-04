@@ -15,6 +15,7 @@ from .operations_service import (
     acknowledge_operational_alert, expire_overdue_holds, list_operational_alerts,
     operations_snapshot, reservation_case, search_reservation_cases, sync_operational_alerts,
 )
+from .audit_service import audit_counts, audit_filter_options, list_audit_events
 from .review_service import list_reviews, review_counts, set_review_visibility
 from .user_service import change_user_status, search_user_accounts, user_account_counts
 from .email_service import (
@@ -173,6 +174,37 @@ def dashboard():
         marketing_subscribers=marketing_subscribers,
         marketing_subscriber_rows=marketing_subscriber_rows,
         operations=operations,operational_alerts=operational_alerts,
+    )
+
+
+@bp.get("/admin/audit")
+@require_platform_admin
+def admin_audit():
+    query=(request.args.get("q") or "").strip()
+    if len(query)>160:
+        raise RoyaError("VALIDATION_ERROR","Audit search is too long.",422)
+    entity_type=(request.args.get("entity_type") or "").strip()
+    action=(request.args.get("action") or "").strip()
+    if len(entity_type)>80 or len(action)>120:
+        raise RoyaError("VALIDATION_ERROR","Audit filter is too long.",422)
+    try:
+        since_days=int(request.args.get("since_days","7"))
+    except ValueError as exc:
+        raise RoyaError("VALIDATION_ERROR","Audit date range is invalid.",422) from exc
+    if since_days not in {1,7,30,90,365}:
+        raise RoyaError("VALIDATION_ERROR","Audit date range is invalid.",422)
+
+    return render_template(
+        "admin/audit.html",
+        query=query,
+        entity_type_filter=entity_type,
+        action_filter=action,
+        since_days=since_days,
+        events=list_audit_events(
+            query=query,entity_type=entity_type,action=action,since_days=since_days,
+        ),
+        filters=audit_filter_options(),
+        counts=audit_counts(),
     )
 
 
