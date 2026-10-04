@@ -195,3 +195,19 @@ def test_operations_scan_accepts_vault_bearer_and_runs_recovery(monkeypatch):
     assert response.status_code==200
     assert response.json["data"]["money"]["payments"]["reconciled"]==1
     assert response.json["data"]["money"]["refunds"]["processed"]==1
+
+
+def test_admin_readiness_endpoint(monkeypatch):
+    client=_client(monkeypatch)
+    monkeypatch.setattr(admin_routes,"booking_readiness_snapshot",lambda:{
+        "database_configured":True,
+        "database_reachable":True,
+        "booking_ready":True,
+        "schema":{"create_reservation":True},
+        "integrations":{"payments_configured":True},
+        "operations":{"inventory_anomalies":0,"operations_scan_active":True},
+        "activity":{},
+    })
+    response=client.get("/api/v1/admin/readiness")
+    assert response.status_code==200
+    assert response.json["data"]["booking_ready"] is True
