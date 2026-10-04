@@ -839,3 +839,24 @@ html{-webkit-text-size-adjust:100%}body{min-width:0;overflow-x:hidden}button,a,i
   .admin-audit-head{flex-direction:column;gap:5px}
   .admin-audit-actions>.button{width:100%}
 }
+
+
+/* Release readiness panel */
+.release-readiness{padding-bottom:30px}
+.readiness-check-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0}
+.readiness-check{display:grid;gap:4px;padding:13px 14px;border:1px solid var(--line);border-radius:14px;background:#fff}
+.readiness-check strong{font-size:.8rem}
+.readiness-check span{font-size:.72rem;color:var(--muted)}
+.readiness-check.is-pass{border-color:#cce7d6;background:#f4fbf6}
+.readiness-check.is-warn{border-color:#ead7a4;background:#fffaf0}
+.readiness-check.is-fail{border-color:#e8b9b1;background:#fff7f5}
+.readiness-activity{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.readiness-activity span{display:grid;gap:2px;font-size:.72rem;color:var(--muted);overflow-wrap:anywhere}
+.readiness-activity strong{font-size:.66rem;text-transform:uppercase;letter-spacing:.04em;color:var(--ink)}
+@media(max-width:850px){
+  .readiness-check-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .readiness-activity{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:520px){
+  .readiness-check-grid,.readiness-activity{grid-template-columns:1fr}
+}
