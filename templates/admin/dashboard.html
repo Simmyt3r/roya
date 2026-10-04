@@ -10,14 +10,14 @@
       <h2 id="release-readiness-heading">Booking readiness</h2>
       <p class="muted">Live checks for database functions, integrations, inventory consistency and the operations scanner.</p>
     </div>
-    <span class="operations-state {{ 'is-healthy' if readiness.booking_ready else 'has-alerts' }}">
-      {{ 'Ready' if readiness.booking_ready else 'Needs attention' }}
+    <span class="operations-state {{ 'is-healthy' if readiness.core_ready else 'has-alerts' }}">
+      {% if readiness.release_ready %}Release ready{% elif readiness.core_ready %}Core ready{% else %}Needs attention{% endif %}
     </span>
   </div>
   <div class="readiness-check-grid">
     <div class="readiness-check {{ 'is-pass' if readiness.database_reachable else 'is-fail' }}"><strong>Database</strong><span>{{ 'Reachable' if readiness.database_reachable else 'Unavailable' }}</span></div>
     <div class="readiness-check {{ 'is-pass' if readiness.schema.values()|select|list|length == readiness.schema|length else 'is-fail' }}"><strong>Booking RPCs</strong><span>{{ readiness.schema.values()|select|list|length }}/{{ readiness.schema|length }} present</span></div>
-    <div class="readiness-check {{ 'is-pass' if readiness.integrations.payments_configured else 'is-fail' }}"><strong>Paystack</strong><span>{{ 'Configured' if readiness.integrations.payments_configured else 'Missing' }}</span></div>
+    <div class="readiness-check {{ 'is-pass' if readiness.integrations.payments_configured else 'is-deferred' }}"><strong>Paystack</strong><span>{{ 'Configured' if readiness.integrations.payments_configured else 'Deferred · final step' }}</span></div>
     <div class="readiness-check {{ 'is-pass' if readiness.integrations.notifications_configured else 'is-warn' }}"><strong>Email</strong><span>{{ 'Configured' if readiness.integrations.notifications_configured else 'Not configured' }}</span></div>
     <div class="readiness-check {{ 'is-pass' if readiness.operations.inventory_anomalies == 0 else 'is-fail' }}"><strong>Inventory</strong><span>{{ readiness.operations.inventory_anomalies if readiness.operations.inventory_anomalies is not none else 'Unknown' }} anomalies</span></div>
     <div class="readiness-check {{ 'is-pass' if readiness.operations.operations_scan_active else 'is-fail' }}"><strong>Ops scanner</strong><span>{{ 'Active' if readiness.operations.operations_scan_active else 'Inactive' }}</span></div>
@@ -28,14 +28,20 @@
     <span><strong>Last successful payment</strong>{{ readiness.activity.last_successful_payment_at or 'None yet' }}</span>
     <span><strong>Last ops scan</strong>{{ readiness.operations.operations_scan_last_success or 'No successful run recorded' }}</span>
   </div>
-  {% if readiness.blockers %}
+  {% if readiness.core_blockers %}
     <div class="readiness-blockers">
-      <strong>Release blockers</strong>
+      <strong>Core blockers</strong>
       <ul>
-        {% for blocker in readiness.blockers %}
+        {% for blocker in readiness.core_blockers %}
           <li>{{ blocker|replace('_',' ')|title }}</li>
         {% endfor %}
       </ul>
+    </div>
+  {% endif %}
+  {% if readiness.deferred %}
+    <div class="readiness-deferred">
+      <strong>Deferred until final integration</strong>
+      <span>Paystack payment credentials and live payment verification.</span>
     </div>
   {% endif %}
 </section>
