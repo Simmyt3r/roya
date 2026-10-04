@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Audit trail · iRoya admin{% endblock %}
+{% block content %}
+<section class="shell page-head">
+  <div>
+    <div class="eyebrow">Platform administration</div>
+    <h1>Audit trail</h1>
+    <p>Read-only history of high-risk changes and operational actions recorded by iRoya.</p>
+  </div>
+  <a class="button button-secondary" href="/admin">Back to admin</a>
+</section>
+
+<section class="shell admin-audit-shell">
+  <div class="operations-metrics admin-audit-metrics">
+    <div class="operations-metric"><strong>{{ counts.total }}</strong><span>Total events</span></div>
+    <div class="operations-metric"><strong>{{ counts.last_24h }}</strong><span>Last 24 hours</span></div>
+    <div class="operations-metric"><strong>{{ counts.actors }}</strong><span>Recorded actors</span></div>
+    <div class="operations-metric"><strong>{{ counts.properties }}</strong><span>Properties touched</span></div>
+  </div>
+
+  <form class="card admin-audit-search" method="get" action="/admin/audit">
+    <label>Search
+      <input name="q" value="{{ query }}" maxlength="160" placeholder="Actor, hotel, action, entity or ID">
+    </label>
+    <label>Entity
+      <select name="entity_type">
+        <option value="">All entities</option>
+        {% for item in filters.entity_types %}
+          <option value="{{ item }}" {% if entity_type_filter == item %}selected{% endif %}>{{ item|replace('_',' ')|title }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Action
+      <select name="action">
+        <option value="">All actions</option>
+        {% for item in filters.actions %}
+          <option value="{{ item }}" {% if action_filter == item %}selected{% endif %}>{{ item }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Range
+      <select name="since_days">
+        <option value="1" {% if since_days == 1 %}selected{% endif %}>24 hours</option>
+        <option value="7" {% if since_days == 7 %}selected{% endif %}>7 days</option>
+        <option value="30" {% if since_days == 30 %}selected{% endif %}>30 days</option>
+        <option value="90" {% if since_days == 90 %}selected{% endif %}>90 days</option>
+        <option value="365" {% if since_days == 365 %}selected{% endif %}>1 year</option>
+      </select>
+    </label>
+    <div class="admin-audit-search-actions">
+      <button class="button" type="submit">Filter audit</button>
+      {% if query or entity_type_filter or action_filter or since_days != 7 %}
+        <a class="button button-secondary" href="/admin/audit">Clear</a>
+      {% endif %}
+    </div>
+  </form>
+
+  <div class="admin-audit-list">
+    {% for event in events %}
+      <article class="card admin-audit-row">
+        <div class="admin-audit-head">
+          <div>
+            <strong>{{ event.action }}</strong>
+            <span>{{ event.entity_type|replace('_',' ')|title }} · {{ event.entity_id }}</span>
+          </div>
+          <time>{{ event.created_at }}</time>
+        </div>
+
+        <div class="admin-audit-context">
+          <span><strong>Actor</strong>{{ event.actor_name }}{% if event.actor_email and event.actor_email != event.actor_name %} · {{ event.actor_email }}{% endif %}</span>
+          {% if event.organization_name %}<span><strong>Organization</strong>{{ event.organization_name }}</span>{% endif %}
+          {% if event.property_name %}<span><strong>Property</strong>{{ event.property_name }}</span>{% endif %}
+        </div>
+
+        <div class="admin-audit-actions">
+          {% if event.entity_type == 'reservation' %}
+            <a class="button button-small button-secondary" href="/admin/reservations/{{ event.entity_id }}">Inspect reservation</a>
+          {% endif %}
+          <details class="admin-audit-details">
+            <summary>Change details</summary>
+            <div class="admin-audit-json-grid">
+              <div>
+                <strong>Before</strong>
+                <pre>{{ event.before_json|tojson(indent=2) if event.before_json is not none else '{}' }}</pre>
+              </div>
+              <div>
+                <strong>After</strong>
+                <pre>{{ event.after_json|tojson(indent=2) if event.after_json is not none else '{}' }}</pre>
+              </div>
+            </div>
+          </details>
+          {% if event.ip_address or event.user_agent %}
+            <details class="admin-audit-details">
+              <summary>Request context</summary>
+              <div class="admin-audit-request">
+                {% if event.ip_address %}<span><strong>IP</strong>{{ event.ip_address }}</span>{% endif %}
+                {% if event.user_agent %}<span><strong>User agent</strong>{{ event.user_agent }}</span>{% endif %}
+              </div>
+            </details>
+          {% endif %}
+        </div>
+      </article>
+    {% else %}
+      <div class="card operations-empty"><strong>No audit events matched.</strong><span>Broaden the date range or remove one of the filters.</span></div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
