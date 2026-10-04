@@ -5,6 +5,33 @@
 <section class="shell"><div class="card readiness-card"><div><div class="eyebrow">Go-live readiness</div><h2>{{ "Ready for review" if readiness.ready else "Finish the sellable setup" }}</h2><p class="muted">iRoya verifies that a hotel can actually sell a stay before it becomes public.</p></div><div class="setup-checks setup-checks-large"><span class="{% if readiness.has_room %}ready{% endif %}">Room type</span><span class="{% if readiness.has_rate %}ready{% endif %}">Rate plan</span><span class="{% if readiness.has_inventory %}ready{% endif %}">Future inventory</span></div></div></section>
 {% if property.verification_status == "pending" %}<section class="shell"><div class="notice-card"><strong>Property verification is pending.</strong><span>{% if readiness.ready %}Your sellable setup is complete and the property can be verified by iRoya operations.{% else %}Complete the missing setup above. The property will not appear publicly until it is ready and verified.{% endif %}</span></div></section>{% endif %}
 
+<section class="shell partner-section hotel-mini-domain">
+  <div class="card mini-domain-card">
+    <div>
+      <div class="eyebrow">iRoya mini-domain</div>
+      <h2>Your hotel's direct address</h2>
+      <p class="muted">Guests can use this memorable address directly once iRoya.ng wildcard DNS is active.</p>
+    </div>
+    <div class="mini-domain-address">
+      <strong data-mini-domain-url>{{ mini_domain_url }}</strong>
+      <a class="button button-small button-secondary" href="{{ mini_domain_url }}" target="_blank" rel="noopener">Open</a>
+      <button class="button button-small button-secondary" type="button" data-copy-mini-domain data-url="{{ mini_domain_url }}">Copy</button>
+    </div>
+    {% if can_edit_property %}
+    <form class="mini-domain-form" data-mini-domain-form data-property="{{ property.id }}">
+      <label>Mini-domain
+        <div class="mini-domain-input">
+          <input name="mini_domain" value="{{ property.mini_domain }}" minlength="2" maxlength="63" pattern="[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?" required>
+          <span>.iroya.ng</span>
+        </div>
+      </label>
+      <button class="button button-small" type="submit">Save address</button>
+      <p class="form-message" role="status" aria-live="polite"></p>
+    </form>
+    {% endif %}
+  </div>
+</section>
+
 <section class="shell partner-section property-details-section">
   <div class="section-heading"><div><div class="eyebrow">Property profile</div><h2>Guest-facing details</h2></div></div>
   {% if can_edit_property %}
