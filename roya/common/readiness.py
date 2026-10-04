@@ -9,6 +9,7 @@ def _empty_snapshot(configured=False):
         "database_configured":configured,
         "database_reachable":False,
         "booking_ready":False,
+        "blockers":[],
         "schema":{
             "create_reservation":False,
             "record_successful_payment":False,
@@ -132,14 +133,21 @@ def booking_readiness_snapshot():
             "storage_admin_configured":bool(current_app.config.get("SUPABASE_SERVICE_ROLE_KEY")),
         }
 
-        snapshot["booking_ready"]=(
-            snapshot["database_reachable"]
-            and all(snapshot["schema"].values())
-            and snapshot["operations"]["inventory_anomalies"]==0
-            and snapshot["operations"]["overdue_holds"]==0
-            and snapshot["integrations"]["payments_configured"]
-            and snapshot["operations"]["operations_scan_active"]
-        )
+        blockers=[]
+        if not snapshot["database_reachable"]:
+            blockers.append("database_unreachable")
+        if not all(snapshot["schema"].values()):
+            blockers.append("booking_schema_incomplete")
+        if snapshot["operations"]["inventory_anomalies"] not in (0,None):
+            blockers.append("inventory_anomalies")
+        if snapshot["operations"]["overdue_holds"] not in (0,None):
+            blockers.append("overdue_reservation_holds")
+        if not snapshot["integrations"]["payments_configured"]:
+            blockers.append("paystack_not_configured")
+        if not snapshot["operations"]["operations_scan_active"]:
+            blockers.append("operations_scan_inactive")
+        snapshot["blockers"]=blockers
+        snapshot["booking_ready"]=not blockers
         return snapshot
     except Exception:
         current_app.logger.exception("Booking readiness check failed")
