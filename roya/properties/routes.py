@@ -104,6 +104,7 @@ def health():
         "database_configured":readiness["database_configured"],
         "database_reachable":readiness["database_reachable"],
         "booking_ready":readiness["booking_ready"],
+        "blockers":readiness["blockers"],
         "integrations":readiness["integrations"],
         "checks":{
             "booking_schema_ready":all(readiness["schema"].values()),
