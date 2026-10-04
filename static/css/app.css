@@ -767,3 +767,36 @@ html{-webkit-text-size-adjust:100%}body{min-width:0;overflow-x:hidden}button,a,i
   .admin-user-meta{grid-template-columns:1fr 1fr}
   .admin-user-dates{display:grid;gap:3px}
 }
+
+
+/* Admin review moderation */
+.admin-head-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.admin-review-shell{padding-bottom:64px}
+.admin-review-metrics{margin-bottom:14px}
+.admin-review-search{display:grid;grid-template-columns:minmax(0,1fr) 190px auto;gap:12px;align-items:end;padding:18px;margin-bottom:14px}
+.admin-review-search-actions{display:flex;gap:8px;align-items:center}
+.admin-review-list{display:grid;gap:10px}
+.admin-review-row{display:grid;gap:12px;padding:17px 18px}
+.admin-review-row.is-hidden{background:#fbfbfb;opacity:.86}
+.admin-review-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
+.admin-review-head>div{display:grid;gap:2px;min-width:0}
+.admin-review-head strong,.admin-review-head span{overflow-wrap:anywhere}
+.admin-review-head>div span{font-size:.78rem;color:var(--muted)}
+.admin-review-rating{font-size:.84rem;letter-spacing:.04em;white-space:nowrap}
+.admin-review-comment{margin:0;line-height:1.6;overflow-wrap:anywhere}
+.admin-review-meta{display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-size:.72rem;color:var(--muted)}
+.admin-review-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.admin-review-row>.form-message{margin:0}
+@media(max-width:760px){
+  .admin-review-search{grid-template-columns:1fr}
+  .admin-review-search-actions{display:grid;grid-template-columns:1fr}
+  .admin-review-search-actions .button{width:100%}
+  .admin-review-head{flex-direction:column;gap:6px}
+  .admin-review-actions{display:grid;grid-template-columns:1fr}
+  .admin-review-actions .button{width:100%}
+}
+@media(max-width:520px){
+  .admin-head-actions{display:grid;grid-template-columns:1fr;width:100%}
+  .admin-head-actions .button{width:100%}
+  .admin-review-meta{display:grid;gap:4px}
+}
