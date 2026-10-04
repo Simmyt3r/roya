@@ -299,7 +299,7 @@ def partner_dashboard():
         )
         properties = list(
             conn.execute(
-                """select p.id,p.name,p.slug,p.city,p.verification_status,p.status,o.name organization_name
+                """select p.id,p.name,p.slug,p.mini_domain,p.city,p.verification_status,p.status,o.name organization_name
                    from properties p join organizations o on o.id=p.organization_id
                    join organization_members om on om.organization_id=o.id
                    where om.user_id=%s and om.status='active' order by p.created_at desc""",
