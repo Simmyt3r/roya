@@ -103,8 +103,13 @@ def health():
         "status":"ok" if readiness["database_reachable"] or not readiness["database_configured"] else "degraded",
         "database_configured":readiness["database_configured"],
         "database_reachable":readiness["database_reachable"],
+        "core_ready":readiness["core_ready"],
+        "release_ready":readiness["release_ready"],
         "booking_ready":readiness["booking_ready"],
+        "core_blockers":readiness["core_blockers"],
+        "release_blockers":readiness["release_blockers"],
         "blockers":readiness["blockers"],
+        "deferred":readiness["deferred"],
         "integrations":readiness["integrations"],
         "checks":{
             "booking_schema_ready":all(readiness["schema"].values()),
