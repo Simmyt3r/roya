@@ -33,7 +33,7 @@ def list_reviews(query="",visibility="",limit=100):
                   r.id,r.rating,r.comment,r.is_visible,r.created_at,r.updated_at,
                   r.reservation_id,rs.reference reservation_reference,
                   pr.id property_id,pr.name property_name,
-                  p.id user_id,p.name reviewer_name,u.email reviewer_email
+                  r.user_id,p.name reviewer_name,u.email reviewer_email
                 from reviews r
                 join reservations rs on rs.id=r.reservation_id
                 join properties pr on pr.id=r.property_id
