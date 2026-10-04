@@ -1314,3 +1314,37 @@ document.querySelectorAll('[data-reservation-approval]').forEach(function(row){
     });
   });
 })();
+
+
+(function initAdminReviews(){
+  document.querySelectorAll('[data-admin-review]').forEach(function(row){
+    const button=row.querySelector('[data-review-visibility]');
+    const message=row.querySelector('.form-message');
+    if(!button)return;
+    button.addEventListener('click',async function(){
+      const isVisible=button.dataset.reviewVisibility==='true';
+      const verb=isVisible?'restore':'hide';
+      if(!window.confirm('Are you sure you want to '+verb+' this review?'))return;
+      button.disabled=true;
+      if(message)message.textContent=isVisible?'Restoring review…':'Hiding review…';
+      try{
+        const response=await fetch('/api/v1/admin/reviews/'+row.dataset.adminReview+'/visibility',{
+          method:'PUT',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({is_visible:isVisible})
+        });
+        const data=await response.json().catch(function(){return {};});
+        if(!response.ok){
+          if(message)message.textContent=(data.error&&data.error.message)||'Review visibility could not be changed.';
+          return;
+        }
+        if(message)message.textContent=isVisible?'Review restored to public listings.':'Review hidden from public listings.';
+        setTimeout(function(){window.location.reload();},600);
+      }catch(_error){
+        if(message)message.textContent='Review moderation request could not complete.';
+      }finally{
+        button.disabled=false;
+      }
+    });
+  });
+})();
