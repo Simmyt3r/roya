@@ -8,6 +8,10 @@ from pydantic import BaseModel, Field, ValidationError
 
 from roya.auth.service import account_type_for_user, current_identity, login_required
 from roya.common.db import db_connection, supabase_admin_client
+from roya.common.domains import (
+    allocate_mini_domain, mini_domain_url, normalize_mini_domain,
+    property_subdomain_from_host,
+)
 from roya.common.errors import RoyaError
 from roya.common.media import read_image_upload, storage_object_path
 from roya.common.integrations import integration_status
@@ -93,6 +97,28 @@ def _search_rows(query):
         radius_km=query.radius_km,
         sort=query.sort,
     )
+
+
+@bp.before_app_request
+def serve_hotel_mini_domain():
+    if request.method!="GET" or request.path!="/":
+        return None
+    mini_domain=property_subdomain_from_host(request.host)
+    if not mini_domain:
+        return None
+    with db_connection() as conn:
+        row=conn.execute(
+            """select slug
+               from properties
+               where lower(mini_domain)=lower(%s)
+                 and status='active'
+                 and verification_status='verified'
+               limit 1""",
+            (mini_domain,),
+        ).fetchone()
+    if not row:
+        raise RoyaError("PROPERTY_NOT_FOUND","Hotel mini-domain not found.",404)
+    return property_page(row["slug"])
 
 
 @bp.get("/health")
@@ -312,6 +338,7 @@ def manage_property_page(property_id):
         can_edit_property=access["member_role"] in {"owner","manager"},
         amenities=amenities,
         images=images,
+        mini_domain_url=mini_domain_url(access["mini_domain"]),
         readiness={
             "has_room":bool(readiness_row["has_room"]),
             "has_rate":bool(readiness_row["has_rate"]),
@@ -319,6 +346,10 @@ def manage_property_page(property_id):
             "ready":bool(readiness_row["has_room"] and readiness_row["has_rate"] and readiness_row["has_inventory"]),
         },
     )
+
+
+class MiniDomainUpdate(BaseModel):
+    mini_domain: str = Field(min_length=2,max_length=63)
 
 
 class PropertyCreate(BaseModel):
@@ -369,12 +400,13 @@ def create_property_api():
     require_organization_member(identity.user_id,body.organization_id,{"owner","manager"})
     slug=f"{slugify(body.name)}-{uuidlib.uuid4().hex[:6]}"
     with db_connection() as conn:
+        mini_domain=allocate_mini_domain(conn,body.name)
         row=conn.execute(
-            """insert into properties(organization_id,name,slug,description,address,city,state,country,phone,email,latitude,longitude,location,check_in_time,check_out_time,verification_status,status,created_by_user_id)
-               values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
+            """insert into properties(organization_id,name,slug,mini_domain,description,address,city,state,country,phone,email,latitude,longitude,location,check_in_time,check_out_time,verification_status,status,created_by_user_id)
+               values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
                  case when %s is not null and %s is not null then st_setsrid(st_makepoint(%s,%s),4326)::geography else null end,
                  %s::time,%s::time,'pending','draft',%s) returning *""",
-            (body.organization_id,body.name,slug,body.description,body.address,body.city,body.state,body.country,body.phone,body.email,
+            (body.organization_id,body.name,slug,mini_domain,body.description,body.address,body.city,body.state,body.country,body.phone,body.email,
              body.latitude,body.longitude,body.longitude,body.latitude,body.longitude,body.latitude,body.check_in_time,body.check_out_time,identity.user_id),
         ).fetchone()
         conn.commit()
@@ -434,6 +466,64 @@ def update_property_api(property_id):
             )
 
     return ok({**dict(row),"requires_reverification":needs_reverify})
+
+
+@bp.put("/api/v1/properties/<uuid:property_id>/mini-domain")
+@login_required
+def update_property_mini_domain(property_id):
+    try:
+        body=MiniDomainUpdate.model_validate(request.get_json(silent=True) or {})
+    except ValidationError as exc:
+        raise RoyaError("VALIDATION_ERROR","Invalid hotel mini-domain.",422,{"errors":exc.errors()}) from exc
+
+    candidate=normalize_mini_domain(body.mini_domain)
+    identity=current_identity(required=True)
+    with db_connection() as conn:
+        with conn.transaction():
+            before=conn.execute(
+                """select p.id,p.organization_id,p.mini_domain,om.role
+                   from properties p
+                   join organization_members om on om.organization_id=p.organization_id
+                   where p.id=%s and om.user_id=%s and om.status='active'
+                   for update of p""",
+                (str(property_id),identity.user_id),
+            ).fetchone()
+            if not before:
+                raise RoyaError("PROPERTY_NOT_FOUND","Property not found or access denied.",404)
+            if before["role"] not in {"owner","manager"}:
+                raise RoyaError("FORBIDDEN","Only hotel owners and managers can change the mini-domain.",403)
+
+            conflict=conn.execute(
+                """select id from properties
+                   where lower(mini_domain)=lower(%s) and id<>%s
+                   limit 1""",
+                (candidate,str(property_id)),
+            ).fetchone()
+            if conflict:
+                raise RoyaError("MINI_DOMAIN_TAKEN","That iRoya mini-domain is already in use.",409)
+
+            row=conn.execute(
+                """update properties set mini_domain=%s,updated_at=now()
+                   where id=%s
+                   returning id,name,slug,mini_domain""",
+                (candidate,str(property_id)),
+            ).fetchone()
+            conn.execute(
+                """insert into audit_logs(
+                     actor_user_id,organization_id,property_id,action,entity_type,entity_id,
+                     before_json,after_json
+                   ) values(%s,%s,%s,'property.mini_domain_changed','property',%s,%s::jsonb,%s::jsonb)""",
+                (
+                    identity.user_id,before["organization_id"],str(property_id),str(property_id),
+                    json.dumps({"mini_domain":before["mini_domain"]}),
+                    json.dumps({"mini_domain":candidate}),
+                ),
+            )
+
+    return ok({
+        **dict(row),
+        "mini_domain_url":mini_domain_url(candidate),
+    })
 
 
 @bp.put("/api/v1/properties/<uuid:property_id>/amenities")
