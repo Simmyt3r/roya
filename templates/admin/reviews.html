@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Review moderation · iRoya admin{% endblock %}
+{% block content %}
+<section class="shell page-head">
+  <div>
+    <div class="eyebrow">Platform administration</div>
+    <h1>Review moderation</h1>
+    <p>Search verified-stay reviews, hide content that should not remain public, and restore reviews when appropriate.</p>
+  </div>
+  <a class="button button-secondary" href="/admin">Back to admin</a>
+</section>
+
+<section class="shell admin-review-shell">
+  <div class="operations-metrics admin-review-metrics">
+    <div class="operations-metric"><strong>{{ counts.total }}</strong><span>Total reviews</span></div>
+    <div class="operations-metric"><strong>{{ counts.visible }}</strong><span>Visible</span></div>
+    <div class="operations-metric {{ 'has-warning' if counts.hidden else '' }}"><strong>{{ counts.hidden }}</strong><span>Hidden</span></div>
+    <div class="operations-metric"><strong>★ {{ counts.average_visible }}</strong><span>Public average</span></div>
+  </div>
+
+  <form class="card admin-review-search" method="get" action="/admin/reviews">
+    <label>Search
+      <input name="q" value="{{ query }}" maxlength="160" placeholder="Hotel, guest, email, review text or reservation reference">
+    </label>
+    <label>Visibility
+      <select name="visibility">
+        <option value="" {% if not visibility_filter %}selected{% endif %}>All reviews</option>
+        <option value="visible" {% if visibility_filter == 'visible' %}selected{% endif %}>Visible</option>
+        <option value="hidden" {% if visibility_filter == 'hidden' %}selected{% endif %}>Hidden</option>
+      </select>
+    </label>
+    <div class="admin-review-search-actions">
+      <button class="button" type="submit">Search reviews</button>
+      {% if query or visibility_filter %}<a class="button button-secondary" href="/admin/reviews">Clear</a>{% endif %}
+    </div>
+  </form>
+
+  <div class="admin-review-list">
+    {% for review in reviews %}
+      <article class="card admin-review-row {% if not review.is_visible %}is-hidden{% endif %}" data-admin-review="{{ review.id }}">
+        <div class="admin-review-head">
+          <div>
+            <strong>{{ review.property_name }}</strong>
+            <span>{{ review.reviewer_name or 'Guest' }} · {{ review.reviewer_email }}</span>
+          </div>
+          <span class="admin-review-rating" aria-label="{{ review.rating }} out of 5 stars">{{ '★' * review.rating }}{{ '☆' * (5-review.rating) }}</span>
+        </div>
+        {% if review.comment %}
+          <p class="admin-review-comment">{{ review.comment }}</p>
+        {% else %}
+          <p class="admin-review-comment muted">No written comment.</p>
+        {% endif %}
+        <div class="admin-review-meta">
+          <span>Reservation <strong>{{ review.reservation_reference }}</strong></span>
+          <span>Submitted {{ review.created_at }}</span>
+          <span class="status-pill {% if not review.is_visible %}status-muted{% endif %}">{{ 'Visible' if review.is_visible else 'Hidden' }}</span>
+        </div>
+        <div class="admin-review-actions">
+          <a class="button button-small button-secondary" href="/admin/reservations/{{ review.reservation_id }}">Inspect reservation</a>
+          {% if review.is_visible %}
+            <button class="button button-small button-secondary danger-soft" type="button" data-review-visibility="false">Hide review</button>
+          {% else %}
+            <button class="button button-small" type="button" data-review-visibility="true">Restore review</button>
+          {% endif %}
+        </div>
+        <p class="form-message" role="status" aria-live="polite"></p>
+      </article>
+    {% else %}
+      <div class="card operations-empty"><strong>No reviews matched.</strong><span>Try a different hotel, guest, reservation reference, or visibility filter.</span></div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
