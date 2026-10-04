@@ -13,8 +13,13 @@ def test_health_endpoint():
     assert payload["data"]["integrations"]["payments_configured"] is False
     assert payload["data"]["integrations"]["storage_admin_configured"] is False
     assert payload["data"]["integrations"]["notifications_configured"] is False
+    assert payload["data"]["core_ready"] is False
+    assert payload["data"]["release_ready"] is False
     assert payload["data"]["booking_ready"] is False
+    assert payload["data"]["core_blockers"]==[]
+    assert payload["data"]["release_blockers"]==[]
     assert payload["data"]["blockers"]==[]
+    assert payload["data"]["deferred"]==[]
     assert payload["data"]["checks"]["booking_schema_ready"] is False
     assert payload["data"]["checks"]["operations_scan_active"] is False
 
