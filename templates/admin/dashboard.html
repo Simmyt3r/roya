@@ -3,6 +3,32 @@
 {% block content %}
 <section class="shell page-head"><div><div class="eyebrow">Platform operations</div><h1>iRoya admin</h1></div><div class="admin-head-actions"><a class="button button-secondary" href="/admin/users">Manage users</a><a class="button button-secondary" href="/admin/reviews">Review moderation</a><a class="button button-secondary" href="/admin/audit">Audit trail</a></div></section>
 <section class="shell metric-grid"><div class="metric"><strong>{{ metrics.pending_properties }}</strong><span>Pending hotels</span></div><div class="metric"><strong>{{ metrics.verified_properties }}</strong><span>Verified hotels</span></div><div class="metric"><strong>{{ metrics.reservations_this_month }}</strong><span>Bookings this month</span></div><div class="metric"><strong>₦{{ '%.0f'|format(metrics.volume_this_month_minor/100) }}</strong><span>Paid volume</span></div></section>
+<section class="shell release-readiness" aria-labelledby="release-readiness-heading">
+  <div class="section-heading">
+    <div>
+      <div class="eyebrow">Release gate</div>
+      <h2 id="release-readiness-heading">Booking readiness</h2>
+      <p class="muted">Live checks for database functions, integrations, inventory consistency and the operations scanner.</p>
+    </div>
+    <span class="operations-state {{ 'is-healthy' if readiness.booking_ready else 'has-alerts' }}">
+      {{ 'Ready' if readiness.booking_ready else 'Needs attention' }}
+    </span>
+  </div>
+  <div class="readiness-check-grid">
+    <div class="readiness-check {{ 'is-pass' if readiness.database_reachable else 'is-fail' }}"><strong>Database</strong><span>{{ 'Reachable' if readiness.database_reachable else 'Unavailable' }}</span></div>
+    <div class="readiness-check {{ 'is-pass' if readiness.schema.values()|select|list|length == readiness.schema|length else 'is-fail' }}"><strong>Booking RPCs</strong><span>{{ readiness.schema.values()|select|list|length }}/{{ readiness.schema|length }} present</span></div>
+    <div class="readiness-check {{ 'is-pass' if readiness.integrations.payments_configured else 'is-fail' }}"><strong>Paystack</strong><span>{{ 'Configured' if readiness.integrations.payments_configured else 'Missing' }}</span></div>
+    <div class="readiness-check {{ 'is-pass' if readiness.integrations.notifications_configured else 'is-warn' }}"><strong>Email</strong><span>{{ 'Configured' if readiness.integrations.notifications_configured else 'Not configured' }}</span></div>
+    <div class="readiness-check {{ 'is-pass' if readiness.operations.inventory_anomalies == 0 else 'is-fail' }}"><strong>Inventory</strong><span>{{ readiness.operations.inventory_anomalies if readiness.operations.inventory_anomalies is not none else 'Unknown' }} anomalies</span></div>
+    <div class="readiness-check {{ 'is-pass' if readiness.operations.operations_scan_active else 'is-fail' }}"><strong>Ops scanner</strong><span>{{ 'Active' if readiness.operations.operations_scan_active else 'Inactive' }}</span></div>
+  </div>
+  <div class="readiness-activity">
+    <span><strong>Last reservation</strong>{{ readiness.activity.last_reservation_at or 'None yet' }}</span>
+    <span><strong>Last confirmed booking</strong>{{ readiness.activity.last_confirmed_booking_at or 'None yet' }}</span>
+    <span><strong>Last successful payment</strong>{{ readiness.activity.last_successful_payment_at or 'None yet' }}</span>
+    <span><strong>Last ops scan</strong>{{ readiness.operations.operations_scan_last_success or 'No successful run recorded' }}</span>
+  </div>
+</section>
 <section class="shell admin-operations" aria-labelledby="operations-heading">
   <div class="section-heading admin-operations-heading">
     <div>
