@@ -863,3 +863,23 @@ html{-webkit-text-size-adjust:100%}body{min-width:0;overflow-x:hidden}button,a,i
 @media(max-width:520px){
   .readiness-check-grid,.readiness-activity{grid-template-columns:1fr}
 }
+
+
+/* Hotel mini-domain */
+.hotel-mini-domain{padding-top:0}
+.mini-domain-card{display:grid;gap:16px;padding:18px}
+.mini-domain-address{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.mini-domain-address>strong{font-size:1.05rem;overflow-wrap:anywhere}
+.mini-domain-form{display:flex;gap:10px;align-items:end;flex-wrap:wrap}
+.mini-domain-form label{flex:1 1 320px}
+.mini-domain-input{display:flex;align-items:stretch}
+.mini-domain-input input{border-radius:10px 0 0 10px}
+.mini-domain-input span{display:flex;align-items:center;padding:0 12px;border:1px solid var(--line);border-left:0;border-radius:0 10px 10px 0;background:#f6f8f8;font-weight:800;font-size:.8rem;white-space:nowrap}
+.mini-domain-form>.button{margin-bottom:1px}
+@media(max-width:620px){
+  .mini-domain-address{display:grid;grid-template-columns:1fr 1fr}
+  .mini-domain-address>strong{grid-column:1/-1}
+  .mini-domain-address .button{width:100%}
+  .mini-domain-form{display:grid;grid-template-columns:1fr}
+  .mini-domain-form>.button{width:100%}
+}
