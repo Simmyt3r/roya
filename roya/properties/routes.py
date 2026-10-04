@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, ValidationError
 from roya.auth.service import account_type_for_user, current_identity, login_required
 from roya.common.db import db_connection, supabase_admin_client
 from roya.common.domains import (
-    allocate_mini_domain, mini_domain_url, normalize_mini_domain,
+    allocate_mini_domain, hotel_domain_base, mini_domain_url, normalize_mini_domain,
     property_subdomain_from_host,
 )
 from roya.common.errors import RoyaError
@@ -197,6 +197,7 @@ def property_page(slug):
         property=prop,images=images,rooms=rooms,amenities=amenities,
         check_in=check_in,check_out=check_out,guests=guests,
         reviews=reviews,review_summary=review_summary,
+        booking_origin=f"https://{hotel_domain_base()}",
     )
 
 
