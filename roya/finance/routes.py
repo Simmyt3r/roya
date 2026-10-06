@@ -41,6 +41,15 @@ def _filters():
     return start,end,organization_id or None,property_id or None
 
 
+def _csv_cell(value):
+    if value is None:
+        return ""
+    text=str(value)
+    if text.startswith(("=","+","-","@","\t","\r")):
+        return "'"+text
+    return text
+
+
 def _csv_response(snapshot,start,end,prefix):
     output=StringIO()
     writer=csv.writer(output)
@@ -52,15 +61,15 @@ def _csv_response(snapshot,start,end,prefix):
     ])
     for row in snapshot["ledger"]:
         writer.writerow([
-            row["reference"],row["created_at"],row["property_name"],row["organization_name"],
-            row["guest_name"],row["guest_email"],row["check_in"],row["check_out"],
-            row["status"],row["guarantee_type"],row["payment_status"],row["currency"],
+            _csv_cell(row["reference"]),_csv_cell(row["created_at"]),_csv_cell(row["property_name"]),_csv_cell(row["organization_name"]),
+            _csv_cell(row["guest_name"]),_csv_cell(row["guest_email"]),_csv_cell(row["check_in"]),_csv_cell(row["check_out"]),
+            _csv_cell(row["status"]),_csv_cell(row["guarantee_type"]),_csv_cell(row["payment_status"]),_csv_cell(row["currency"]),
             f"{int(row['total_price_minor'] or 0)/100:.2f}",
             f"{int(row['amount_paid_minor'] or 0)/100:.2f}",
             f"{int(row['refunded_minor'] or 0)/100:.2f}",
             f"{int(row['net_collected_minor'] or 0)/100:.2f}",
             f"{int(row['outstanding_minor'] or 0)/100:.2f}",
-            row["latest_provider"],row["latest_provider_reference"],row["latest_transaction_status"],
+            _csv_cell(row["latest_provider"]),_csv_cell(row["latest_provider_reference"]),_csv_cell(row["latest_transaction_status"]),
         ])
     filename=f"{prefix}-{start.isoformat()}-to-{end.isoformat()}.csv"
     return Response(
