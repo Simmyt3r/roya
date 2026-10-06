@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Support operations · iRoya{% endblock %}
+{% block content %}
+<section class="shell page-head">
+  <div>
+    <div class="eyebrow">Platform support</div>
+    <h1>Support operations</h1>
+    <p>Read-only booking health and reservation investigation. Recovery and configuration actions remain administrator-only.</p>
+  </div>
+  {% if platform_role == 'admin' %}<a class="button button-secondary" href="/admin">Admin dashboard</a>{% endif %}
+</section>
+
+<section class="shell support-shell">
+  <div class="operations-metrics">
+    <div class="operations-metric {{ 'has-alert' if operations.counts.stuck_payments else '' }}"><strong>{{ operations.counts.stuck_payments }}</strong><span>Stuck payments</span></div>
+    <div class="operations-metric {{ 'has-alert' if operations.counts.stuck_refunds else '' }}"><strong>{{ operations.counts.stuck_refunds }}</strong><span>Stuck refunds</span></div>
+    <div class="operations-metric {{ 'has-alert' if operations.counts.overdue_holds else '' }}"><strong>{{ operations.counts.overdue_holds }}</strong><span>Overdue holds</span></div>
+    <div class="operations-metric {{ 'has-warning' if operations.counts.expiring_holds else '' }}"><strong>{{ operations.counts.expiring_holds }}</strong><span>Expiring holds</span></div>
+    <div class="operations-metric {{ 'has-warning' if operations.counts.failed_email_24h else '' }}"><strong>{{ operations.counts.failed_email_24h }}</strong><span>Email failures 24h</span></div>
+    <div class="operations-metric {{ 'has-alert' if operations.counts.inventory_anomalies else '' }}"><strong>{{ operations.counts.inventory_anomalies }}</strong><span>Inventory anomalies</span></div>
+  </div>
+
+  <div class="support-actions">
+    <a class="button" href="/support/reservations">Find reservation</a>
+    <a class="button button-secondary" href="/support">Refresh health</a>
+  </div>
+
+  <div class="section-heading">
+    <div><div class="eyebrow">Exceptions</div><h2>Cases that may need investigation</h2></div>
+    <span class="operations-state {{ 'is-healthy' if operations.healthy else 'has-alerts' }}">
+      {% if operations.healthy %}Healthy{% else %}{{ operations.critical }} critical · {{ operations.warning }} warning{% endif %}
+    </span>
+  </div>
+
+  <article class="card">
+    {% if operations.issues %}
+      <div class="support-issue-list">
+        {% for issue in operations.issues %}
+          <div class="support-issue-row severity-{{ issue.severity }}">
+            <span class="operations-severity">{{ issue.severity|title }}</span>
+            <span><strong>{{ issue.title }}</strong><small>{{ issue.reference }} · {{ issue.detail }}</small></span>
+            {% if issue.reference %}
+              <a class="button button-small button-secondary" href="/support/reservations?q={{ issue.reference|urlencode }}">Investigate</a>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="operations-empty"><strong>No operational exceptions detected.</strong><span>The current booking, payment, refund, inventory and email checks are clean.</span></div>
+    {% endif %}
+  </article>
+</section>
+{% endblock %}
