@@ -1011,3 +1011,56 @@ html{-webkit-text-size-adjust:100%}body{min-width:0;overflow-x:hidden}button,a,i
 @media(max-width:390px){
   .analytics-metrics,.analytics-inventory-strip{grid-template-columns:1fr}
 }
+
+
+/* Distribution manager */
+.distribution-shell{padding-bottom:64px}
+.distribution-filter-card{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:10px;align-items:end;padding:18px;margin-bottom:14px}
+.distribution-filter-actions{display:flex;gap:8px}
+.distribution-note{padding:13px 15px;margin-bottom:20px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);font-size:.78rem}
+.distribution-property{margin-bottom:30px}
+.distribution-readiness{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:14px;margin-bottom:12px}
+.distribution-readiness span{display:grid;gap:2px;padding:9px 10px;border-radius:10px;background:#fff7f5;border:1px solid #e8b9b1}
+.distribution-readiness span.is-ready{background:#f4fbf6;border-color:#cce7d6}
+.distribution-readiness small{font-size:.68rem;color:var(--muted)}
+.distribution-channel-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.distribution-channel-card{display:grid;gap:12px;padding:18px}
+.distribution-channel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.distribution-channel-head h3{margin:.2rem 0 0}
+.distribution-channel-card p{margin:0;color:var(--muted)}
+.distribution-channel-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.distribution-channel-meta span{display:grid;gap:2px;padding:9px 10px;background:#f7f9f9;border-radius:10px}
+.distribution-channel-meta strong{font-size:.67rem;text-transform:uppercase;letter-spacing:.04em}
+.distribution-channel-meta small{font-size:.7rem;color:var(--muted);overflow-wrap:anywhere}
+.distribution-channel-card .form-message{margin:0}
+.distribution-future-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:24px}
+.distribution-future-card{display:grid;gap:10px;padding:17px;opacity:.8}
+.distribution-future-card h3,.distribution-future-card p{margin:0}
+.distribution-future-card p{color:var(--muted);font-size:.78rem}
+.distribution-future-card .button[disabled]{cursor:not-allowed;opacity:.6}
+.distribution-log-card{padding:16px 18px}
+.distribution-log-list{display:grid}
+.distribution-log-row{display:grid;grid-template-columns:80px minmax(0,1fr) 180px;gap:12px;align-items:center;padding:10px 0;border-top:1px solid #eef2f1;font-size:.76rem}
+.distribution-log-row:first-child{border-top:0}
+.distribution-log-row small{display:block;color:var(--muted);margin-top:2px}
+.distribution-log-row time{color:var(--muted);text-align:right}
+.distribution-log-status{font-weight:900;text-transform:uppercase;font-size:.66rem}
+.distribution-log-row.status-success .distribution-log-status{color:#17633a}
+.distribution-log-row.status-failed .distribution-log-status{color:#9f2f21}
+.distribution-log-row.status-partial .distribution-log-status{color:#8a6412}
+@media(max-width:900px){
+  .distribution-readiness{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .distribution-future-grid{grid-template-columns:1fr 1fr}
+}
+@media(max-width:700px){
+  .distribution-filter-card{grid-template-columns:1fr}
+  .distribution-filter-actions{display:grid;grid-template-columns:1fr}
+  .distribution-channel-grid,.distribution-future-grid{grid-template-columns:1fr}
+  .distribution-channel-meta{grid-template-columns:1fr}
+  .distribution-log-row{grid-template-columns:1fr;gap:4px}
+  .distribution-log-row time{text-align:left}
+}
+@media(max-width:420px){
+  .distribution-readiness{grid-template-columns:1fr}
+  .distribution-channel-head{flex-direction:column}
+}
