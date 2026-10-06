@@ -8,7 +8,10 @@
     <p>Manage the hotel information guests actually depend on: availability, rates and reservations.</p>
   </div>
   <div class="partner-head-actions">
-    {% if finance_organizations %}<a class="button button-secondary" href="/partner/finance">Finance center</a>{% endif %}
+    {% if finance_organizations %}
+      <a class="button button-secondary" href="/partner/analytics">Analytics</a>
+      <a class="button button-secondary" href="/partner/finance">Finance center</a>
+    {% endif %}
     <a class="button" href="/partner/properties/new">Add property</a>
   </div>
 </section>
