@@ -272,7 +272,7 @@ def platform_finance_dashboard(start_date,end_date,organization_id=None,property
             """select p.id,p.name,o.name organization_name,
                       count(*) filter(where r.status=any(%s::text[])) booking_count,
                       coalesce(sum(r.total_price_minor) filter(where r.status=any(%s::text[])),0)::bigint gross_minor,
-                      coalesce(sum(r.amount_paid_minor),0)::bigint collected_minor
+                      coalesce(sum(r.amount_paid_minor) filter(where r.status=any(%s::text[])),0)::bigint collected_minor
                from properties p
                join organizations o on o.id=p.organization_id
                left join reservations r
@@ -282,6 +282,7 @@ def platform_finance_dashboard(start_date,end_date,organization_id=None,property
                order by gross_minor desc,p.name
                limit 25""",
             (
+                list(FINANCIAL_RESERVATION_STATUSES),
                 list(FINANCIAL_RESERVATION_STATUSES),
                 list(FINANCIAL_RESERVATION_STATUSES),
                 start_date,end_date,
