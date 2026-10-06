@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Reservation cases · iRoya admin{% endblock %}
+{% block title %}Reservation cases · iRoya{% endblock %}
 {% block content %}
 <section class="shell page-head">
   <div>
@@ -7,11 +7,11 @@
     <h1>Reservation case finder</h1>
     <p>Search by reservation reference, guest name or email, Paystack reference, or refund reference.</p>
   </div>
-  <a class="button button-secondary" href="/admin">Back to admin</a>
+  <a class="button button-secondary" href="{{ '/support' if support_mode else '/admin' }}">Back to {{ 'support' if support_mode else 'admin' }}</a>
 </section>
 
 <section class="shell admin-case-shell">
-  <form class="card admin-case-search" method="get" action="/admin/reservations">
+  <form class="card admin-case-search" method="get" action="{{ '/support/reservations' if support_mode else '/admin/reservations' }}">
     <label>Reservation or payment reference
       <input name="q" value="{{ query }}" minlength="2" maxlength="254" placeholder="RYA-…, guest@example.com, Paystack reference" autofocus>
     </label>
@@ -23,7 +23,7 @@
     {% if results %}
       <div class="admin-case-results">
         {% for row in results %}
-          <a class="card admin-case-result" href="/admin/reservations/{{ row.id }}">
+          <a class="card admin-case-result" href="{{ '/support/reservations/' if support_mode else '/admin/reservations/' }}{{ row.id }}">
             <span><strong>{{ row.reference }}</strong><small>{{ row.guest_name }} · {{ row.guest_email }}</small></span>
             <span><strong>{{ row.property_name }}</strong><small>{{ row.check_in }} → {{ row.check_out }}</small></span>
             <span><strong>{{ row.status|replace('_',' ')|title }}</strong><small>{{ row.payment_status|replace('_',' ')|title }} · {{ row.currency }} {{ '%.2f'|format(row.amount_paid_minor/100) }}</small></span>
