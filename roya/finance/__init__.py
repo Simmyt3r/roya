@@ -1,0 +1,1 @@
+"""iRoya finance reporting module."""
