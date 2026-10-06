@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Distribution manager · iRoya{% endblock %}
+{% block content %}
+<section class="shell page-head">
+  <div>
+    <div class="eyebrow">Hotel distribution</div>
+    <h1>Channel manager</h1>
+    <p>One canonical source of hotel content, rates and inventory, with explicit channel sync and audit history.</p>
+  </div>
+  <a class="button button-secondary" href="/partner">Back to dashboard</a>
+</section>
+
+<section class="shell distribution-shell">
+  <form class="card distribution-filter-card" method="get" action="/partner/distribution">
+    <label>Organization
+      <select name="organization_id">
+        <option value="">All managed organizations</option>
+        {% for item in distribution.organizations %}
+          <option value="{{ item.id }}" {% if distribution.selected_organization_id == item.id|string %}selected{% endif %}>{{ item.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Property
+      <select name="property_id">
+        <option value="">All managed properties</option>
+        {% for item in distribution.properties %}
+          <option value="{{ item.id }}" {% if distribution.selected_property_id == item.id|string %}selected{% endif %}>{{ item.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <div class="distribution-filter-actions">
+      <button class="button" type="submit">Apply</button>
+      <a class="button button-secondary" href="/partner/distribution">Clear</a>
+    </div>
+  </form>
+
+  <div class="distribution-note">
+    <strong>Canonical inventory remains in iRoya.</strong>
+    Channel sync pushes hotel content, rates and inventory from iRoya and records every operation. External OTA/PMS connectors remain disabled until real provider onboarding and credentials exist.
+  </div>
+
+  {% for property in distribution.properties %}
+    <section class="distribution-property">
+      <div class="section-heading">
+        <div>
+          <div class="eyebrow">{{ property.city }}{% if property.state %} · {{ property.state }}{% endif %}</div>
+          <h2>{{ property.name }}</h2>
+        </div>
+        <span class="operations-state {{ 'is-healthy' if property.ready else 'has-alerts' }}">
+          {{ 'Distribution ready' if property.ready else 'Setup incomplete' }}
+        </span>
+      </div>
+
+      {% if not property.ready %}
+        <div class="distribution-readiness card">
+          <span class="{{ 'is-ready' if property.verification_status == 'verified' and property.status == 'active' else '' }}"><strong>Property</strong><small>{{ property.verification_status|title }} · {{ property.status|title }}</small></span>
+          <span class="{{ 'is-ready' if property.has_room else '' }}"><strong>Room types</strong><small>{{ 'Ready' if property.has_room else 'Missing active room' }}</small></span>
+          <span class="{{ 'is-ready' if property.has_rate else '' }}"><strong>Rates</strong><small>{{ 'Ready' if property.has_rate else 'Missing active rate' }}</small></span>
+          <span class="{{ 'is-ready' if property.has_inventory else '' }}"><strong>Inventory</strong><small>{{ 'Ready' if property.has_inventory else 'No future sellable inventory' }}</small></span>
+        </div>
+      {% endif %}
+
+      <div class="distribution-channel-grid">
+        {% for channel in property.channels %}
+          <article class="card distribution-channel-card" data-distribution-channel>
+            <div class="distribution-channel-head">
+              <div>
+                <div class="eyebrow">Built-in channel</div>
+                <h3>{{ channel.label }}</h3>
+              </div>
+              <span class="status-pill status-{{ channel.status }}">{{ channel.status|replace('_',' ')|title }}</span>
+            </div>
+            <p>{{ channel.description }}</p>
+            <div class="distribution-channel-meta">
+              <span><strong>Last sync</strong><small>{{ channel.last_synced_at or 'Not synced yet' }}</small></span>
+              <span><strong>Credentials</strong><small>Not required for built-in channel</small></span>
+            </div>
+            <button
+              class="button"
+              type="button"
+              data-channel-sync
+              data-property="{{ property.id }}"
+              data-channel="{{ channel.key }}"
+            >{{ 'Sync now' if channel.connection_id else 'Initialize & sync' }}</button>
+            <p class="form-message" role="status" aria-live="polite"></p>
+          </article>
+        {% endfor %}
+      </div>
+    </section>
+  {% else %}
+    <div class="card operations-empty"><strong>No managed properties.</strong><span>Only organization owners and managers can configure distribution.</span></div>
+  {% endfor %}
+
+  <div class="section-heading"><div><div class="eyebrow">Future adapters</div><h2>Provider onboarding required</h2></div></div>
+  <div class="distribution-future-grid">
+    {% for channel in distribution.future_channels %}
+      <article class="card distribution-future-card">
+        <span class="status-pill status-muted">Future adapter</span>
+        <h3>{{ channel.label }}</h3>
+        <p>{{ channel.description }}</p>
+        <button class="button button-secondary" type="button" disabled>Not connected</button>
+      </article>
+    {% endfor %}
+  </div>
+
+  <div class="section-heading"><div><div class="eyebrow">Sync history</div><h2>Recent channel operations</h2></div></div>
+  <article class="card distribution-log-card">
+    <div class="distribution-log-list">
+      {% for row in distribution.logs %}
+        <div class="distribution-log-row status-{{ row.status }}">
+          <span class="distribution-log-status">{{ row.status|title }}</span>
+          <span><strong>{{ row.property_name }} · {{ row.channel|replace('_',' ')|title }}</strong><small>{{ row.direction|title }} {{ row.resource_type|replace('_',' ') }}</small></span>
+          <time>{{ row.created_at }}</time>
+        </div>
+      {% else %}
+        <div class="operations-empty"><strong>No channel sync history yet.</strong><span>Initialize a built-in channel to create the first audited sync record.</span></div>
+      {% endfor %}
+    </div>
+  </article>
+</section>
+{% endblock %}
