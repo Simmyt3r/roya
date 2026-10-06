@@ -359,4 +359,5 @@ def partner_dashboard():
         team_members=team_members,
         pending_invites=pending_invites,
         manageable_organizations=[o for o in organizations if o["role"] in {"owner","manager"}],
+        finance_organizations=[o for o in organizations if o["role"] in {"owner","manager","finance"}],
     )
