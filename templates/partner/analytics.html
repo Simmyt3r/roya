@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Hotel analytics · iRoya{% endblock %}
+{% block content %}
+<section class="shell page-head">
+  <div>
+    <div class="eyebrow">Hotel performance</div>
+    <h1>Analytics</h1>
+    <p>Occupancy, ADR, RevPAR, booking pace and room performance from canonical iRoya inventory and reservations.</p>
+  </div>
+  <a class="button button-secondary" href="/partner">Back to dashboard</a>
+</section>
+
+<section class="shell analytics-shell">
+  <form class="card analytics-filter-card" method="get" action="/partner/analytics">
+    <label>From<input type="date" name="start" value="{{ start }}" required></label>
+    <label>To<input type="date" name="end" value="{{ end }}" required></label>
+    <label>Organization
+      <select name="organization_id">
+        <option value="">All accessible organizations</option>
+        {% for item in analytics.organizations %}
+          <option value="{{ item.id }}" {% if analytics.selected_organization_id == item.id|string %}selected{% endif %}>{{ item.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Property
+      <select name="property_id">
+        <option value="">All accessible properties</option>
+        {% for item in analytics.properties %}
+          <option value="{{ item.id }}" {% if analytics.selected_property_id == item.id|string %}selected{% endif %}>{{ item.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <div class="analytics-filter-actions">
+      <button class="button" type="submit">Apply</button>
+      <a class="button button-secondary" href="/partner/analytics">This month</a>
+      <a class="button button-secondary" href="/partner/analytics/export.csv?start={{ start }}&end={{ end }}{% if analytics.selected_organization_id %}&organization_id={{ analytics.selected_organization_id }}{% endif %}{% if analytics.selected_property_id %}&property_id={{ analytics.selected_property_id }}{% endif %}">Export CSV</a>
+    </div>
+  </form>
+
+  {% set m=analytics.metrics %}
+  <div class="analytics-metrics">
+    <article class="analytics-metric"><strong>{{ '%.1f'|format(m.occupancy_percent) }}%</strong><span>Occupancy</span><small>{{ m.sold_room_nights }} sold of {{ m.capacity_room_nights }} room-nights</small></article>
+    <article class="analytics-metric is-money"><strong>₦{{ '%.2f'|format(m.room_revenue_minor/100) }}</strong><span>Room revenue</span><small>{{ m.booked_room_nights }} booked room-nights priced</small></article>
+    <article class="analytics-metric"><strong>₦{{ '%.2f'|format(m.adr_minor/100) }}</strong><span>ADR</span><small>Average daily room rate</small></article>
+    <article class="analytics-metric"><strong>₦{{ '%.2f'|format(m.revpar_minor/100) }}</strong><span>RevPAR</span><small>Revenue per available room-night</small></article>
+    <article class="analytics-metric"><strong>{{ '%.1f'|format(m.avg_length_of_stay) }}</strong><span>Avg. stay</span><small>nights per active booking</small></article>
+    <article class="analytics-metric"><strong>{{ '%.1f'|format(m.avg_lead_days) }}</strong><span>Lead time</span><small>days booked before arrival</small></article>
+    <article class="analytics-metric {{ 'is-warning' if m.cancellation_rate_percent else '' }}"><strong>{{ '%.1f'|format(m.cancellation_rate_percent) }}%</strong><span>Cancellation rate</span><small>{{ m.cancelled_bookings }} cancelled · {{ m.no_show_bookings }} no-show</small></article>
+    <article class="analytics-metric"><strong>{{ '%.2f'|format(m.average_rating) if m.review_count else '—' }}</strong><span>Guest rating</span><small>{{ m.review_count }} review{% if m.review_count != 1 %}s{% endif %} in period</small></article>
+  </div>
+
+  <div class="analytics-inventory-strip">
+    <span><strong>{{ m.remaining_room_nights }}</strong><small>room-nights remaining</small></span>
+    <span><strong>{{ m.held_room_nights }}</strong><small>temporarily held</small></span>
+    <span><strong>{{ m.stopped_room_nights }}</strong><small>under stop-sell</small></span>
+    <span><strong>{{ m.active_bookings }}</strong><small>active bookings created</small></span>
+  </div>
+
+  <div class="section-heading"><div><div class="eyebrow">Portfolio</div><h2>Property performance</h2></div></div>
+  <article class="card analytics-table-card">
+    <div class="analytics-table">
+      <div class="analytics-row analytics-head"><span>Property</span><span>Occupancy</span><span>Room nights</span><span>Revenue</span><span>ADR</span><span>RevPAR</span></div>
+      {% for row in analytics.property_performance %}
+        <div class="analytics-row">
+          <strong data-label="Property">{{ row.property_name }}</strong>
+          <span data-label="Occupancy">{{ '%.1f'|format(row.occupancy_percent|float) }}%</span>
+          <span data-label="Room nights">{{ row.sold_room_nights }} / {{ row.capacity_room_nights }}</span>
+          <strong data-label="Revenue">₦{{ '%.2f'|format(row.room_revenue_minor/100) }}</strong>
+          <span data-label="ADR">₦{{ '%.2f'|format(row.adr_minor/100) }}</span>
+          <span data-label="RevPAR">₦{{ '%.2f'|format(row.revpar_minor/100) }}</span>
+        </div>
+      {% else %}
+        <div class="operations-empty"><strong>No properties in scope.</strong><span>Property performance appears once inventory exists.</span></div>
+      {% endfor %}
+    </div>
+  </article>
+
+  <div class="section-heading"><div><div class="eyebrow">Inventory</div><h2>Room type performance</h2></div></div>
+  <article class="card analytics-table-card">
+    <div class="analytics-table">
+      <div class="analytics-row analytics-head"><span>Room type</span><span>Occupancy</span><span>Room nights</span><span>Revenue</span><span>ADR</span><span>RevPAR</span></div>
+      {% for row in analytics.room_types %}
+        <div class="analytics-row">
+          <span data-label="Room type"><strong>{{ row.room_type_name }}</strong><small>{{ row.property_name }}</small></span>
+          <span data-label="Occupancy">{{ '%.1f'|format(row.occupancy_percent|float) }}%</span>
+          <span data-label="Room nights">{{ row.sold_room_nights }} / {{ row.capacity_room_nights }}</span>
+          <strong data-label="Revenue">₦{{ '%.2f'|format(row.room_revenue_minor/100) }}</strong>
+          <span data-label="ADR">₦{{ '%.2f'|format(row.adr_minor/100) }}</span>
+          <span data-label="RevPAR">₦{{ '%.2f'|format(row.revpar_minor/100) }}</span>
+        </div>
+      {% else %}
+        <div class="operations-empty"><strong>No room types in scope.</strong><span>Room performance appears after room inventory is configured.</span></div>
+      {% endfor %}
+    </div>
+  </article>
+
+  <div class="analytics-two-column">
+    <article class="card analytics-mix-card">
+      <div class="eyebrow">Guarantees</div><h3>Booking guarantee mix</h3>
+      <div class="analytics-mix-list">
+        {% for row in analytics.guarantee_mix %}
+          <div><span>{{ row.guarantee_type|replace('_',' ')|title }}</span><strong>{{ row.booking_count }}</strong><small>₦{{ '%.2f'|format(row.booking_value_minor/100) }}</small></div>
+        {% else %}<p class="muted">No active bookings were created in this period.</p>{% endfor %}
+      </div>
+    </article>
+    <article class="card analytics-mix-card">
+      <div class="eyebrow">Booking states</div><h3>Reservation mix</h3>
+      <div class="analytics-mix-list">
+        {% for row in analytics.status_mix %}
+          <div><span>{{ row.status|replace('_',' ')|title }}</span><strong>{{ row.booking_count }}</strong></div>
+        {% else %}<p class="muted">No reservations were created in this period.</p>{% endfor %}
+      </div>
+    </article>
+  </div>
+
+  <div class="section-heading"><div><div class="eyebrow">Daily pace</div><h2>Occupancy and room revenue</h2></div></div>
+  <article class="card analytics-trend-card">
+    <div class="analytics-trend">
+      {% for row in analytics.daily %}
+        <div class="analytics-trend-row">
+          <time>{{ row.date }}</time>
+          <div class="analytics-bar-track" title="{{ '%.1f'|format(row.occupancy_percent|float) }}% occupancy">
+            <span style="width:{{ [row.occupancy_percent|float,100]|min }}%"></span>
+          </div>
+          <strong>{{ '%.1f'|format(row.occupancy_percent|float) }}%</strong>
+          <span>{{ row.sold_room_nights }}/{{ row.capacity_room_nights }}</span>
+          <strong>₦{{ '%.2f'|format(row.room_revenue_minor/100) }}</strong>
+        </div>
+      {% endfor %}
+    </div>
+  </article>
+
+  <div class="analytics-note">
+    <strong>Metric basis:</strong> occupancy uses canonical inventory sold ÷ room-night capacity. ADR uses priced booked room-nights. RevPAR uses priced room revenue ÷ room-night capacity. Booking lead time, stay length and cancellations are measured from reservations created in the selected period.
+  </div>
+</section>
+{% endblock %}
