@@ -11,14 +11,16 @@ from roya.common.integrations import (
 )
 from roya.common.response import ok
 from roya.common.readiness import booking_readiness_snapshot
-from .service import require_platform_admin
+from .service import require_platform_admin, require_platform_roles
 from .operations_service import (
     acknowledge_operational_alert, expire_overdue_holds, list_operational_alerts,
     operations_snapshot, reservation_case, search_reservation_cases, sync_operational_alerts,
 )
 from .audit_service import audit_counts, audit_filter_options, list_audit_events
 from .review_service import list_reviews, review_counts, set_review_visibility
-from .user_service import change_user_status, search_user_accounts, user_account_counts
+from .user_service import (
+    change_platform_role, change_user_status, search_user_accounts, user_account_counts,
+)
 from .email_service import (
     create_template, delete_template, deliver_email_queue, list_subscribers, list_templates,
     queue_campaign, recent_campaigns, record_marketing_consent,
@@ -93,6 +95,10 @@ class ReviewVisibilityRequest(BaseModel):
 
 class UserStatusRequest(BaseModel):
     status: Literal["active","suspended"]
+
+
+class PlatformRoleRequest(BaseModel):
+    platform_role: Literal["user","support","finance"]
 
 
 class MarketingConsentRequest(BaseModel):
@@ -269,12 +275,25 @@ def admin_change_user_status(user_id):
     ))
 
 
+@bp.put("/api/v1/admin/users/<uuid:user_id>/platform-role")
+@require_platform_admin
+def admin_change_platform_role(user_id):
+    body=_configuration_payload(PlatformRoleRequest)
+    return ok(change_platform_role(
+        user_id=str(user_id),
+        platform_role=body.platform_role,
+        actor_user_id=g.platform_admin.user_id,
+    ))
+
+
 @bp.get("/admin/reservations")
 @require_platform_admin
 def admin_reservation_search():
     query=(request.args.get("q") or "").strip()
     results=search_reservation_cases(query) if query else []
-    return render_template("admin/reservation_search.html",query=query,results=results)
+    return render_template(
+        "admin/reservation_search.html",query=query,results=results,support_mode=False,
+    )
 
 
 @bp.get("/admin/reservations/<uuid:reservation_id>")
@@ -283,7 +302,39 @@ def admin_reservation_case(reservation_id):
     case=reservation_case(str(reservation_id))
     if not case:
         raise RoyaError("NOT_FOUND","Reservation not found.",404)
-    return render_template("admin/reservation_case.html",case=case)
+    return render_template("admin/reservation_case.html",case=case,support_mode=False)
+
+
+@bp.get("/support")
+@require_platform_roles("admin","support")
+def support_dashboard():
+    snapshot=operations_snapshot(limit=30)
+    return render_template(
+        "support/dashboard.html",
+        operations=snapshot,
+        platform_role=g.platform_role,
+    )
+
+
+@bp.get("/support/reservations")
+@require_platform_roles("admin","support")
+def support_reservation_search():
+    query=(request.args.get("q") or "").strip()
+    if len(query)>254:
+        raise RoyaError("VALIDATION_ERROR","Reservation search is too long.",422)
+    results=search_reservation_cases(query) if query else []
+    return render_template(
+        "admin/reservation_search.html",query=query,results=results,support_mode=True,
+    )
+
+
+@bp.get("/support/reservations/<uuid:reservation_id>")
+@require_platform_roles("admin","support")
+def support_reservation_case(reservation_id):
+    case=reservation_case(str(reservation_id))
+    if not case:
+        raise RoyaError("NOT_FOUND","Reservation not found.",404)
+    return render_template("admin/reservation_case.html",case=case,support_mode=True)
 
 
 @bp.get("/api/v1/admin/readiness")
