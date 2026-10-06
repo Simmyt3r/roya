@@ -60,6 +60,7 @@ def test_admin_user_management_renders_accounts(monkeypatch):
     }])
     monkeypatch.setattr(admin_routes,"user_account_counts",lambda:{
         "total":1,"active":1,"suspended":0,"pending_verification":0,"guests":1,"hotels":0,
+        "platform_support":0,"platform_finance":0,
     })
     response=client.get("/admin/users?q=guest")
     assert response.status_code==200
@@ -177,3 +178,47 @@ def test_current_identity_preserves_suspension_error(monkeypatch):
             auth_service.current_identity(required=True)
     assert raised.value.code=="ACCOUNT_SUSPENDED"
     assert raised.value.status_code==403
+
+
+def test_admin_can_assign_platform_finance_role(monkeypatch):
+    client=_admin_client(monkeypatch)
+    user_id=uuid4()
+    captured={}
+
+    def fake_change(user_id,platform_role,actor_user_id):
+        captured.update({
+            "user_id":user_id,
+            "platform_role":platform_role,
+            "actor_user_id":actor_user_id,
+        })
+        return {
+            "id":user_id,
+            "platform_role":platform_role,
+            "previous_platform_role":"user",
+            "revoked_sessions":1,
+        }
+
+    monkeypatch.setattr(admin_routes,"change_platform_role",fake_change)
+    response=client.put(
+        f"/api/v1/admin/users/{user_id}/platform-role",
+        json={"platform_role":"finance"},
+    )
+    assert response.status_code==200
+    assert response.json["data"]["platform_role"]=="finance"
+    assert response.json["data"]["revoked_sessions"]==1
+    assert captured["user_id"]==str(user_id)
+
+
+def test_admin_role_cannot_be_assigned_through_staff_endpoint(monkeypatch):
+    client=_admin_client(monkeypatch)
+    response=client.put(
+        f"/api/v1/admin/users/{uuid4()}/platform-role",
+        json={"platform_role":"admin"},
+    )
+    assert response.status_code==422
+
+
+def test_support_role_cannot_manage_user_accounts(monkeypatch):
+    client=_admin_client(monkeypatch,role="support")
+    response=client.get("/admin/users")
+    assert response.status_code==403
