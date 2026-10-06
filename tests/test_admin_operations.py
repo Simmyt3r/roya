@@ -211,3 +211,68 @@ def test_admin_readiness_endpoint(monkeypatch):
     response=client.get("/api/v1/admin/readiness")
     assert response.status_code==200
     assert response.json["data"]["booking_ready"] is True
+
+
+def _healthy_operations():
+    return {
+        "counts":{
+            "stuck_payments":0,
+            "stuck_refunds":0,
+            "overdue_holds":0,
+            "expiring_holds":0,
+            "failed_email_24h":0,
+            "overdue_email_queue":0,
+            "inventory_anomalies":0,
+            "active_hotels_without_30d_inventory":0,
+        },
+        "issues":[],
+        "critical":0,
+        "warning":0,
+        "healthy":True,
+    }
+
+
+def test_support_role_can_open_read_only_workspace(monkeypatch):
+    client=_client(monkeypatch,role="support")
+    monkeypatch.setattr(admin_routes,"operations_snapshot",lambda limit=30:_healthy_operations())
+    response=client.get("/support")
+    assert response.status_code==200
+    assert b"Support operations" in response.data
+    assert b"Find reservation" in response.data
+    assert b"Reconcile money" not in response.data
+
+
+def test_finance_role_cannot_open_support_workspace(monkeypatch):
+    client=_client(monkeypatch,role="finance")
+    response=client.get("/support")
+    assert response.status_code==403
+
+
+def test_support_can_search_reservation_cases(monkeypatch):
+    client=_client(monkeypatch,role="support")
+    reservation_id=str(uuid4())
+    monkeypatch.setattr(admin_routes,"search_reservation_cases",lambda query:[{
+        "id":reservation_id,
+        "reference":"RYA-SUPPORT1",
+        "guest_name":"Guest Example",
+        "guest_email":"guest@example.com",
+        "check_in":"2026-10-10",
+        "check_out":"2026-10-12",
+        "status":"confirmed",
+        "payment_status":"paid",
+        "amount_paid_minor":2500000,
+        "currency":"NGN",
+        "property_name":"Example Hotel",
+        "created_at":"2026-10-06",
+    }])
+    response=client.get("/support/reservations?q=RYA-SUPPORT1")
+    assert response.status_code==200
+    assert b"RYA-SUPPORT1" in response.data
+    assert f"/support/reservations/{reservation_id}".encode() in response.data
+
+
+def test_support_cannot_run_admin_recovery_actions(monkeypatch):
+    client=_client(monkeypatch,role="support")
+    assert client.post("/api/v1/admin/operations/scan").status_code==403
+    assert client.post("/api/v1/admin/operations/expire-holds").status_code==403
+    assert client.post("/api/v1/admin/operations/reconcile-money").status_code==403
