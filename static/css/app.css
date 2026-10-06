@@ -950,3 +950,64 @@ html{-webkit-text-size-adjust:100%}body{min-width:0;overflow-x:hidden}button,a,i
   .admin-user-role-control .button{width:100%}
   .support-issue-row{grid-template-columns:1fr;gap:5px}
 }
+
+
+/* Hotel performance analytics */
+.analytics-shell{padding-bottom:64px}
+.analytics-filter-card{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) auto;gap:10px;align-items:end;padding:18px;margin-bottom:14px}
+.analytics-filter-actions{display:flex;gap:8px;align-items:center}
+.analytics-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px}
+.analytics-metric{display:grid;gap:4px;padding:15px;border:1px solid var(--line);border-radius:14px;background:#fff}
+.analytics-metric strong{font-size:1.45rem;line-height:1.05}
+.analytics-metric span{font-size:.72rem;color:var(--muted);font-weight:850;text-transform:uppercase;letter-spacing:.03em}
+.analytics-metric small{font-size:.68rem;color:var(--muted)}
+.analytics-metric.is-money{background:#f7fbf8}
+.analytics-metric.is-warning{background:#fffaf0;border-color:#ead7a4}
+.analytics-inventory-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:20px}
+.analytics-inventory-strip>span{display:grid;gap:2px;padding:11px 13px;border:1px dashed var(--line);border-radius:12px;background:#fafcfc}
+.analytics-inventory-strip strong{font-size:1rem}
+.analytics-inventory-strip small{font-size:.68rem;color:var(--muted)}
+.analytics-table-card{padding:0;overflow:hidden;margin-bottom:18px}
+.analytics-table{display:grid}
+.analytics-row{display:grid;grid-template-columns:minmax(160px,1.2fr) 100px 110px 125px 105px 105px;gap:10px;align-items:center;padding:12px 14px;border-top:1px solid #eef2f1;font-size:.78rem}
+.analytics-row:first-child{border-top:0}
+.analytics-head{font-size:.66rem;font-weight:900;text-transform:uppercase;letter-spacing:.04em;background:#f7f9f9}
+.analytics-row small{display:block;color:var(--muted);margin-top:2px}
+.analytics-two-column{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
+.analytics-mix-card{padding:18px}
+.analytics-mix-card h3{margin:.25rem 0 .8rem}
+.analytics-mix-list{display:grid}
+.analytics-mix-list>div{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:9px 0;border-top:1px solid #eef2f1}
+.analytics-mix-list>div:first-child{border-top:0}
+.analytics-mix-list small{color:var(--muted)}
+.analytics-trend-card{padding:14px 18px;margin-bottom:14px}
+.analytics-trend{display:grid}
+.analytics-trend-row{display:grid;grid-template-columns:96px minmax(160px,1fr) 65px 70px 120px;gap:10px;align-items:center;padding:8px 0;border-top:1px solid #eef2f1;font-size:.75rem}
+.analytics-trend-row:first-child{border-top:0}
+.analytics-bar-track{height:9px;border-radius:999px;background:#edf2f1;overflow:hidden}
+.analytics-bar-track span{display:block;height:100%;background:var(--brand);border-radius:inherit}
+.analytics-note{padding:13px 15px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);font-size:.76rem}
+@media(max-width:980px){
+  .analytics-filter-card{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .analytics-filter-actions{grid-column:1/-1}
+  .analytics-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .analytics-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 12px}
+  .analytics-head{display:none}
+  .analytics-row>[data-label]::before{content:attr(data-label);display:block;font-size:.62rem;color:var(--muted);font-weight:850;text-transform:uppercase}
+  .analytics-trend-row{grid-template-columns:90px minmax(120px,1fr) 55px 60px 110px}
+}
+@media(max-width:700px){
+  .analytics-two-column{grid-template-columns:1fr}
+  .analytics-inventory-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .analytics-trend-row{grid-template-columns:86px minmax(0,1fr) 56px}
+  .analytics-trend-row>span:nth-last-child(2),.analytics-trend-row>strong:last-child{grid-column:2/4}
+}
+@media(max-width:620px){
+  .analytics-filter-card{grid-template-columns:1fr}
+  .analytics-filter-actions{grid-column:auto;display:grid;grid-template-columns:1fr}
+  .analytics-filter-actions .button{width:100%}
+  .analytics-row{grid-template-columns:1fr;padding:14px}
+}
+@media(max-width:390px){
+  .analytics-metrics,.analytics-inventory-strip{grid-template-columns:1fr}
+}
