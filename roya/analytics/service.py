@@ -40,7 +40,7 @@ def _performance_snapshot(start_date,end_date,organization_ids,property_id=None)
                    coalesce(sum(i.total_inventory),0)::bigint capacity_room_nights,
                    coalesce(sum(i.sold_inventory),0)::bigint sold_room_nights,
                    coalesce(sum(i.held_inventory),0)::bigint held_room_nights,
-                   coalesce(sum(greatest(i.total_inventory-i.sold_inventory-i.held_inventory,0)),0)::bigint remaining_room_nights,
+                   coalesce(sum(greatest(i.total_inventory-i.sold_inventory-i.held_inventory,0)) filter(where i.stop_sell=false),0)::bigint remaining_room_nights,
                    coalesce(sum(i.total_inventory) filter(where i.stop_sell),0)::bigint stopped_room_nights
                  from inventory_days i
                  join room_types rt on rt.id=i.room_type_id
@@ -114,7 +114,7 @@ def _performance_snapshot(start_date,end_date,organization_ids,property_id=None)
                         sum(i.total_inventory)::bigint capacity_room_nights,
                         sum(i.sold_inventory)::bigint sold_room_nights,
                         sum(i.held_inventory)::bigint held_room_nights,
-                        sum(greatest(i.total_inventory-i.sold_inventory-i.held_inventory,0))::bigint remaining_room_nights
+                        coalesce(sum(greatest(i.total_inventory-i.sold_inventory-i.held_inventory,0)) filter(where i.stop_sell=false),0)::bigint remaining_room_nights
                  from inventory_days i
                  join room_types rt on rt.id=i.room_type_id
                  join properties p on p.id=rt.property_id
@@ -158,14 +158,15 @@ def _performance_snapshot(start_date,end_date,organization_ids,property_id=None)
         room_types=[dict(row) for row in conn.execute(
             """with inv as (
                  select rt.id room_type_id,rt.name room_type_name,p.id property_id,p.name property_name,
-                        sum(i.total_inventory)::bigint capacity_room_nights,
-                        sum(i.sold_inventory)::bigint sold_room_nights,
-                        sum(i.held_inventory)::bigint held_room_nights
+                        coalesce(sum(i.total_inventory),0)::bigint capacity_room_nights,
+                        coalesce(sum(i.sold_inventory),0)::bigint sold_room_nights,
+                        coalesce(sum(i.held_inventory),0)::bigint held_room_nights
                  from room_types rt
                  join properties p on p.id=rt.property_id
                  left join inventory_days i
                    on i.room_type_id=rt.id and i.date between %s and %s
                  where p.organization_id=any(%s::uuid[])
+                   and rt.status='active'
                    and (%s::uuid is null or p.id=%s)
                  group by rt.id,rt.name,p.id,p.name
                ),
@@ -202,8 +203,8 @@ def _performance_snapshot(start_date,end_date,organization_ids,property_id=None)
         properties=[dict(row) for row in conn.execute(
             """with inv as (
                  select p.id property_id,p.name property_name,
-                        sum(i.total_inventory)::bigint capacity_room_nights,
-                        sum(i.sold_inventory)::bigint sold_room_nights
+                        coalesce(sum(i.total_inventory),0)::bigint capacity_room_nights,
+                        coalesce(sum(i.sold_inventory),0)::bigint sold_room_nights
                  from properties p
                  left join room_types rt on rt.property_id=p.id and rt.status='active'
                  left join inventory_days i
