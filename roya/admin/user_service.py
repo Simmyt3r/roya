@@ -121,9 +121,89 @@ def user_account_counts():
                  count(*) filter(where status='suspended') suspended,
                  count(*) filter(where status='pending_verification') pending_verification,
                  count(*) filter(where account_type='guest') guests,
-                 count(*) filter(where account_type='hotel') hotels
+                 count(*) filter(where account_type='hotel') hotels,
+                 count(*) filter(where platform_role='support') platform_support,
+                 count(*) filter(where platform_role='finance') platform_finance
                from profiles"""
         ).fetchone()
     return dict(row) if row else {
         "total":0,"active":0,"suspended":0,"pending_verification":0,"guests":0,"hotels":0,
+        "platform_support":0,"platform_finance":0,
     }
+
+
+PLATFORM_ASSIGNABLE_ROLES={"user","support","finance"}
+
+
+def change_platform_role(user_id,platform_role,actor_user_id):
+    if platform_role not in PLATFORM_ASSIGNABLE_ROLES:
+        raise RoyaError(
+            "VALIDATION_ERROR",
+            "Platform role must be user, support or finance.",
+            422,
+        )
+    if str(user_id)==str(actor_user_id):
+        raise RoyaError(
+            "SELF_ROLE_CHANGE_FORBIDDEN",
+            "Use another platform administrator for changes to your own role.",
+            409,
+        )
+
+    with db_connection() as conn:
+        with conn.transaction():
+            before=conn.execute(
+                """select p.id,p.name,p.account_type,p.platform_role,p.status,u.email
+                   from profiles p
+                   join auth.users u on u.id=p.id
+                   where p.id=%s
+                   for update of p""",
+                (user_id,),
+            ).fetchone()
+            if not before:
+                raise RoyaError("USER_NOT_FOUND","User account not found.",404)
+            if before["platform_role"]=="admin":
+                raise RoyaError(
+                    "ADMIN_ROLE_PROTECTED",
+                    "Platform administrator roles cannot be changed from ordinary staff controls.",
+                    409,
+                )
+
+            row=conn.execute(
+                """update profiles
+                   set platform_role=%s,updated_at=now()
+                   where id=%s
+                   returning id,name,phone,account_type,platform_role,status,created_at,updated_at""",
+                (platform_role,user_id),
+            ).fetchone()
+
+            revoked=conn.execute(
+                """update private.app_sessions
+                   set revoked_at=coalesce(revoked_at,now()),updated_at=now()
+                   where user_id=%s and revoked_at is null""",
+                (user_id,),
+            )
+            revoked_sessions=max(int(revoked.rowcount or 0),0)
+
+            conn.execute(
+                """insert into audit_logs(
+                     actor_user_id,action,entity_type,entity_id,before_json,after_json
+                   ) values(%s,'user.platform_role_changed','user',%s,%s::jsonb,%s::jsonb)""",
+                (
+                    actor_user_id,
+                    str(user_id),
+                    json.dumps({
+                        "platform_role":before["platform_role"],
+                        "status":before["status"],
+                    }),
+                    json.dumps({
+                        "platform_role":platform_role,
+                        "revoked_sessions":revoked_sessions,
+                    }),
+                ),
+            )
+
+    result=dict(row)
+    result["email"]=before["email"]
+    result["previous_platform_role"]=before["platform_role"]
+    result["revoked_sessions"]=revoked_sessions
+    return result
