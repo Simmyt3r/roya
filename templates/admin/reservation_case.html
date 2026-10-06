@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ case.reservation.reference }} · iRoya admin{% endblock %}
+{% block title %}{{ case.reservation.reference }} · iRoya{% endblock %}
 {% block content %}
 {% set r=case.reservation %}
 <section class="shell page-head">
@@ -8,7 +8,7 @@
     <h1>{{ r.reference }}</h1>
     <p>{{ r.property_name }} · {{ r.guest_name }} · {{ r.check_in }} → {{ r.check_out }}</p>
   </div>
-  <a class="button button-secondary" href="/admin/reservations?q={{ r.reference }}">Back to results</a>
+  <a class="button button-secondary" href="{{ '/support/reservations' if support_mode else '/admin/reservations' }}?q={{ r.reference }}">Back to results</a>
 </section>
 
 <section class="shell admin-case-shell">
