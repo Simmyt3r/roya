@@ -1312,6 +1312,36 @@ document.querySelectorAll('[data-reservation-approval]').forEach(function(row){
         }
       });
     });
+
+
+    const roleSelect=row.querySelector('[data-platform-role]');
+    const roleSave=row.querySelector('[data-platform-role-save]');
+    if(roleSelect&&roleSave){
+      roleSave.addEventListener('click',async function(){
+        const platformRole=roleSelect.value;
+        if(!window.confirm('Change this user\'s platform access to '+platformRole+'? Their active iRoya sessions will be revoked.'))return;
+        roleSave.disabled=true;
+        if(message)message.textContent='Updating platform access…';
+        try{
+          const response=await fetch('/api/v1/admin/users/'+row.dataset.adminUser+'/platform-role',{
+            method:'PUT',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({platform_role:platformRole})
+          });
+          const data=await response.json().catch(function(){return {};});
+          if(!response.ok){
+            if(message)message.textContent=(data.error&&data.error.message)||'Platform role could not be changed.';
+            return;
+          }
+          if(message)message.textContent='Platform role updated. Active sessions were revoked.';
+          setTimeout(function(){window.location.reload();},650);
+        }catch(_error){
+          if(message)message.textContent='Platform role request could not complete.';
+        }finally{
+          roleSave.disabled=false;
+        }
+      });
+    }
   });
 })();
 
