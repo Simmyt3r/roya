@@ -16,6 +16,8 @@
     <div class="operations-metric"><strong>{{ counts.active }}</strong><span>Active</span></div>
     <div class="operations-metric {{ 'has-alert' if counts.suspended else '' }}"><strong>{{ counts.suspended }}</strong><span>Suspended</span></div>
     <div class="operations-metric"><strong>{{ counts.hotels }}</strong><span>Hotel accounts</span></div>
+    <div class="operations-metric"><strong>{{ counts.platform_support }}</strong><span>Platform support</span></div>
+    <div class="operations-metric"><strong>{{ counts.platform_finance }}</strong><span>Platform finance</span></div>
   </div>
 
   <form class="card admin-user-search" method="get" action="/admin/users">
@@ -53,13 +55,26 @@
         <div class="admin-user-state">
           <span class="status-pill status-{{ user.status }}">{{ user.status|replace('_',' ')|title }}</span>
           {% if user.platform_role == 'admin' %}
-            <small class="muted">Admin status is protected.</small>
+            <small class="muted">Admin role and status are protected.</small>
           {% elif user.status == 'suspended' %}
             <button class="button button-small" type="button" data-user-status="active">Reactivate</button>
           {% else %}
             <button class="button button-small button-secondary danger-soft" type="button" data-user-status="suspended">Suspend</button>
           {% endif %}
         </div>
+        {% if user.platform_role != 'admin' %}
+        <div class="admin-user-role-control">
+          <label>Platform access
+            <select data-platform-role>
+              <option value="user" {% if user.platform_role == 'user' %}selected{% endif %}>Standard user</option>
+              <option value="support" {% if user.platform_role == 'support' %}selected{% endif %}>Support</option>
+              <option value="finance" {% if user.platform_role == 'finance' %}selected{% endif %}>Finance</option>
+            </select>
+          </label>
+          <button class="button button-small button-secondary" type="button" data-platform-role-save>Save platform role</button>
+          <small class="muted">Changing platform access signs this user out of active iRoya sessions.</small>
+        </div>
+        {% endif %}
         <div class="admin-user-dates">
           <small>Joined {{ user.created_at }}</small>
           <small>{% if user.last_sign_in_at %}Last sign-in {{ user.last_sign_in_at }}{% else %}No sign-in recorded{% endif %}</small>
