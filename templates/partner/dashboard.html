@@ -7,7 +7,10 @@
     <h1>Partner dashboard</h1>
     <p>Manage the hotel information guests actually depend on: availability, rates and reservations.</p>
   </div>
-  <a class="button" href="/partner/properties/new">Add property</a>
+  <div class="partner-head-actions">
+    {% if finance_organizations %}<a class="button button-secondary" href="/partner/finance">Finance center</a>{% endif %}
+    <a class="button" href="/partner/properties/new">Add property</a>
+  </div>
 </section>
 
 <section class="shell partner-overview">
