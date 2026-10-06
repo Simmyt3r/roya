@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Hotel finance · iRoya{% endblock %}
+{% block content %}
+<section class="shell page-head">
+  <div>
+    <div class="eyebrow">Hotel finance</div>
+    <h1>Finance center</h1>
+    <p>Revenue, collections, refunds and outstanding balances from iRoya reservations.</p>
+  </div>
+  <a class="button button-secondary" href="/partner">Back to dashboard</a>
+</section>
+
+<section class="shell finance-shell">
+  <form class="card finance-filter-card" method="get" action="/partner/finance">
+    <label>From<input type="date" name="start" value="{{ start }}" required></label>
+    <label>To<input type="date" name="end" value="{{ end }}" required></label>
+    <label>Organization
+      <select name="organization_id">
+        <option value="">All accessible organizations</option>
+        {% for item in finance.organizations %}
+          <option value="{{ item.id }}" {% if finance.selected_organization_id == item.id|string %}selected{% endif %}>{{ item.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Property
+      <select name="property_id">
+        <option value="">All accessible properties</option>
+        {% for item in finance.properties %}
+          <option value="{{ item.id }}" {% if finance.selected_property_id == item.id|string %}selected{% endif %}>{{ item.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <div class="finance-filter-actions">
+      <button class="button" type="submit">Apply</button>
+      <a class="button button-secondary" href="/partner/finance">This month</a>
+      <a class="button button-secondary" href="/partner/finance/export.csv?start={{ start }}&end={{ end }}{% if finance.selected_organization_id %}&organization_id={{ finance.selected_organization_id }}{% endif %}{% if finance.selected_property_id %}&property_id={{ finance.selected_property_id }}{% endif %}">Export CSV</a>
+    </div>
+  </form>
+
+  {% set m=finance.metrics %}
+  <div class="finance-metrics">
+    <article class="finance-metric is-money"><strong>₦{{ '%.2f'|format(m.gross_booking_value_minor/100) }}</strong><span>Gross booking value</span></article>
+    <article class="finance-metric is-money"><strong>₦{{ '%.2f'|format(m.collected_minor/100) }}</strong><span>Recorded as paid</span></article>
+    <article class="finance-metric"><strong>₦{{ '%.2f'|format(m.net_collected_minor/100) }}</strong><span>Net collected after refunds</span></article>
+    <article class="finance-metric {{ 'is-warning' if m.outstanding_balance_minor else '' }}"><strong>₦{{ '%.2f'|format(m.outstanding_balance_minor/100) }}</strong><span>Outstanding balances</span></article>
+    <article class="finance-metric"><strong>₦{{ '%.2f'|format(m.deposits_collected_minor/100) }}</strong><span>Deposits collected</span></article>
+    <article class="finance-metric"><strong>₦{{ '%.2f'|format(m.due_at_property_minor/100) }}</strong><span>Due at property</span></article>
+    <article class="finance-metric {{ 'is-warning' if m.refunded_minor else '' }}"><strong>₦{{ '%.2f'|format(m.refunded_minor/100) }}</strong><span>Successful refunds</span></article>
+    <article class="finance-metric"><strong>{{ m.booking_count }}</strong><span>Confirmed/completed bookings · avg ₦{{ '%.2f'|format(m.average_booking_value_minor/100) }}</span></article>
+  </div>
+
+  <div class="finance-note">
+    <strong>Settlement execution is not enabled yet.</strong>
+    These figures report reservation/payment records only. iRoya platform fees are currently ₦0 because the commercial fee policy and Paystack settlement integration are intentionally deferred.
+  </div>
+
+  <div class="section-heading"><div><div class="eyebrow">Reservation ledger</div><h2>Booking financials</h2></div></div>
+  <div class="card finance-table-card">
+    <div class="finance-table">
+      <div class="finance-row finance-head"><span>Reservation</span><span>Guest / hotel</span><span>Status</span><span>Gross</span><span>Paid</span><span>Refunded</span><span>Outstanding</span></div>
+      {% for row in finance.ledger %}
+        <div class="finance-row">
+          <strong data-label="Reservation">{{ row.reference }}<small>{{ row.created_at }}</small></strong>
+          <span data-label="Guest / hotel">{{ row.guest_name }}<small>{{ row.property_name }} · {{ row.organization_name }}</small></span>
+          <span data-label="Status">{{ row.status|replace('_',' ')|title }}<small>{{ row.guarantee_type|replace('_',' ')|title }} · {{ row.payment_status|replace('_',' ')|title }}</small></span>
+          <strong class="finance-money" data-label="Gross">₦{{ '%.2f'|format(row.total_price_minor/100) }}</strong>
+          <strong class="finance-money" data-label="Paid">₦{{ '%.2f'|format(row.amount_paid_minor/100) }}</strong>
+          <strong class="finance-money" data-label="Refunded">₦{{ '%.2f'|format(row.refunded_minor/100) }}</strong>
+          <strong class="finance-money" data-label="Outstanding">₦{{ '%.2f'|format(row.outstanding_minor/100) }}</strong>
+        </div>
+      {% else %}
+        <div class="operations-empty"><strong>No reservations in this period.</strong><span>Change the dates or property filter to inspect another period.</span></div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="section-heading"><div><div class="eyebrow">Money movement</div><h2>Transaction activity</h2></div></div>
+  <article class="card">
+    <div class="finance-activity">
+      {% for row in finance.activity %}
+        <div class="finance-activity-row">
+          <span class="finance-activity-type">{{ row.activity_type }}</span>
+          <span><strong>{{ row.reservation_reference }} · {{ row.guest_name }}</strong><small>{{ row.property_name }} · {{ row.status|replace('_',' ')|title }}{% if row.provider_reference %} · {{ row.provider_reference }}{% endif %}</small></span>
+          <strong>₦{{ '%.2f'|format(row.amount_minor/100) }}</strong>
+        </div>
+      {% else %}
+        <div class="operations-empty"><strong>No payment or refund activity.</strong><span>Recorded money movements for the selected period will appear here.</span></div>
+      {% endfor %}
+    </div>
+  </article>
+</section>
+{% endblock %}
