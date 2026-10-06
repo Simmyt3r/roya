@@ -278,6 +278,8 @@ def platform_finance_dashboard(start_date,end_date,organization_id=None,property
                left join reservations r
                  on r.property_id=p.id
                 and r.created_at::date between %s and %s
+               where (%s::uuid is null or p.organization_id=%s)
+                 and (%s::uuid is null or p.id=%s)
                group by p.id,p.name,o.name
                order by gross_minor desc,p.name
                limit 25""",
@@ -286,6 +288,7 @@ def platform_finance_dashboard(start_date,end_date,organization_id=None,property
                 list(FINANCIAL_RESERVATION_STATUSES),
                 list(FINANCIAL_RESERVATION_STATUSES),
                 start_date,end_date,
+                organization_id,organization_id,property_id,property_id,
             ),
         ).fetchall()]
     snapshot["top_hotels"]=top_hotels
