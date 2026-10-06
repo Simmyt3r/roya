@@ -56,6 +56,7 @@ def create_app(test_config=None):
     from .reviews.routes import bp as reviews_bp
     from .finance.routes import bp as finance_bp
     from .analytics.routes import bp as analytics_bp
+    from .distribution.routes import bp as distribution_bp
 
     app.register_blueprint(properties_bp)
     app.register_blueprint(auth_bp)
@@ -72,6 +73,7 @@ def create_app(test_config=None):
     app.register_blueprint(reviews_bp)
     app.register_blueprint(finance_bp)
     app.register_blueprint(analytics_bp)
+    app.register_blueprint(distribution_bp)
 
     for api_blueprint in (
         auth_bp,
@@ -87,6 +89,7 @@ def create_app(test_config=None):
         reviews_bp,
         finance_bp,
         analytics_bp,
+        distribution_bp,
     ):
         csrf.exempt(api_blueprint)
 
