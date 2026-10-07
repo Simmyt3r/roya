@@ -135,7 +135,8 @@ class ReservationService:
             rows=list(conn.execute(
                 f"""select r.id,r.reference,r.property_id,p.name property_name,r.guest_name,r.guest_email,
                            r.check_in,r.check_out,r.nights,r.total_price_minor,r.amount_paid_minor,r.currency,r.status,
-                           r.payment_status,r.guarantee_type,r.source_channel,r.expires_at,r.created_at
+                           r.payment_status,r.guarantee_type,r.source_channel,r.expires_at,r.created_at,
+                           om.role member_role
                     from reservations r
                     join properties p on p.id=r.property_id
                     join organization_members om on om.organization_id=r.organization_id
