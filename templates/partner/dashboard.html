@@ -2,6 +2,7 @@
 {% from "partner/_reservation_actions.html" import reservation_actions %}
 {% block title %}Hotel dashboard · iRoya{% endblock %}
 {% block content %}
+{% set handover_data = handover|default({"notes":[],"writable_properties":[],"selected_property_id":none,"selected_property":none,"can_write":false},true) %}
 <section class="shell page-head partner-page-head hotel-home-head">
   <div>
     <div class="eyebrow">Hotel home</div>
@@ -32,6 +33,79 @@
       <span>Portfolio view</span>
     {% endif %}
   </div>
+</section>
+
+<section class="shell hotel-handover-section" id="shift-handover">
+  <article class="card hotel-handover-card">
+    <div class="hotel-handover-head">
+      <div>
+        <div class="eyebrow">Shift handover</div>
+        <h2>What the next person should know</h2>
+        <p class="muted">{% if handover_data.selected_property %}{{ handover_data.selected_property.name }}{% else %}Open notes across the current hotel workspace{% endif %}.</p>
+      </div>
+      <span class="status-pill {% if handover_data.notes %}status-error{% else %}status-muted{% endif %}">{{ handover_data.notes|length }} open</span>
+    </div>
+
+    <div class="hotel-handover-layout">
+      <div class="hotel-handover-list">
+        {% for note in handover_data.notes %}
+          <div class="hotel-handover-note is-{{ note.priority }}" data-handover-note="{{ note.id }}">
+            <span class="handover-priority">{{ note.priority|title }}</span>
+            <div class="hotel-handover-copy">
+              <strong>{{ note.note }}</strong>
+              <small>{{ note.property_name }} · {{ note.created_by_name }} · {{ note.created_at }}</small>
+            </div>
+            {% if note.member_role in ["owner","manager","reservations"] %}
+              <button class="button button-small button-secondary" type="button" data-handover-resolve>Resolve</button>
+            {% endif %}
+            <p class="form-message"></p>
+          </div>
+        {% else %}
+          <div class="operations-empty">
+            <strong>No open handover notes.</strong>
+            <span>The next shift has no unresolved staff notes for this scope.</span>
+          </div>
+        {% endfor %}
+      </div>
+
+      {% if handover_data.can_write %}
+        <form class="hotel-handover-form" data-handover-form>
+          <div>
+            <strong>Leave a note</strong>
+            <small class="muted">Keep it specific and actionable.</small>
+          </div>
+
+          {% if handover_data.selected_property_id %}
+            <input type="hidden" name="property_id" value="{{ handover_data.selected_property_id }}">
+          {% else %}
+            <label>Hotel
+              <select name="property_id" required>
+                <option value="">Choose hotel</option>
+                {% for property in handover_data.writable_properties %}
+                  <option value="{{ property.id }}">{{ property.name }}</option>
+                {% endfor %}
+              </select>
+            </label>
+          {% endif %}
+
+          <label>Priority
+            <select name="priority">
+              <option value="normal">Normal</option>
+              <option value="important">Important</option>
+              <option value="urgent">Urgent</option>
+            </select>
+          </label>
+
+          <label>Note
+            <textarea name="note" maxlength="1000" rows="3" required placeholder="e.g. Room 204 AC reported faulty; guest moved to 206."></textarea>
+          </label>
+
+          <button class="button button-small" type="submit">Add handover note</button>
+          <p class="form-message" aria-live="polite"></p>
+        </form>
+      {% endif %}
+    </div>
+  </article>
 </section>
 
 <section class="shell partner-section hotel-ops-section" id="operations-today">
