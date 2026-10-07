@@ -2021,3 +2021,71 @@ document.querySelectorAll('[data-front-desk-amendment]').forEach(function(form){
     button.addEventListener('click',function(){window.print();});
   });
 })();
+
+
+document.querySelectorAll('[data-reservation-note-form]').forEach(function(form){
+  const submit=form.querySelector('button[type="submit"]');
+  const message=form.querySelector('.form-message');
+  form.addEventListener('submit',async function(event){
+    event.preventDefault();
+    if(!form.reportValidity())return;
+    const data=Object.fromEntries(new FormData(form).entries());
+    if(!form.dataset.idempotencyKey){
+      form.dataset.idempotencyKey=requestKey('reservation-note');
+    }
+    submit.disabled=true;
+    message.textContent='Adding note…';
+    try{
+      const response=await fetch(
+        '/api/v1/partner/reservations/'+form.dataset.reservationId+'/notes',
+        {
+          method:'POST',
+          headers:{
+            'Content-Type':'application/json',
+            'Idempotency-Key':form.dataset.idempotencyKey
+          },
+          body:JSON.stringify({
+            kind:data.kind,
+            body:(data.body||'').trim()
+          })
+        }
+      );
+      const body=await response.json().catch(function(){return {};});
+      if(!response.ok){
+        message.textContent=(body.error&&body.error.message)||'Note could not be added.';
+        return;
+      }
+      window.location.reload();
+    }catch(_error){
+      message.textContent='Note could not be added. You can retry safely.';
+    }finally{
+      submit.disabled=false;
+    }
+  });
+});
+
+document.querySelectorAll('[data-reservation-note-resolve]').forEach(function(button){
+  button.addEventListener('click',async function(){
+    button.disabled=true;
+    const original=button.textContent;
+    button.textContent='Resolving…';
+    try{
+      const response=await fetch(
+        '/api/v1/partner/reservations/'+button.dataset.reservationId+
+        '/notes/'+button.dataset.noteId+'/resolve',
+        {method:'POST'}
+      );
+      const body=await response.json().catch(function(){return {};});
+      if(!response.ok){
+        window.alert((body.error&&body.error.message)||'Note could not be resolved.');
+        return;
+      }
+      window.location.reload();
+    }catch(_error){
+      window.alert('Note could not be resolved.');
+    }finally{
+      button.disabled=false;
+      button.textContent=original;
+    }
+  });
+});
