@@ -47,6 +47,20 @@
           </div>
         {% endfor %}
       </div>
+
+      {% if workspace.assigned_rooms %}
+        <div class="reservation-assigned-rooms">
+          <div class="eyebrow">Assigned room{% if workspace.assigned_rooms|length != 1 %}s{% endif %}</div>
+          {% for room in workspace.assigned_rooms %}
+            <span><strong>Room {{ room.room_number }}</strong><small>{{ room.room_type_name }}{% if room.floor %} · Floor {{ room.floor }}{% endif %}</small></span>
+          {% endfor %}
+        </div>
+      {% elif workspace.room_readiness.tracked and r.status == "confirmed" %}
+        <div class="reservation-readiness-note {{ 'is-ready' if workspace.room_readiness.ready else 'is-warning' }}">
+          <strong>{{ "Rooms ready for check-in" if workspace.room_readiness.ready else "Room readiness needs attention" }}</strong>
+          <span>{{ "iRoya will assign the ready room numbers automatically at check-in." if workspace.room_readiness.ready else "Open Rooms and finish cleaning the required room type before check-in." }}</span>
+        </div>
+      {% endif %}
     </article>
 
     <article class="card reservation-workspace-card">
@@ -110,11 +124,19 @@
         </div>
       {% elif r.status == "confirmed" %}
         <h2>Guest arriving</h2>
-        <p class="muted">Check the guest in when they arrive, or mark the booking as a no-show when appropriate.</p>
-        <div class="reservation-primary-actions">
-          <button class="button" type="button" data-reservation-status="checked_in" data-reservation-id="{{ r.id }}">Check in guest</button>
-          <button class="button button-secondary" type="button" data-reservation-status="no_show" data-reservation-id="{{ r.id }}">Mark no-show</button>
-        </div>
+        {% if workspace.room_readiness.tracked and not workspace.room_readiness.ready %}
+          <p class="muted">A tracked room still needs cleaning or readiness work before check-in.</p>
+          <div class="reservation-primary-actions">
+            <a class="button" href="/partner/rooms?property_id={{ r.property_id }}&focus=readiness">Open room readiness</a>
+            <button class="button button-secondary" type="button" data-reservation-status="no_show" data-reservation-id="{{ r.id }}">Mark no-show</button>
+          </div>
+        {% else %}
+          <p class="muted">Check the guest in when they arrive, or mark the booking as a no-show when appropriate.</p>
+          <div class="reservation-primary-actions">
+            <button class="button" type="button" data-reservation-status="checked_in" data-reservation-id="{{ r.id }}">Check in guest</button>
+            <button class="button button-secondary" type="button" data-reservation-status="no_show" data-reservation-id="{{ r.id }}">Mark no-show</button>
+          </div>
+        {% endif %}
       {% elif r.status == "checked_in" %}
         <h2>Guest in-house</h2>
         <p class="muted">Complete the stay when the guest leaves.</p>
