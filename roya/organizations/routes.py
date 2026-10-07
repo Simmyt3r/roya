@@ -351,11 +351,19 @@ def partner_dashboard():
         property_id=request.args.get("property_id"),
     )
     selected_property_id=hotel_operations.get("selected_property_id")
-    partner_reservations = ReservationService().list_for_partner(
+    reservation_service=ReservationService()
+    partner_reservations = reservation_service.list_for_partner(
         user.user_id,
         property_id=selected_property_id,
         limit=50,
     )
+    front_desk_query=(request.args.get("front_desk_q") or "").strip()
+    front_desk_results=reservation_service.search_for_partner(
+        user.user_id,
+        front_desk_query,
+        property_id=selected_property_id,
+        limit=20,
+    ) if front_desk_query else []
     pending_reservations = [r for r in partner_reservations if r["status"] == "pending_confirmation"][:20]
     from roya.payments.service import PaymentService
     partner_refunds = PaymentService().list_for_partner(
@@ -371,6 +379,8 @@ def partner_dashboard():
         pending_reservations=pending_reservations,
         partner_reservations=partner_reservations,
         partner_refunds=partner_refunds,
+        front_desk_query=front_desk_query,
+        front_desk_results=front_desk_results,
         team_members=team_members,
         pending_invites=pending_invites,
         manageable_organizations=[o for o in organizations if o["role"] in {"owner","manager"}],
