@@ -21,17 +21,22 @@ class _Txn:
 
 
 class _TransitionConnection:
-    def __init__(self,status="confirmed",check_in=None,role="owner"):
+    def __init__(self,status="confirmed",check_in=None,role="owner",physical_configured=0,ready_rooms=None):
         self.status=status
         self.check_in=check_in or date.today()
         self.role=role
         self.result=None
+        self.rows=[]
         self.audit_actions=[]
+        self.physical_configured=physical_configured
+        self.ready_rooms=list(ready_rooms or [])
+        self.assigned_rooms=[]
 
     def transaction(self):
         return _Txn()
 
     def execute(self,sql,params=None):
+        self.rows=[]
         if "select r.id,r.organization_id" in sql:
             self.result={
                 "id":"reservation-1",
@@ -44,6 +49,25 @@ class _TransitionConnection:
                 "role":self.role,
                 "today":date.today(),
             }
+        elif "select ri.room_type_id,ri.quantity,rt.name room_type_name,rt.total_inventory" in sql:
+            self.rows=[{
+                "room_type_id":"room-type-1",
+                "quantity":1,
+                "room_type_name":"Deluxe Room",
+                "total_inventory":1,
+            }]
+        elif "select count(*) total from physical_rooms" in sql:
+            self.result={"total":self.physical_configured}
+        elif "from physical_rooms" in sql and "for update skip locked" in sql:
+            self.rows=list(self.ready_rooms[:int(params[1])])
+        elif "set current_reservation_id=%s,assigned_at=now()" in sql:
+            room_id=params[1]
+            room=next(item for item in self.ready_rooms if item["id"]==room_id)
+            self.assigned_rooms.append(dict(room))
+            self.result={"id":room["id"],"room_number":room["room_number"]}
+        elif "set current_reservation_id=null,assigned_at=null" in sql:
+            self.rows=list(self.assigned_rooms)
+            self.assigned_rooms=[]
         elif "set status='checked_in'" in sql:
             self.status="checked_in"
             self.result={"id":"reservation-1","status":"checked_in"}
@@ -60,6 +84,9 @@ class _TransitionConnection:
 
     def fetchone(self):
         return self.result
+
+    def fetchall(self):
+        return self.rows
 
 
 def _connection_context(connection):
@@ -100,6 +127,55 @@ def test_confirmed_stay_can_check_in_then_check_out(monkeypatch):
         ("reservation-1","checked_out"),
     ]
 
+
+
+def test_tracked_ready_room_is_assigned_on_check_in_and_dirtied_on_checkout(monkeypatch):
+    connection=_TransitionConnection(
+        status="confirmed",
+        check_in=date.today(),
+        physical_configured=1,
+        ready_rooms=[{"id":"physical-1","room_number":"101"}],
+    )
+    monkeypatch.setattr(
+        reservation_service,
+        "db_connection",
+        lambda:_connection_context(connection)(),
+    )
+    monkeypatch.setattr(reservation_service,"NotificationService",_GuestNotifier)
+
+    checked_in=ReservationService().partner_transition(
+        "reservation-1","hotel-user","checked_in"
+    )
+    assert checked_in["status"]=="checked_in"
+    assert connection.assigned_rooms==[{"id":"physical-1","room_number":"101"}]
+
+    checked_out=ReservationService().partner_transition(
+        "reservation-1","hotel-user","checked_out"
+    )
+    assert checked_out["status"]=="checked_out"
+    assert connection.assigned_rooms==[]
+
+
+def test_tracked_dirty_room_blocks_check_in(monkeypatch):
+    connection=_TransitionConnection(
+        status="confirmed",
+        check_in=date.today(),
+        physical_configured=1,
+        ready_rooms=[],
+    )
+    monkeypatch.setattr(
+        reservation_service,
+        "db_connection",
+        lambda:_connection_context(connection)(),
+    )
+    monkeypatch.setattr(reservation_service,"NotificationService",_GuestNotifier)
+
+    with pytest.raises(RoyaError) as raised:
+        ReservationService().partner_transition(
+            "reservation-1","hotel-user","checked_in"
+        )
+    assert raised.value.code=="ROOM_NOT_READY"
+    assert raised.value.status_code==409
 
 def test_stay_cannot_check_in_before_arrival(monkeypatch):
     connection=_TransitionConnection(
