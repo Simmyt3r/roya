@@ -1,6 +1,57 @@
 from roya.common.db import db_connection
 
 
+DEFAULT_HORIZON_DAYS=7
+MIN_HORIZON_DAYS=3
+MAX_HORIZON_DAYS=14
+
+
+def normalize_horizon_days(value):
+    try:
+        days=int(value or DEFAULT_HORIZON_DAYS)
+    except (TypeError,ValueError):
+        days=DEFAULT_HORIZON_DAYS
+    return max(MIN_HORIZON_DAYS,min(days,MAX_HORIZON_DAYS))
+
+
+def select_property_scope(properties,property_id):
+    requested=str(property_id or "").strip()
+    selected=next((row for row in properties if str(row["id"])==requested),None)
+    return (str(selected["id"]) if selected else None),selected
+
+
+def scope_action_links(tasks,property_id,horizon_days):
+    if not property_id:
+        return tasks
+    prefix=f"/partner?property_id={property_id}&days={horizon_days}#"
+    scoped=[]
+    for task in tasks:
+        item={**task}
+        if item["href"].startswith("/partner#"):
+            item["href"]=item["href"].replace("/partner#",prefix,1)
+        scoped.append(item)
+    return scoped
+
+
+def empty_operations_snapshot(horizon_days):
+    return {
+        "organizations":[],
+        "properties":[],
+        "selected_property_id":None,
+        "selected_property":None,
+        "summary":{},
+        "arrivals":[],
+        "departures":[],
+        "overdue":[],
+        "forecast":[],
+        "low_inventory":[],
+        "source_mix":[],
+        "channel_errors":[],
+        "tasks":[],
+        "horizon_days":horizon_days,
+    }
+
+
 def _task(priority,title,detail,href):
     return {
         "priority":priority,
@@ -78,12 +129,8 @@ def build_daily_actions(summary,low_inventory,channel_errors):
     return tasks[:8]
 
 
-def hotel_operations_snapshot(user_id,horizon_days=7,property_id=None):
-    try:
-        horizon_days=int(horizon_days or 7)
-    except (TypeError,ValueError):
-        horizon_days=7
-    horizon_days=max(3,min(horizon_days,14))
+def hotel_operations_snapshot(user_id,horizon_days=DEFAULT_HORIZON_DAYS,property_id=None):
+    horizon_days=normalize_horizon_days(horizon_days)
     with db_connection() as conn:
         memberships=[
             dict(row) for row in conn.execute(
@@ -97,22 +144,7 @@ def hotel_operations_snapshot(user_id,horizon_days=7,property_id=None):
             ).fetchall()
         ]
         if not memberships:
-            return {
-                "organizations":[],
-                "properties":[],
-                "selected_property_id":None,
-                "selected_property":None,
-                "summary":{},
-                "arrivals":[],
-                "departures":[],
-                "overdue":[],
-                "forecast":[],
-                "low_inventory":[],
-                "source_mix":[],
-                "channel_errors":[],
-                "tasks":[],
-                "horizon_days":horizon_days,
-            }
+            return empty_operations_snapshot(horizon_days)
 
         organization_ids=[str(row["id"]) for row in memberships]
         properties=[
@@ -124,12 +156,7 @@ def hotel_operations_snapshot(user_id,horizon_days=7,property_id=None):
                 (organization_ids,),
             ).fetchall()
         ]
-        requested_property_id=str(property_id or "").strip()
-        selected_property=next(
-            (row for row in properties if str(row["id"])==requested_property_id),
-            None,
-        )
-        selected_property_id=str(selected_property["id"]) if selected_property else None
+        selected_property_id,selected_property=select_property_scope(properties,property_id)
 
         summary=dict(conn.execute(
             """select
@@ -285,12 +312,11 @@ def hotel_operations_snapshot(user_id,horizon_days=7,property_id=None):
     ):
         summary[key]=int(summary.get(key) or 0)
 
-    tasks=build_daily_actions(summary,low_inventory,channel_errors)
-    if selected_property_id:
-        scoped_prefix=f"/partner?property_id={selected_property_id}&days={horizon_days}#"
-        for task in tasks:
-            if task["href"].startswith("/partner#"):
-                task["href"]=task["href"].replace("/partner#",scoped_prefix,1)
+    tasks=scope_action_links(
+        build_daily_actions(summary,low_inventory,channel_errors),
+        selected_property_id,
+        horizon_days,
+    )
     return {
         "organizations":memberships,
         "properties":properties,
