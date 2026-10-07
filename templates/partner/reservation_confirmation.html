@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% set r = workspace.reservation %}
+{% set refunded_minor = r.get("amount_refunded_minor", 0) or 0 %}
+{% set net_paid_minor = [((r.amount_paid_minor or 0)-refunded_minor),0]|max %}
+{% set balance_minor = [((r.total_price_minor or 0)-net_paid_minor),0]|max %}
+{% block title %}{{ r.reference }} · Guest confirmation · iRoya{% endblock %}
+{% block content %}
+<section class="shell confirmation-toolbar no-print">
+  <a class="back-link" href="/partner/reservations/{{ r.id }}">← Reservation workspace</a>
+  <div class="confirmation-toolbar-actions">
+    <button class="button button-secondary" type="button" data-copy-confirmation>Copy summary</button>
+    <button class="button button-secondary" type="button" data-share-confirmation>Share</button>
+    <button class="button" type="button" data-print-confirmation>Print</button>
+  </div>
+  <p class="form-message" data-confirmation-message aria-live="polite"></p>
+</section>
+
+<section class="shell confirmation-sheet">
+  <header class="confirmation-brand">
+    <div class="confirmation-brand-lockup">
+      <img src="/static/brand/iroya-logo.svg" alt="" width="52" height="52">
+      <div>
+        <div class="eyebrow">Booking confirmation</div>
+        <h1>{{ r.property_name }}</h1>
+      </div>
+    </div>
+    <div class="confirmation-reference">
+      <span>Reservation</span>
+      <strong>{{ r.reference }}</strong>
+      <small>{{ r.status|replace("_"," ")|title }}</small>
+    </div>
+  </header>
+
+  <div class="confirmation-property">
+    <span>{{ r.property_address }}, {{ r.property_city }}, {{ r.property_state }}{% if r.property_country %}, {{ r.property_country }}{% endif %}</span>
+    {% if r.property_phone %}<span>{{ r.property_phone }}</span>{% endif %}
+    {% if r.property_email %}<span>{{ r.property_email }}</span>{% endif %}
+  </div>
+
+  <div class="confirmation-grid">
+    <article class="confirmation-block">
+      <div class="eyebrow">Guest</div>
+      <h2>{{ r.guest_name }}</h2>
+      <div class="confirmation-lines">
+        {% if r.guest_phone %}<span><b>Phone</b>{{ r.guest_phone }}</span>{% endif %}
+        {% if r.guest_email %}<span><b>Email</b>{{ r.guest_email }}</span>{% endif %}
+        <span><b>Guests</b>{{ r.adults }} adult{% if r.adults != 1 %}s{% endif %}{% if r.children %}, {{ r.children }} child{% if r.children != 1 %}ren{% endif %}{% endif %}</span>
+      </div>
+    </article>
+
+    <article class="confirmation-block">
+      <div class="eyebrow">Stay</div>
+      <h2>{{ r.check_in }} → {{ r.check_out }}</h2>
+      <div class="confirmation-lines">
+        <span><b>Length</b>{{ r.nights }} night{% if r.nights != 1 %}s{% endif %}</span>
+        <span><b>Check-in</b>{{ r.check_in_time }}</span>
+        <span><b>Check-out</b>{{ r.check_out_time }}</span>
+      </div>
+    </article>
+  </div>
+
+  <article class="confirmation-block confirmation-rooms">
+    <div class="eyebrow">Room & rate</div>
+    <div class="confirmation-room-list">
+      {% for item in workspace["items"] %}
+        <div>
+          <div>
+            <strong>{{ item.quantity }} × {{ item.room_type_name }}</strong>
+            <span>{{ item.rate_plan_name }}</span>
+          </div>
+          <strong>{{ r.currency }} {{ '%.2f'|format(item.total_price_minor/100) }}</strong>
+        </div>
+      {% endfor %}
+    </div>
+  </article>
+
+  <article class="confirmation-block confirmation-money">
+    <div class="eyebrow">Payment summary</div>
+    <div class="confirmation-money-grid">
+      <div><span>Total stay</span><strong>{{ r.currency }} {{ '%.2f'|format((r.total_price_minor or 0)/100) }}</strong></div>
+      <div><span>Collected</span><strong>{{ r.currency }} {{ '%.2f'|format((r.amount_paid_minor or 0)/100) }}</strong></div>
+      <div><span>Refunded</span><strong>{{ r.currency }} {{ '%.2f'|format(refunded_minor/100) }}</strong></div>
+      <div><span>Balance</span><strong>{{ r.currency }} {{ '%.2f'|format(balance_minor/100) }}</strong></div>
+    </div>
+    <p class="confirmation-payment-state">Payment status: <strong>{{ r.payment_status|replace("_"," ")|title }}</strong></p>
+  </article>
+
+  <footer class="confirmation-footer">
+    <strong>{{ r.property_name }}</strong>
+    <span>Please present reservation reference {{ r.reference }} when contacting the hotel.</span>
+    <small>Generated from the live iRoya reservation record.</small>
+  </footer>
+</section>
+
+<textarea class="confirmation-share-text" data-confirmation-text readonly aria-hidden="true">Booking confirmation
+{{ r.property_name }}
+Reference: {{ r.reference }}
+Guest: {{ r.guest_name }}
+Stay: {{ r.check_in }} to {{ r.check_out }} ({{ r.nights }} night{% if r.nights != 1 %}s{% endif %})
+{% for item in workspace["items"] %}Room: {{ item.quantity }} x {{ item.room_type_name }} · {{ item.rate_plan_name }}
+{% endfor %}Total: {{ r.currency }} {{ '%.2f'|format((r.total_price_minor or 0)/100) }}
+Net collected: {{ r.currency }} {{ '%.2f'|format(net_paid_minor/100) }}
+Balance: {{ r.currency }} {{ '%.2f'|format(balance_minor/100) }}
+Status: {{ r.status|replace("_"," ")|title }}
+{% if r.property_phone %}Hotel phone: {{ r.property_phone }}
+{% endif %}{% if r.property_email %}Hotel email: {{ r.property_email }}
+{% endif %}iRoya · {{ r.reference }}</textarea>
+{% endblock %}
