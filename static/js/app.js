@@ -789,7 +789,7 @@ if(bookingForm){
     bookingBusy=true;
     if(submit)submit.disabled=true;
     const msg=bookingForm.querySelector('.form-message');
-    msg.textContent='Creating a live inventory hold…';
+    msg.textContent='Checking availability and reserving your room…';
     const f=Object.fromEntries(new FormData(bookingForm).entries());
     const body={property_id:bookingForm.dataset.property,room_type_id:bookingForm.dataset.room,rate_plan_id:bookingForm.dataset.rate,check_in:bookingForm.dataset.checkin,check_out:bookingForm.dataset.checkout,quantity:1,adults:Number(f.adults||1),children:Number(f.children||0),guest_name:f.guest_name,guest_email:f.guest_email,guest_phone:f.guest_phone,guarantee_type:bookingForm.dataset.guarantee};
     try{
@@ -802,12 +802,12 @@ if(bookingForm){
         const pay=await fetch('/api/v1/payments/initiate',{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':paymentKey},body:JSON.stringify({reservation_id:r.reservation_id})});
         const pd=await pay.json().catch(function(){return {};});
         if(pay.ok&&pd.data&&pd.data.authorization_url){window.location.href=pd.data.authorization_url;return;}
-        msg.textContent=(pd.error&&pd.error.message)||'Reservation held, but payment could not start.';
+        msg.textContent=(pd.error&&pd.error.message)||'Your room is reserved, but payment could not start. Open My stays to continue.';
         return;
       }
       window.location.href='/reservation/'+r.reservation_id;
     }catch(_error){
-      msg.textContent='The booking request could not complete. You can retry safely.';
+      msg.textContent='The booking could not complete. You can retry safely.';
     }finally{
       bookingBusy=false;
       if(submit)submit.disabled=false;
