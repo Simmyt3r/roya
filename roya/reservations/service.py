@@ -7,7 +7,7 @@ from roya.notifications.service import NotificationService
 from .policy import cancellation_policy_view
 
 
-RESERVATION_SOURCE_CHANNELS={"direct_booking","roya_marketplace"}
+RESERVATION_SOURCE_CHANNELS={"direct_booking","roya_marketplace","front_desk"}
 
 
 class ReservationService:
@@ -75,6 +75,134 @@ class ReservationService:
         if result and not result.get("idempotent"):
             NotificationService().notify_reservation_created(str(result["reservation_id"]))
         return result
+
+    def front_desk_booking_options(self,user_id,property_id=None,check_in=None,check_out=None):
+        with db_connection() as conn:
+            properties=[
+                dict(row) for row in conn.execute(
+                    """select p.id,p.name,p.city,p.state,p.organization_id,om.role
+                       from properties p
+                       join organization_members om on om.organization_id=p.organization_id
+                       where om.user_id=%s
+                         and om.status='active'
+                         and om.role in ('owner','manager','reservations')
+                         and p.status='active'
+                       order by p.name""",
+                    (user_id,),
+                ).fetchall()
+            ]
+
+            requested=str(property_id or "").strip()
+            selected=next(
+                (item for item in properties if str(item["id"])==requested),
+                None,
+            ) if requested else None
+            if requested and not selected:
+                raise RoyaError("NOT_FOUND","Property not found.",404)
+
+            options=[]
+            nights=None
+            if selected and check_in and check_out:
+                nights=(check_out-check_in).days
+                if check_in < __import__("datetime").date.today():
+                    raise RoyaError("VALIDATION_ERROR","Check-in cannot be in the past.",422)
+                if nights<1 or nights>90:
+                    raise RoyaError("VALIDATION_ERROR","Stay must be between 1 and 90 nights.",422)
+
+                options=[
+                    dict(row) for row in conn.execute(
+                        """select
+                             rt.id room_type_id,rt.name room_type_name,
+                             rt.capacity_adults,rt.capacity_children,
+                             rp.id rate_plan_id,rp.name rate_plan_name,rp.currency,
+                             rp.meal_plan,rp.refundable,rp.guarantee_type,
+                             count(i.date)::integer loaded_nights,
+                             min(i.total_inventory-i.held_inventory-i.sold_inventory)::integer available_rooms,
+                             sum(coalesce(dr.price_minor,i.price_override_minor,rp.base_price_minor))::bigint total_price_minor
+                           from room_types rt
+                           join rate_plans rp on rp.room_type_id=rt.id and rp.status='active'
+                           join inventory_days i on i.room_type_id=rt.id
+                            and i.date>=%s and i.date<%s
+                           left join daily_rates dr on dr.rate_plan_id=rp.id and dr.date=i.date
+                           where rt.property_id=%s
+                             and rt.status='active'
+                             and rp.min_stay<=%s
+                             and not i.stop_sell
+                             and i.min_stay<=%s
+                             and not (i.date=%s and i.closed_to_arrival)
+                             and not (i.date=(%s::date-1) and i.closed_to_departure)
+                           group by rt.id,rt.name,rt.capacity_adults,rt.capacity_children,
+                                    rp.id,rp.name,rp.currency,rp.meal_plan,rp.refundable,
+                                    rp.guarantee_type,rp.base_price_minor
+                           having count(i.date)=%s
+                              and min(i.total_inventory-i.held_inventory-i.sold_inventory)>0
+                           order by total_price_minor,rt.name,rp.name""",
+                        (
+                            check_in,check_out,str(selected["id"]),
+                            nights,nights,check_in,check_out,nights,
+                        ),
+                    ).fetchall()
+                ]
+
+        return {
+            "properties":properties,
+            "selected_property":selected,
+            "selected_property_id":str(selected["id"]) if selected else None,
+            "check_in":check_in,
+            "check_out":check_out,
+            "nights":nights,
+            "options":options,
+        }
+
+    def create_for_partner(self,user_id,payload,idempotency_key):
+        if not idempotency_key or len(idempotency_key)<8 or len(idempotency_key)>160:
+            raise RoyaError("IDEMPOTENCY_KEY_REQUIRED","A valid Idempotency-Key header is required.",400)
+        params=(
+            user_id,
+            str(payload.property_id),
+            str(payload.room_type_id),
+            str(payload.rate_plan_id),
+            payload.check_in,
+            payload.check_out,
+            payload.quantity,
+            payload.adults,
+            payload.children,
+            payload.guest_name,
+            str(payload.guest_email) if payload.guest_email else "",
+            payload.guest_phone,
+            idempotency_key,
+        )
+        try:
+            with db_connection() as conn:
+                with conn.transaction():
+                    row=conn.execute(
+                        """select * from private.create_partner_reservation(
+                             %s::uuid,%s::uuid,%s::uuid,%s::uuid,
+                             %s::date,%s::date,%s::integer,%s::integer,%s::integer,
+                             %s::text,%s::text,%s::text,%s::text
+                           )""",
+                        params,
+                    ).fetchone()
+        except Exception as exc:
+            message=str(exc)
+            if "FORBIDDEN" in message:
+                raise RoyaError("FORBIDDEN","Your hotel role cannot create reservations.",403) from exc
+            if "PAST_CHECK_IN" in message:
+                raise RoyaError("VALIDATION_ERROR","Check-in cannot be in the past.",422) from exc
+            if "BOOKING_CONFLICT" in message:
+                raise RoyaError("BOOKING_CONFLICT","The selected room is no longer available for those dates.",409) from exc
+            if "RATE_NOT_AVAILABLE" in message:
+                raise RoyaError("RATE_NOT_FOUND","The selected rate is no longer available.",409) from exc
+            if "ROOM_NOT_AVAILABLE" in message:
+                raise RoyaError("ROOM_NOT_FOUND","The selected room type is no longer available.",409) from exc
+            if "CAPACITY_EXCEEDED" in message:
+                raise RoyaError("VALIDATION_ERROR","Guest count exceeds the room capacity.",422) from exc
+            if "IDEMPOTENCY_KEY_REQUIRED" in message:
+                raise RoyaError("IDEMPOTENCY_KEY_REQUIRED","A valid Idempotency-Key header is required.",400) from exc
+            raise
+
+        return dict(row) if row else None
+
 
     def get_for_user(self,reservation_id,user_id):
         with db_connection() as conn:
