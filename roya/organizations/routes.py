@@ -307,40 +307,7 @@ def partner_dashboard():
                 (user.user_id,),
             ).fetchall()
         )
-        team_members = list(
-            conn.execute(
-                """select o.id organization_id,o.name organization_name,om.user_id,om.role,om.status,
-                          coalesce(p.name,'') name,u.email,actor_om.role actor_role
-                   from organization_members om
-                   join organizations o on o.id=om.organization_id
-                   join organization_members actor_om
-                     on actor_om.organization_id=o.id
-                    and actor_om.user_id=%s
-                    and actor_om.status='active'
-                   join auth.users u on u.id=om.user_id
-                   left join profiles p on p.id=om.user_id
-                   order by o.name,
-                     case om.role when 'owner' then 0 when 'manager' then 1 else 2 end,
-                     coalesce(p.name,u.email)""",
-                (user.user_id,),
-            ).fetchall()
-        )
 
-        pending_invites = list(
-            conn.execute(
-                """select oi.id,oi.organization_id,o.name organization_name,oi.email,oi.role,
-                          oi.expires_at,actor_om.role actor_role
-                   from organization_invites oi
-                   join organizations o on o.id=oi.organization_id
-                   join organization_members actor_om
-                     on actor_om.organization_id=o.id
-                    and actor_om.user_id=%s
-                    and actor_om.status='active'
-                   where oi.status='pending' and oi.expires_at>now()
-                   order by oi.created_at desc""",
-                (user.user_id,),
-            ).fetchall()
-        )
 
     if not organizations:
         return redirect("/partner/start")
@@ -378,10 +345,6 @@ def partner_dashboard():
         partner_refunds=partner_refunds,
         front_desk_query=front_desk_query,
         front_desk_results=front_desk_results,
-        team_members=team_members,
-        pending_invites=pending_invites,
-        manageable_organizations=[o for o in organizations if o["role"] in {"owner","manager"}],
-        finance_organizations=[o for o in organizations if o["role"] in {"owner","manager","finance"}],
         hotel_operations=hotel_operations,
     )
 
