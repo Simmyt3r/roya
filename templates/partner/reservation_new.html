@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}New reservation · Hotel · iRoya{% endblock %}
+{% block content %}
+<section class="shell page-head front-desk-booking-head">
+  <div>
+    <a class="back-link" href="/partner/reservations">← Reservations</a>
+    <div class="eyebrow">Front desk</div>
+    <h1>New reservation</h1>
+    <p>For phone, WhatsApp and walk-in bookings. Payment is handled at the hotel.</p>
+  </div>
+</section>
+
+<section class="shell booking-progress front-desk-booking-progress" aria-label="Front desk booking steps">
+  <div class="is-done"><span>1</span><strong>Stay</strong></div>
+  <div class="{% if workspace.options %}is-current{% endif %}"><span>2</span><strong>Guest</strong></div>
+  <div><span>3</span><strong>Confirm</strong></div>
+</section>
+
+<section class="shell">
+  <form class="card front-desk-stay-filter" method="get" action="/partner/reservations/new">
+    <label>Hotel
+      <select name="property_id" required>
+        {% if workspace.properties|length > 1 %}<option value="">Choose hotel</option>{% endif %}
+        {% for property in workspace.properties %}
+          <option value="{{ property.id }}" {% if workspace.selected_property_id == property.id|string %}selected{% endif %}>{{ property.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Check in<input type="date" name="check_in" value="{{ workspace.check_in }}" required></label>
+    <label>Check out<input type="date" name="check_out" value="{{ workspace.check_out }}" required></label>
+    <button class="button" type="submit">Check availability</button>
+  </form>
+</section>
+
+{% if workspace.selected_property %}
+<section class="shell front-desk-booking-section">
+  <div class="section-heading">
+    <div>
+      <div class="eyebrow">{{ workspace.selected_property.name }}</div>
+      <h2>Choose a room</h2>
+      <p class="muted">{{ workspace.check_in }} → {{ workspace.check_out }} · {{ workspace.nights }} night{% if workspace.nights != 1 %}s{% endif %}</p>
+    </div>
+  </div>
+
+  {% if workspace.options %}
+    <form class="front-desk-reservation-form" data-front-desk-reservation-form>
+      <div class="front-desk-room-options">
+        {% for option in workspace.options %}
+          <label class="card front-desk-room-option">
+            <input
+              type="radio"
+              name="stay_option"
+              value="{{ option.room_type_id }}|{{ option.rate_plan_id }}"
+              data-room="{{ option.room_type_id }}"
+              data-rate="{{ option.rate_plan_id }}"
+              data-available="{{ option.available_rooms }}"
+              data-adults="{{ option.capacity_adults }}"
+              data-children="{{ option.capacity_children }}"
+              data-price="{{ option.total_price_minor }}"
+              data-currency="{{ option.currency }}"
+              {% if loop.first %}checked{% endif %}
+              required
+            >
+            <span class="front-desk-room-copy">
+              <strong>{{ option.room_type_name }}</strong>
+              <small>{{ option.rate_plan_name }}{% if option.meal_plan != "room_only" %} · {{ option.meal_plan|replace("_"," ")|title }}{% endif %}</small>
+              <small>Up to {{ option.capacity_adults }} adult{% if option.capacity_adults != 1 %}s{% endif %}{% if option.capacity_children %} + {{ option.capacity_children }} child{% if option.capacity_children != 1 %}ren{% endif %}{% endif %} per room</small>
+            </span>
+            <span class="front-desk-room-price">
+              <strong>{{ option.currency }} {{ '%.2f'|format(option.total_price_minor/100) }}</strong>
+              <small>stay total · {{ option.available_rooms }} available</small>
+            </span>
+          </label>
+        {% endfor %}
+      </div>
+
+      <article class="card front-desk-guest-card">
+        <div>
+          <div class="eyebrow">Guest details</div>
+          <h2>Who is staying?</h2>
+          <p class="muted">Phone is required. Email is optional for guests booked directly by the hotel.</p>
+        </div>
+
+        <div class="form-grid">
+          <label>Full name<input name="guest_name" minlength="2" maxlength="150" autocomplete="name" required></label>
+          <label>Phone<input name="guest_phone" minlength="3" maxlength="30" autocomplete="tel" required></label>
+          <label>Email <span class="muted">(optional)</span><input name="guest_email" type="email" maxlength="200" autocomplete="email"></label>
+        </div>
+
+        <div class="front-desk-guest-counts">
+          <label>Rooms
+            <input name="quantity" type="number" min="1" max="{{ [workspace.options[0].available_rooms,10]|min }}" value="1" required>
+          </label>
+          <label>Adults
+            <input name="adults" type="number" min="1" max="{{ workspace.options[0].capacity_adults }}" value="1" required>
+          </label>
+          <label>Children
+            <input name="children" type="number" min="0" max="{{ workspace.options[0].capacity_children }}" value="0" required>
+          </label>
+        </div>
+
+        <input type="hidden" name="property_id" value="{{ workspace.selected_property_id }}">
+        <input type="hidden" name="check_in" value="{{ workspace.check_in }}">
+        <input type="hidden" name="check_out" value="{{ workspace.check_out }}">
+        <input type="hidden" name="room_type_id" value="{{ workspace.options[0].room_type_id }}">
+        <input type="hidden" name="rate_plan_id" value="{{ workspace.options[0].rate_plan_id }}">
+
+        <div class="front-desk-confirm">
+          <div>
+            <small>Confirmed immediately · Pay at hotel</small>
+            <strong data-front-desk-total>{{ workspace.options[0].currency }} {{ '%.2f'|format(workspace.options[0].total_price_minor/100) }}</strong>
+          </div>
+          <button class="button" type="submit">Confirm reservation</button>
+        </div>
+        <p class="form-message" aria-live="polite"></p>
+      </article>
+    </form>
+  {% else %}
+    <div class="card operations-empty front-desk-no-rooms">
+      <strong>No rooms are available for these dates.</strong>
+      <span>Try different dates, check room inventory, or confirm that an active rate exists.</span>
+      <a class="button button-small button-secondary" href="/partner/rooms?property_id={{ workspace.selected_property_id }}">Open Rooms</a>
+    </div>
+  {% endif %}
+</section>
+{% else %}
+<section class="shell">
+  <div class="card operations-empty">
+    <strong>Choose a hotel first.</strong>
+    <span>iRoya will show only room/rate combinations with inventory available for the selected dates.</span>
+  </div>
+</section>
+{% endif %}
+{% endblock %}
