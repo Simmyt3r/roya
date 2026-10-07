@@ -14,8 +14,12 @@ def _identity():
 
 
 def _snapshot():
+    property_id=str(uuid4())
     return {
         "organizations":[{"id":str(uuid4()),"name":"Example Group","role":"manager"}],
+        "properties":[{"id":property_id,"name":"Example Hotel","organization_id":str(uuid4())}],
+        "selected_property_id":None,
+        "selected_property":None,
         "summary":{
             "arrivals_today":2,
             "departures_today":1,
@@ -80,19 +84,26 @@ def test_partner_operations_summary_api(monkeypatch):
     snapshot=_snapshot()
     monkeypatch.setattr(auth_service,"current_identity",lambda required=False:identity)
     monkeypatch.setattr(organization_routes,"current_identity",lambda required=False:identity)
+    captured={}
+    def fake_snapshot(user_id,horizon_days=7,property_id=None):
+        captured["property_id"]=property_id
+        return {**snapshot,"horizon_days":int(horizon_days),"selected_property_id":property_id}
     monkeypatch.setattr(
         organization_routes,
         "hotel_operations_snapshot",
-        lambda user_id,horizon_days=7:{**snapshot,"horizon_days":int(horizon_days)},
+        fake_snapshot,
     )
 
     app=create_app({"TESTING":True,"WTF_CSRF_ENABLED":False,"DATABASE_URL":""})
-    response=app.test_client().get("/api/v1/partner/operations/summary?days=14")
+    property_id=snapshot["properties"][0]["id"]
+    response=app.test_client().get(f"/api/v1/partner/operations/summary?days=14&property_id={property_id}")
     assert response.status_code==200
     data=response.get_json()["data"]
     assert data["summary"]["arrivals_today"]==2
     assert data["summary"]["in_house"]==4
     assert data["horizon_days"]==14
+    assert data["selected_property_id"]==property_id
+    assert captured["property_id"]==property_id
 
 
 def test_partner_dashboard_operations_section_renders():
@@ -134,8 +145,10 @@ def test_operations_horizon_invalid_value_falls_back_to_seven(monkeypatch):
 def test_partner_dashboard_operations_horizon_selector_renders():
     snapshot=_snapshot()
     snapshot["horizon_days"]=14
+    snapshot["selected_property_id"]=snapshot["properties"][0]["id"]
+    snapshot["selected_property"]=snapshot["properties"][0]
     app=create_app({"TESTING":True,"WTF_CSRF_ENABLED":False,"DATABASE_URL":""})
-    with app.test_request_context("/partner?days=14"):
+    with app.test_request_context(f"/partner?days=14&property_id={snapshot['selected_property_id']}"):
         html=render_template(
             "partner/dashboard.html",
             organizations=[{"id":str(uuid4()),"name":"Example Group","role":"owner"}],
@@ -145,4 +158,7 @@ def test_partner_dashboard_operations_horizon_selector_renders():
             hotel_operations=snapshot,
         )
     assert 'name="days"' in html
+    assert 'name="property_id"' in html
     assert '>14 days</option>' in html
+    assert "Example Hotel" in html
+    assert "Showing Example Hotel only." in html
