@@ -29,6 +29,8 @@ def scope_action_links(tasks,property_id,horizon_days):
         item={**task}
         if item["href"].startswith("/partner#"):
             item["href"]=item["href"].replace("/partner#",prefix,1)
+        elif item["href"].startswith("/partner/reservations?"):
+            item["href"]+=f"&property_id={property_id}"
         scoped.append(item)
     return scoped
 
@@ -75,7 +77,7 @@ def build_daily_actions(summary,low_inventory,channel_errors):
             "critical",
             f"{overdue_arrivals} overdue arrival{'s' if overdue_arrivals != 1 else ''}",
             "Confirmed stays have passed their arrival date without check-in or no-show resolution.",
-            "/partner#recent-reservations",
+            "/partner#operations-overdue",
         ))
     if overdue_departures:
         tasks.append(_task(
@@ -89,7 +91,7 @@ def build_daily_actions(summary,low_inventory,channel_errors):
             "warning",
             f"{pending} reservation approval{'s' if pending != 1 else ''} waiting",
             "Review hotel-approval bookings before their inventory holds expire.",
-            "/partner#reservations",
+            "/partner/reservations?tab=pending",
         ))
     if low_inventory:
         tasks.append(_task(
