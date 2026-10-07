@@ -16,7 +16,7 @@
 
 <section class="shell front-desk-amend-layout">
   <article class="card front-desk-amend-summary">
-    <div class="eyebrow">Fixed for this change</div>
+    <div class="eyebrow">Current booking</div>
     <h2>{{ item.room_type_name }}</h2>
     <div class="reservation-detail-grid">
       <div><span>Rate</span><strong>{{ item.rate_plan_name }}</strong></div>
@@ -25,7 +25,7 @@
       <div><span>Net collected</span><strong>{{ r.currency }} {{ '%.2f'|format(net_paid_minor/100) }}</strong></div>
     </div>
     <p class="muted front-desk-amend-note">
-      The room type, rate plan and quantity stay unchanged. iRoya will recheck inventory and recalculate the stay from current daily rates when you save.
+      You can change the room, rate, quantity, dates or guest details. iRoya will recheck inventory and recalculate the stay from current daily rates when you save.
     </p>
     <div class="reservation-readiness-note is-warning">
       <strong>Money safety</strong>
@@ -38,6 +38,34 @@
       <div class="eyebrow">Stay details</div>
       <h2>New reservation details</h2>
       <p class="muted">Saving is atomic: either the new dates, price and inventory all change together, or nothing changes.</p>
+    </div>
+
+    <div class="front-desk-amend-room">
+      <label>Room & rate
+        <select name="stay_option" data-amend-stay-option required>
+          {% for option in workspace.amend_options %}
+            <option
+              value="{{ option.room_type_id }}|{{ option.rate_plan_id }}"
+              data-room="{{ option.room_type_id }}"
+              data-rate="{{ option.rate_plan_id }}"
+              data-adults="{{ option.capacity_adults }}"
+              data-children="{{ option.capacity_children or 0 }}"
+              data-inventory="{{ option.total_inventory }}"
+              data-currency="{{ option.currency }}"
+              data-price="{{ option.base_price_minor }}"
+              {% if option.room_type_id == item.room_type_id and option.rate_plan_id == item.rate_plan_id %}selected{% endif %}
+            >
+              {{ option.room_type_name }} · {{ option.rate_plan_name }} · {{ option.currency }} {{ '%.2f'|format(option.base_price_minor/100) }}/night
+            </option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Rooms
+        <input name="quantity" type="number" min="1" max="10" value="{{ item.quantity }}" required>
+      </label>
+      <input name="room_type_id" type="hidden" value="{{ item.room_type_id }}">
+      <input name="rate_plan_id" type="hidden" value="{{ item.rate_plan_id }}">
+      <p class="muted" data-amend-rate-summary>Final total is recalculated from the selected rate and daily pricing when you save.</p>
     </div>
 
     <div class="front-desk-amend-dates">
