@@ -63,6 +63,7 @@ def _sample_snapshot():
             "latest_transaction_status":"",
         }],
         "activity":[],
+        "refund_queue":[],
         "top_hotels":[{
             "id":property_id,
             "name":"Example Hotel",
@@ -90,11 +91,18 @@ def test_partner_finance_page_renders_for_authorized_hotel_member(monkeypatch):
     monkeypatch.setattr(finance_routes,"current_identity",lambda required=False:identity)
     monkeypatch.setattr(finance_routes,"partner_finance_dashboard",lambda *args,**kwargs:_sample_snapshot())
 
+    class _Refunds:
+        def list_for_partner(self,*args,**kwargs):
+            return []
+
+    monkeypatch.setattr(finance_routes,"PaymentService",lambda:_Refunds())
+
     app=create_app({"TESTING":True,"WTF_CSRF_ENABLED":False,"DATABASE_URL":""})
     response=app.test_client().get("/partner/finance?start=2026-10-01&end=2026-10-31")
     assert response.status_code==200
     assert b"Finance center" in response.data
     assert b"RYA-FINANCE" in response.data
+    assert b"Refunds" in response.data
     assert b"Settlement execution is not enabled yet" in response.data
 
 
@@ -161,3 +169,58 @@ def test_platform_admin_can_open_finance_console(monkeypatch):
     client=_platform_client(monkeypatch,"admin")
     response=client.get("/admin/finance?start=2026-10-01&end=2026-10-31")
     assert response.status_code==200
+
+
+def test_partner_finance_refund_focus_renders_action_queue(monkeypatch):
+    identity=_identity()
+    snapshot=_sample_snapshot()
+    property_id=snapshot["properties"][0]["id"]
+    refund_id=str(uuid4())
+    captured={}
+
+    monkeypatch.setattr(auth_service,"current_identity",lambda required=False:identity)
+    monkeypatch.setattr(finance_routes,"current_identity",lambda required=False:identity)
+    monkeypatch.setattr(finance_routes,"partner_finance_dashboard",lambda *args,**kwargs:snapshot)
+
+    class _Refunds:
+        def list_for_partner(self,user_id,organization_id=None,property_id=None,limit=50):
+            captured.update({
+                "user_id":user_id,
+                "organization_id":organization_id,
+                "property_id":property_id,
+                "limit":limit,
+            })
+            return [{
+                "id":refund_id,
+                "reservation_id":str(uuid4()),
+                "amount_minor":350000,
+                "currency":"NGN",
+                "status":"requested",
+                "reason":"Guest cancellation",
+                "created_at":"2026-10-07",
+                "reservation_reference":"RYA-REFUND1",
+                "guest_name":"Ada Guest",
+                "guest_email":"ada@example.com",
+                "property_name":"Example Hotel",
+                "organization_name":"Example Group",
+                "member_role":"finance",
+            }]
+
+    monkeypatch.setattr(finance_routes,"PaymentService",lambda:_Refunds())
+
+    app=create_app({"TESTING":True,"WTF_CSRF_ENABLED":False,"DATABASE_URL":""})
+    response=app.test_client().get(
+        f"/partner/finance?start=2026-10-01&end=2026-10-31"
+        f"&property_id={property_id}&focus=refunds"
+    )
+
+    assert response.status_code==200
+    html=response.get_data(as_text=True)
+    assert 'id="refunds"' in html
+    assert "is-focused" in html
+    assert "RYA-REFUND1" in html
+    assert "Ada Guest" in html
+    assert "NGN 3500.00" in html
+    assert f'data-refund-process="{refund_id}"' in html
+    assert captured["property_id"]==property_id
+    assert captured["limit"]==100
