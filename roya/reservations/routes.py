@@ -1,11 +1,11 @@
-from datetime import date
+from datetime import date,timedelta
 from flask import Blueprint, render_template, request
 from pydantic import ValidationError
 
 from roya.auth.service import current_identity, login_required
 from roya.common.errors import RoyaError
 from roya.common.response import ok
-from .schemas import PartnerReservationDecision, PartnerReservationStatusChange, ReservationCreate
+from .schemas import PartnerReservationCreate, PartnerReservationDecision, PartnerReservationStatusChange, ReservationCreate
 from .service import ReservationService
 from roya.reviews.service import ReviewService
 
@@ -60,6 +60,46 @@ def partner_guests():
         limit=50,
     )
     return render_template("partner/guests.html",workspace=workspace)
+
+
+@bp.get("/partner/reservations/new")
+@login_required
+def partner_reservation_new():
+    identity=current_identity(required=True)
+    today=date.today()
+    check_in_raw=(request.args.get("check_in") or today.isoformat()).strip()
+    check_out_raw=(request.args.get("check_out") or (today+timedelta(days=1)).isoformat()).strip()
+    try:
+        check_in=date.fromisoformat(check_in_raw)
+        check_out=date.fromisoformat(check_out_raw)
+    except ValueError as exc:
+        raise RoyaError("VALIDATION_ERROR","Stay dates must use YYYY-MM-DD.",422) from exc
+
+    workspace=service.front_desk_booking_options(
+        identity.user_id,
+        property_id=request.args.get("property_id"),
+        check_in=check_in,
+        check_out=check_out,
+    )
+    return render_template("partner/reservation_new.html",workspace=workspace)
+
+
+@bp.post("/api/v1/partner/reservations")
+@login_required
+def create_partner_reservation():
+    try:
+        payload=PartnerReservationCreate.model_validate(request.get_json(silent=True) or {})
+    except ValidationError as exc:
+        raise RoyaError("VALIDATION_ERROR","Invalid front-desk reservation details.",422,{"errors":exc.errors()}) from exc
+    identity=current_identity(required=True)
+    result=service.create_for_partner(
+        identity.user_id,
+        payload,
+        request.headers.get("Idempotency-Key",""),
+    )
+    if result:
+        result["redirect_to"]=f"/partner/reservations/{result['reservation_id']}"
+    return ok(result,201)
 
 
 @bp.get("/partner/reservations")
