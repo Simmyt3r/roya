@@ -5,7 +5,7 @@ from pydantic import ValidationError
 from roya.auth.service import current_identity, login_required
 from roya.common.errors import RoyaError
 from roya.common.response import ok
-from .schemas import PartnerReservationAmend, PartnerReservationCancel, PartnerReservationCreate, PartnerReservationDecision, PartnerReservationStatusChange, ReservationCreate
+from .schemas import PartnerReservationAmend, PartnerReservationCancel, PartnerReservationCreate, PartnerReservationDecision, PartnerReservationNoteCreate, PartnerReservationStatusChange, ReservationCreate
 from .service import ReservationService
 from roya.reviews.service import ReviewService
 
@@ -187,6 +187,44 @@ def amend_partner_reservation(reservation_id):
     if result:
         result["redirect_to"]=f"/partner/reservations/{reservation_id}"
     return ok(result)
+
+
+@bp.post("/api/v1/partner/reservations/<uuid:reservation_id>/notes")
+@login_required
+def add_partner_reservation_note(reservation_id):
+    try:
+        body=PartnerReservationNoteCreate.model_validate(request.get_json(silent=True) or {})
+    except ValidationError as exc:
+        raise RoyaError(
+            "VALIDATION_ERROR",
+            "Invalid reservation note.",
+            422,
+            {"errors":exc.errors()},
+        ) from exc
+    identity=current_identity(required=True)
+    return ok(
+        service.add_partner_note(
+            str(reservation_id),
+            identity.user_id,
+            body.kind,
+            body.body,
+            request.headers.get("Idempotency-Key",""),
+        ),
+        201,
+    )
+
+
+@bp.post("/api/v1/partner/reservations/<uuid:reservation_id>/notes/<uuid:note_id>/resolve")
+@login_required
+def resolve_partner_reservation_note(reservation_id,note_id):
+    identity=current_identity(required=True)
+    return ok(
+        service.resolve_partner_note(
+            str(reservation_id),
+            str(note_id),
+            identity.user_id,
+        )
+    )
 
 
 @bp.get("/api/v1/partner/reservations")
