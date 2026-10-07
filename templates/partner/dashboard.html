@@ -154,7 +154,7 @@
   </div>
 
   {% if hotel_operations.overdue %}
-    <article class="card hotel-ops-overdue">
+    <article class="card hotel-ops-overdue" id="operations-overdue">
       <div class="hotel-ops-card-head"><div><div class="eyebrow">Exception queue</div><h3>Overdue stay actions</h3></div><span class="status-pill status-error">{{ hotel_operations.overdue|length }} unresolved</span></div>
       <div class="hotel-ops-stay-list">
         {% for stay in hotel_operations.overdue %}
@@ -394,7 +394,7 @@
     <div class="reservation-table-row reservation-table-head"><span>Reservation</span><span>Guest</span><span>Property</span><span>Status</span><span>Amount</span><span>Action</span></div>
     {% for rf in partner_refunds %}
       <div class="reservation-table-row">
-        <strong data-label="Reservation">{{ rf.reservation_reference }}</strong>
+        <strong data-label="Reservation"><a class="reservation-reference-link" href="/partner/reservations/{{ rf.reservation_id }}">{{ rf.reservation_reference }}</a></strong>
         <span data-label="Guest">{{ rf.guest_name }}<small>{{ rf.guest_email }}</small></span>
         <span data-label="Property">{{ rf.property_name }}</span>
         <span data-label="Status"><span class="status-pill">{{ rf.status|title }}</span></span>
@@ -405,35 +405,4 @@
   </div></div>
 </section>
 
-<section class="shell partner-section" id="recent-reservations"><div class="section-heading"><div><div class="eyebrow">Reservations</div><h2>Recent bookings</h2><p class="muted">Open a booking for the full guest, stay and payment view.</p></div></div><div class="card reservation-table-wrap"><div class="reservation-table responsive-data-table"><div class="reservation-table-row reservation-table-head"><span>Reference</span><span>Guest</span><span>Stay</span><span>Status</span><span>Payment</span><span>Total</span></div>{% for r in partner_reservations %}<div class="reservation-table-row"><strong data-label="Reference"><a class="reservation-reference-link" href="/partner/reservations/{{ r.id }}">{{ r.reference }}</a></strong><span data-label="Guest">{{ r.guest_name }}<small>{{ r.property_name }}</small></span><span data-label="Stay">{{ r.check_in }}<small>to {{ r.check_out }}</small></span><span data-label="Status"><span class="status-pill">{{ r.status|replace("_"," ")|title }}</span>{{ reservation_actions(r) }}</span><span data-label="Payment">{{ r.payment_status|replace("_"," ")|title }}</span><strong data-label="Total">{{ r.currency }} {{ '%.2f'|format(r.total_price_minor / 100) }}</strong></div>{% else %}<div class="empty"><p>No reservations yet.</p></div>{% endfor %}</div></div></section>
-<section class="shell partner-section partner-approvals" id="reservations">
-  <article class="card">
-    <div class="approval-head">
-      <div>
-        <div class="eyebrow">Reservations</div>
-        <h2>Pending approvals</h2>
-      </div>
-      <span class="muted">{{ pending_reservations|length }} pending</span>
-    </div>
-
-    <div class="approval-list">
-      {% for r in pending_reservations %}
-        <div class="approval-row">
-          <div>
-            <strong>{{ r.reference }} · {{ r.guest_name }}</strong>
-            <div class="muted">{{ r.property_name }} · {{ r.check_in }} to {{ r.check_out }} · {{ r.currency }} {{ '%.2f'|format(r.total_price_minor / 100) }}</div>
-            {% if r.expires_at %}<div class="muted">Approval hold expires {{ r.expires_at }}</div>{% endif %}
-          </div>
-          {% if r.member_role in ["owner","manager","reservations"] %}
-            {{ reservation_actions(r) }}
-          {% else %}
-            <span class="muted">Read-only access</span>
-          {% endif %}
-        </div>
-      {% else %}
-        <p class="muted">No hotel-approval reservations are waiting right now.</p>
-      {% endfor %}
-    </div>
-  </article>
-</section>
 {% endblock %}
