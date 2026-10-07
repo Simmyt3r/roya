@@ -9,6 +9,7 @@ from roya.admin.service import require_platform_roles
 from roya.auth.service import current_identity,login_required
 from roya.common.errors import RoyaError
 from .service import partner_finance_dashboard,platform_finance_dashboard
+from roya.payments.service import PaymentService
 
 
 bp=Blueprint("finance",__name__)
@@ -88,9 +89,19 @@ def partner_finance():
         identity.user_id,start,end,
         organization_id=organization_id,property_id=property_id,
     )
+    snapshot["refund_queue"]=[
+        dict(row) for row in PaymentService().list_for_partner(
+            identity.user_id,
+            organization_id=organization_id,
+            property_id=property_id,
+            limit=100,
+        )
+    ]
+    focus=(request.args.get("focus") or "").strip().lower()
     return render_template(
         "partner/finance.html",
         finance=snapshot,start=start,end=end,
+        focus="refunds" if focus=="refunds" else "",
     )
 
 
