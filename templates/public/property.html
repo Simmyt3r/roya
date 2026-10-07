@@ -1,18 +1,110 @@
 {% extends "base.html" %}
 {% block title %}{{ property.name }} · iRoya{% endblock %}
 {% block content %}
-<section class="shell page-head"><div><div class="eyebrow">Verified hotel</div><h1>{{ property.name }}</h1><p>{{ property.address }}, {{ property.city }}, {{ property.state }}</p></div><div class="rating">★ {{ review_summary.average_rating }} <small>({{ review_summary.review_count }})</small></div></section>
-<section class="shell gallery">{% for image in images[:4] %}<img src="{{ image.path }}" alt="{{ image.alt_text or property.name }}">{% else %}<div class="gallery-placeholder">iRoya</div>{% endfor %}</section>
-<section class="shell property-layout">
-  <article><h2>About this stay</h2><p>{{ property.description }}</p><p class="muted">Check-in {{ property.check_in_time }} · Check-out {{ property.check_out_time }}</p>
-  {% if amenities %}<div class="public-amenities">{% for amenity in amenities %}<span>{{ amenity.name }}</span>{% endfor %}</div>{% endif %}
-  </article>
-  <aside class="card"><h3>Stay dates</h3><form action="/hotels/{{ property.slug }}" method="get"><label>Check in<input type="date" name="check_in" value="{{ check_in or '' }}" required></label><label>Check out<input type="date" name="check_out" value="{{ check_out or '' }}" required></label><label>Guests<input type="number" name="guests" min="1" value="{{ guests }}"></label><button class="button" type="submit">Check live availability</button></form></aside>
+<section class="shell page-head property-public-head">
+  <div>
+    <div class="eyebrow">Verified hotel</div>
+    <h1>{{ property.name }}</h1>
+    <p>{{ property.address }}, {{ property.city }}, {{ property.state }}</p>
+  </div>
+  <div class="rating">★ {{ review_summary.average_rating }} <small>({{ review_summary.review_count }})</small></div>
 </section>
-<section class="shell"><h2>Rooms & rates</h2><div class="room-list">
-{% for room in rooms %}<article class="room-card room-card-with-media">{% if room.cover_image %}<img class="room-card-image" src="{{ room.cover_image }}" alt="{{ room.cover_alt or room.name }}">{% endif %}<div><div class="muted">{{ room.rate_plan_name }} · {{ room.meal_plan|replace('_',' ')|title }}</div><h3>{{ room.name }}</h3><p>{{ room.description }}</p><small>Up to {{ room.capacity_adults }} adults · {{ room.guarantee_type|replace('_',' ')|title }} · {% if room.refundable %}Free cancellation until {{ room.cancellation_policy.get("free_cancellation_hours",24) if room.cancellation_policy else 24 }}h before check-in{% else %}Non-refundable{% endif %}</small></div><div class="room-price"><strong>{{ room.currency }} {{ '%.2f'|format(room.base_price_minor/100) }}</strong><span>per night</span>{% if check_in and check_out %}<a class="button button-small" href="{{ booking_origin }}/book?room_type_id={{ room.id }}&rate_plan_id={{ room.rate_plan_id }}&check_in={{ check_in }}&check_out={{ check_out }}">Reserve</a>{% endif %}</div></article>
-{% else %}<div class="empty">Choose dates to see live sellable room rates.</div>{% endfor %}
-</div></section>
+
+<section class="shell gallery">
+  {% for image in images[:4] %}
+    <img src="{{ image.path }}" alt="{{ image.alt_text or property.name }}">
+  {% else %}
+    <div class="gallery-placeholder">iRoya</div>
+  {% endfor %}
+</section>
+
+<section class="shell property-layout property-public-layout">
+  <article class="property-about">
+    <div class="eyebrow">About the hotel</div>
+    <h2>{{ property.name }}</h2>
+    <p>{{ property.description }}</p>
+    <p class="muted">Check-in {{ property.check_in_time }} · Check-out {{ property.check_out_time }}</p>
+    {% if amenities %}
+      <div class="public-amenities">
+        {% for amenity in amenities %}<span>{{ amenity.name }}</span>{% endfor %}
+      </div>
+    {% endif %}
+  </article>
+
+  <aside class="card property-booking-card">
+    <div>
+      <div class="eyebrow">Your stay</div>
+      <h3>{% if check_in and check_out %}Change dates{% else %}Choose dates{% endif %}</h3>
+      {% if check_in and check_out %}
+        <p class="muted">{{ check_in }} → {{ check_out }} · {{ guests }} guest{% if guests != 1 %}s{% endif %}</p>
+      {% endif %}
+    </div>
+    <form action="/hotels/{{ property.slug }}" method="get">
+      <div class="property-stay-fields">
+        <label>Check in<input type="date" name="check_in" value="{{ check_in or '' }}" required></label>
+        <label>Check out<input type="date" name="check_out" value="{{ check_out or '' }}" required></label>
+        <label>Guests<input type="number" name="guests" min="1" max="20" value="{{ guests }}" required></label>
+      </div>
+      <button class="button" type="submit">{% if check_in and check_out %}Update availability{% else %}See available rooms{% endif %}</button>
+    </form>
+  </aside>
+</section>
+
+<section class="shell property-room-section">
+  <div class="section-heading">
+    <div>
+      <div class="eyebrow">{% if check_in and check_out %}Available now{% else %}Stay options{% endif %}</div>
+      <h2>{% if check_in and check_out %}Choose your room{% else %}Rooms & rates{% endif %}</h2>
+      {% if check_in and check_out %}<p class="muted">Only rooms available for your selected dates are shown.</p>{% endif %}
+    </div>
+  </div>
+
+  <div class="room-list">
+    {% for room in rooms %}
+      <article class="room-card room-card-with-media public-room-card">
+        {% if room.cover_image %}
+          <img class="room-card-image" src="{{ room.cover_image }}" alt="{{ room.cover_alt or room.name }}">
+        {% endif %}
+        <div class="public-room-main">
+          <div class="muted">{{ room.rate_plan_name }}{% if room.meal_plan != "room_only" %} · {{ room.meal_plan|replace('_',' ')|title }}{% endif %}</div>
+          <h3>{{ room.name }}</h3>
+          {% if room.description %}<p>{{ room.description }}</p>{% endif %}
+          <div class="room-term-list">
+            <span>Up to {{ room.capacity_adults }} adult{% if room.capacity_adults != 1 %}s{% endif %}</span>
+            <span>
+              {% if room.guarantee_type == "pay_at_property" %}Pay at hotel
+              {% elif room.guarantee_type == "hotel_approval" %}Hotel approval
+              {% elif room.guarantee_type == "deposit" %}Deposit required
+              {% else %}Pay online{% endif %}
+            </span>
+            <span>{% if room.refundable %}Free cancellation available{% else %}Non-refundable{% endif %}</span>
+          </div>
+        </div>
+        <div class="room-price public-room-action">
+          <small class="muted">From</small>
+          <strong>{{ room.currency }} {{ '%.2f'|format(room.base_price_minor/100) }}</strong>
+          <span>per night</span>
+          {% if check_in and check_out %}
+            <a class="button button-small" href="{{ booking_origin }}/book?room_type_id={{ room.id }}&rate_plan_id={{ room.rate_plan_id }}&check_in={{ check_in }}&check_out={{ check_out }}">Review booking</a>
+          {% else %}
+            <small class="muted">Choose dates above to book</small>
+          {% endif %}
+        </div>
+      </article>
+    {% else %}
+      <div class="card operations-empty property-room-empty">
+        {% if check_in and check_out %}
+          <strong>No rooms are available for these dates.</strong>
+          <span>Try different dates or reduce the number of guests.</span>
+        {% else %}
+          <strong>No room rates are available yet.</strong>
+          <span>This hotel has not published a sellable room rate.</span>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+</section>
+
 <section class="shell property-reviews" aria-labelledby="guest-reviews-heading">
   <div class="section-heading">
     <div><div class="eyebrow">Verified stays</div><h2 id="guest-reviews-heading">Guest reviews</h2></div>
