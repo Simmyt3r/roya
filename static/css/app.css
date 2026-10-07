@@ -1138,3 +1138,34 @@ html{-webkit-text-size-adjust:100%}body{min-width:0;overflow-x:hidden}button,a,i
   .hotel-ops-stay-status{justify-items:start;text-align:left}
   .hotel-ops-stay-status .front-desk-actions{justify-content:flex-start}
 }
+
+
+/* Front-desk reservation lookup */
+.front-desk-search-form{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:end;margin-bottom:14px}
+.front-desk-search-form label{min-width:0}
+.front-desk-search-summary{display:flex;gap:8px;align-items:center;margin:4px 0 12px}
+.front-desk-result-list{display:grid;gap:10px}
+.front-desk-result{display:grid;gap:14px}
+.front-desk-result-main{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
+.front-desk-result-main h3{margin:.15rem 0 .25rem}
+.front-desk-result-main p{margin:0;overflow-wrap:anywhere}
+.front-desk-result-state{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+.front-desk-result-meta{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;padding-top:12px;border-top:1px solid var(--line)}
+.front-desk-result-meta span{display:grid;gap:2px;font-size:.78rem;overflow-wrap:anywhere}
+.front-desk-result-meta strong{font-size:.67rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.front-desk-result-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-height:44px}
+.front-desk-decision{display:grid;gap:4px}
+.front-desk-decision .form-message{margin:0;text-align:right}
+@media(max-width:760px){
+  .front-desk-search-form{grid-template-columns:1fr}
+  .front-desk-search-form .button{width:100%}
+  .front-desk-result-main{display:grid;gap:10px}
+  .front-desk-result-state{justify-content:flex-start}
+  .front-desk-result-meta{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .front-desk-result-actions{justify-content:flex-start}
+  .front-desk-decision{width:100%}
+  .front-desk-decision .form-message{text-align:left}
+}
+@media(max-width:480px){
+  .front-desk-result-meta{grid-template-columns:1fr}
+}
