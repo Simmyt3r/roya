@@ -280,7 +280,8 @@
     </article>
 
     <article class="card reservation-quick-contact">
-      <div class="eyebrow">Quick contact</div>
+      <div class="eyebrow">Guest tools</div>
+      <a href="/partner/reservations/{{ r.id }}/confirmation">Guest confirmation</a>
       {% if r.guest_email %}<a href="mailto:{{ r.guest_email }}">Email guest</a>{% endif %}
       {% if r.guest_phone %}<a href="tel:{{ r.guest_phone }}">Call guest</a>{% endif %}
     </article>
