@@ -542,6 +542,32 @@ class ReservationService:
                 (reservation_id,),
             ).fetchall())
 
+            readiness_rows=list(conn.execute(
+                """select ri.room_type_id,ri.quantity,rt.name room_type_name,rt.total_inventory,
+                          (select count(*) from physical_rooms pr
+                             where pr.room_type_id=ri.room_type_id)::bigint configured_rooms,
+                          (select count(*) from physical_rooms pr
+                             where pr.room_type_id=ri.room_type_id
+                               and pr.status='active'
+                               and pr.housekeeping_status='ready'
+                               and pr.current_reservation_id is null)::bigint ready_rooms
+                   from reservation_items ri
+                   join room_types rt on rt.id=ri.room_type_id
+                   where ri.reservation_id=%s
+                   order by ri.id""",
+                (reservation_id,),
+            ).fetchall())
+
+        readiness_items=[dict(row) for row in readiness_rows]
+        readiness_tracked=bool(readiness_items) and all(
+            int(item["configured_rooms"] or 0)>=int(item["total_inventory"] or 0)
+            for item in readiness_items
+        )
+        readiness_ready=(not readiness_tracked) or all(
+            int(item["ready_rooms"] or 0)>=int(item["quantity"] or 0)
+            for item in readiness_items
+        )
+
         return {
             "reservation":dict(reservation),
             "items":[dict(row) for row in items],
@@ -549,6 +575,11 @@ class ReservationService:
             "refunds":[dict(row) for row in refunds],
             "audit":[dict(row) for row in audit],
             "assigned_rooms":[dict(row) for row in assigned_rooms],
+            "room_readiness":{
+                "tracked":readiness_tracked,
+                "ready":readiness_ready,
+                "items":readiness_items,
+            },
         }
 
 
