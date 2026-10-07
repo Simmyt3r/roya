@@ -1,6 +1,14 @@
 {% extends "base.html" %}
 {% macro reservation_actions(reservation) -%}
-  {% if reservation.member_role in ["owner","manager","reservations"] and reservation.status == "confirmed" %}
+  {% if reservation.member_role in ["owner","manager","reservations"] and reservation.status == "pending_confirmation" %}
+    <div class="front-desk-decision" data-reservation-approval="{{ reservation.id }}">
+      <div class="approval-actions front-desk-actions">
+        <button class="button button-small" type="button" data-reservation-decision="approve">Approve</button>
+        <button class="button button-small button-secondary" type="button" data-reservation-decision="reject">Reject</button>
+      </div>
+      <p class="form-message"></p>
+    </div>
+  {% elif reservation.member_role in ["owner","manager","reservations"] and reservation.status == "confirmed" %}
     <div class="approval-actions front-desk-actions">
       <button class="button button-small" type="button" data-reservation-status="checked_in" data-reservation-id="{{ reservation.id }}">Check in</button>
       <button class="button button-small button-secondary" type="button" data-reservation-status="no_show" data-reservation-id="{{ reservation.id }}">No-show</button>
@@ -58,6 +66,7 @@
     </div>
     <div class="partner-head-actions">
       <form method="get" action="/partner#operations-today" aria-label="Operations filters">
+        {% if front_desk_query %}<input type="hidden" name="front_desk_q" value="{{ front_desk_query }}">{% endif %}
         <label class="muted" for="operations-property">Property</label>
         <select id="operations-property" name="property_id" onchange="this.form.submit()">
           <option value="">All properties</option>
@@ -218,6 +227,69 @@
   </div>
 </section>
 
+<section class="shell partner-section front-desk-search" id="front-desk-search">
+  <div class="section-heading">
+    <div>
+      <div class="eyebrow">Front desk</div>
+      <h2>Find a guest or reservation</h2>
+      <p class="muted">Search by reservation reference, guest name, email, phone, property or room type.{% if hotel_operations.selected_property %} Results are limited to {{ hotel_operations.selected_property.name }}.{% endif %}</p>
+    </div>
+  </div>
+
+  <form class="card front-desk-search-form" method="get" action="/partner#front-desk-search" role="search">
+    <input type="hidden" name="days" value="{{ hotel_operations.horizon_days }}">
+    {% if hotel_operations.selected_property_id %}<input type="hidden" name="property_id" value="{{ hotel_operations.selected_property_id }}">{% endif %}
+    <label for="front-desk-query">Guest or reservation
+      <input id="front-desk-query" name="front_desk_q" type="search" minlength="2" maxlength="120" value="{{ front_desk_query }}" placeholder="e.g. RYA-123, Ada, 080…, guest@email.com" autocomplete="off">
+    </label>
+    <button class="button" type="submit">Search</button>
+    {% if front_desk_query %}<a class="button button-secondary" href="/partner?days={{ hotel_operations.horizon_days }}{% if hotel_operations.selected_property_id %}&property_id={{ hotel_operations.selected_property_id }}{% endif %}#front-desk-search">Clear</a>{% endif %}
+  </form>
+
+  {% if front_desk_query %}
+    <div class="front-desk-search-summary">
+      <strong>{{ front_desk_results|length }} result{% if front_desk_results|length != 1 %}s{% endif %}</strong>
+      <span class="muted">for “{{ front_desk_query }}”</span>
+    </div>
+    <div class="front-desk-result-list">
+      {% for r in front_desk_results %}
+        <article class="card front-desk-result">
+          <div class="front-desk-result-main">
+            <div>
+              <div class="eyebrow">{{ r.reference }}</div>
+              <h3>{{ r.guest_name }}</h3>
+              <p class="muted">{{ r.guest_email }}{% if r.guest_phone %} · {{ r.guest_phone }}{% endif %}</p>
+            </div>
+            <div class="front-desk-result-state">
+              <span class="status-pill">{{ r.status|replace('_',' ')|title }}</span>
+              <span class="status-pill status-muted">{{ r.payment_status|replace('_',' ')|title }}</span>
+            </div>
+          </div>
+          <div class="front-desk-result-meta">
+            <span><strong>Property</strong>{{ r.property_name }}</span>
+            <span><strong>Room</strong>{{ r.room_type_names or 'Room not listed' }}</span>
+            <span><strong>Stay</strong>{{ r.check_in }} → {{ r.check_out }}</span>
+            <span><strong>Total</strong>{{ r.currency }} {{ '%.2f'|format(r.total_price_minor/100) }}</span>
+          </div>
+          <div class="front-desk-result-actions">
+            {{ reservation_actions(r) }}
+            {% if r.member_role not in ["owner","manager","reservations"] %}
+              <span class="muted">Read-only access</span>
+            {% elif r.status not in ["pending_confirmation","confirmed","checked_in"] %}
+              <span class="muted">No front-desk action is available for this reservation state.</span>
+            {% endif %}
+          </div>
+        </article>
+      {% else %}
+        <div class="card operations-empty">
+          <strong>No matching reservation found.</strong>
+          <span>Check the spelling, reference, phone number, email address, property or room name.</span>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+</section>
+
 <section class="shell partner-section" id="properties">
   <div class="section-heading">
     <div><div class="eyebrow">Properties</div><h2>Your hotels</h2></div>
@@ -371,21 +443,17 @@
 
     <div class="approval-list">
       {% for r in pending_reservations %}
-        <div class="approval-row" data-reservation-approval="{{ r.id }}">
+        <div class="approval-row">
           <div>
             <strong>{{ r.reference }} · {{ r.guest_name }}</strong>
             <div class="muted">{{ r.property_name }} · {{ r.check_in }} to {{ r.check_out }} · {{ r.currency }} {{ '%.2f'|format(r.total_price_minor / 100) }}</div>
             {% if r.expires_at %}<div class="muted">Approval hold expires {{ r.expires_at }}</div>{% endif %}
           </div>
           {% if r.member_role in ["owner","manager","reservations"] %}
-          <div class="approval-actions">
-            <button class="button button-small" type="button" data-reservation-decision="approve">Approve</button>
-            <button class="button button-small button-secondary" type="button" data-reservation-decision="reject">Reject</button>
-          </div>
+            {{ reservation_actions(r) }}
           {% else %}
-          <span class="muted">Read-only access</span>
+            <span class="muted">Read-only access</span>
           {% endif %}
-          <p class="form-message"></p>
         </div>
       {% else %}
         <p class="muted">No hotel-approval reservations are waiting right now.</p>
