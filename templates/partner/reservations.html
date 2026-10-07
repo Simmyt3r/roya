@@ -15,7 +15,12 @@
     <h1>Reservations</h1>
     <p>Find the stay you need, see its state, and take the next action.</p>
   </div>
-  <a class="button button-secondary" href="/partner">Back to today</a>
+  <div class="partner-head-actions">
+    {% if workspace.can_create|default(false) %}
+      <a class="button" href="/partner/reservations/new{% if workspace.selected_property_id %}?property_id={{ workspace.selected_property_id }}{% endif %}">New reservation</a>
+    {% endif %}
+    <a class="button button-secondary" href="/partner">Back to today</a>
+  </div>
 </section>
 
 <section class="shell reservation-workspace-toolbar">
