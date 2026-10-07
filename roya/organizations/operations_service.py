@@ -186,7 +186,7 @@ def hotel_operations_snapshot(user_id,horizon_days=DEFAULT_HORIZON_DAYS,property
         ).fetchone() or {})
 
         arrivals=[dict(row) for row in conn.execute(
-            """select r.id,r.reference,r.guest_name,r.guest_email,r.check_in,r.check_out,r.status,
+            """select r.id,r.organization_id,r.reference,r.guest_name,r.guest_email,r.check_in,r.check_out,r.status,
                       r.payment_status,r.guarantee_type,r.source_channel,p.name property_name
                from reservations r
                join properties p on p.id=r.property_id
@@ -200,7 +200,7 @@ def hotel_operations_snapshot(user_id,horizon_days=DEFAULT_HORIZON_DAYS,property
         ).fetchall()]
 
         departures=[dict(row) for row in conn.execute(
-            """select r.id,r.reference,r.guest_name,r.guest_email,r.check_in,r.check_out,r.status,
+            """select r.id,r.organization_id,r.reference,r.guest_name,r.guest_email,r.check_in,r.check_out,r.status,
                       r.payment_status,r.source_channel,p.name property_name
                from reservations r
                join properties p on p.id=r.property_id
@@ -214,7 +214,7 @@ def hotel_operations_snapshot(user_id,horizon_days=DEFAULT_HORIZON_DAYS,property
         ).fetchall()]
 
         overdue=[dict(row) for row in conn.execute(
-            """select r.id,r.reference,r.guest_name,r.check_in,r.check_out,r.status,
+            """select r.id,r.organization_id,r.reference,r.guest_name,r.check_in,r.check_out,r.status,
                       r.payment_status,p.name property_name,
                       case
                         when r.status='confirmed' and r.check_in<current_date then 'arrival'
@@ -311,6 +311,10 @@ def hotel_operations_snapshot(user_id,horizon_days=DEFAULT_HORIZON_DAYS,property
         "overdue_arrivals","overdue_departures","active_next_24h","refund_attention",
     ):
         summary[key]=int(summary.get(key) or 0)
+
+    role_by_organization={str(row["id"]):row["role"] for row in memberships}
+    for stay in arrivals+departures+overdue:
+        stay["member_role"]=role_by_organization.get(str(stay["organization_id"]))
 
     tasks=scope_action_links(
         build_daily_actions(summary,low_inventory,channel_errors),
