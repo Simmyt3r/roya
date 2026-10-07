@@ -45,6 +45,9 @@ declare
   v_net_paid bigint;
   v_balance bigint;
   v_payment_status text;
+  v_old_check_in date;
+  v_old_check_out date;
+  v_old_total bigint;
 begin
   if p_actor_user_id is null then raise exception 'FORBIDDEN'; end if;
   if p_check_in<current_date then raise exception 'PAST_CHECK_IN'; end if;
@@ -65,6 +68,10 @@ begin
   for update;
 
   if not found then raise exception 'FORBIDDEN'; end if;
+
+  v_old_check_in:=v_r.check_in;
+  v_old_check_out:=v_r.check_out;
+  v_old_total:=v_r.total_price_minor;
 
   select om.role
   into v_role
@@ -283,8 +290,9 @@ begin
     p_actor_user_id,v_r.organization_id,v_r.property_id,
     'reservation.front_desk_amended','reservation',v_r.id::text,
     jsonb_build_object(
-      'check_in',v_r.check_in,
-      'check_out',v_r.check_out
+      'check_in',v_old_check_in,
+      'check_out',v_old_check_out,
+      'total_price_minor',v_old_total
     ),
     jsonb_build_object(
       'check_in',p_check_in,
