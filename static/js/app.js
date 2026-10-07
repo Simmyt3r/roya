@@ -50,6 +50,36 @@
       },
       {enableHighAccuracy:false,timeout:8000,maximumAge:300000}
     );
+    const statusButton=card.querySelector('[data-channel-status]');
+    if(statusButton){
+      statusButton.addEventListener('click',async function(){
+        const target=statusButton.dataset.status;
+        const verb=target==='disconnected'?'pause':'resume';
+        if(!window.confirm('Are you sure you want to '+verb+' automatic sync for this channel?'))return;
+        statusButton.disabled=true;
+        if(message)message.textContent=target==='disconnected'?'Pausing automatic sync…':'Resuming automatic sync…';
+        try{
+          const response=await fetch('/api/v1/distribution/connections/'+statusButton.dataset.connection+'/status',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({status:target})
+          });
+          const data=await response.json().catch(function(){return {};});
+          if(!response.ok){
+            if(message)message.textContent=(data.error&&data.error.message)||'Channel status could not be changed.';
+            return;
+          }
+          if(message)message.textContent=target==='disconnected'?
+            'Automatic sync paused. Manual sync can resume it.':
+            'Automatic sync resumed.';
+          setTimeout(function(){window.location.reload();},600);
+        }catch(_error){
+          if(message)message.textContent='Channel status request could not complete.';
+        }finally{
+          statusButton.disabled=false;
+        }
+      });
+    }
   });
 })();
 
