@@ -2316,3 +2316,10 @@ html{-webkit-text-size-adjust:100%}body{min-width:0;overflow-x:hidden}button,a,i
   .reservation-manual-payment-fields{grid-template-columns:1fr}
   .reservation-manual-payment .button{width:100%}
 }
+
+
+.reservation-manual-refund{
+  border-color:#eadfd7;
+  background:#fffaf6
+}
+.reservation-manual-refund .reservation-manual-payment-head>span{color:#8b5a20}
