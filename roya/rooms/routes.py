@@ -41,6 +41,15 @@ class RoomTypeUpdate(BaseModel):
     status: Literal["active","inactive"] = "active"
 
 
+class PhysicalRoomBatchCreate(BaseModel):
+    room_numbers: list[str] = Field(min_length=1,max_length=100)
+    floor: str|None = Field(default=None,max_length=40)
+
+
+class PhysicalRoomReadinessUpdate(BaseModel):
+    status: Literal["dirty","cleaning","ready","out_of_service"]
+
+
 @bp.post("/api/v1/room-types")
 @login_required
 def create_room_type():
@@ -103,6 +112,18 @@ def update_room_type(room_type_id):
                     {"minimum_total_inventory":int(committed or 0)},
                 )
 
+            configured_rooms=conn.execute(
+                "select count(*) configured from physical_rooms where room_type_id=%s",
+                (str(room_type_id),),
+            ).fetchone()["configured"]
+            if body.total_inventory<int(configured_rooms or 0):
+                raise RoyaError(
+                    "INVENTORY_BELOW_PHYSICAL_ROOMS",
+                    "Room inventory cannot be reduced below configured room numbers.",
+                    409,
+                    {"minimum_total_inventory":int(configured_rooms or 0)},
+                )
+
             row=conn.execute(
                 """update room_types set name=%s,description=%s,capacity_adults=%s,capacity_children=%s,
                           base_occupancy=%s,total_inventory=%s,bed_configuration=%s,status=%s,updated_at=now()
@@ -112,6 +133,210 @@ def update_room_type(room_type_id):
             ).fetchone()
     return ok(row)
 
+
+
+def _physical_room_access(conn,room_type_id,user_id):
+    return conn.execute(
+        """select rt.id room_type_id,rt.property_id,rt.total_inventory,p.organization_id,om.role
+           from room_types rt
+           join properties p on p.id=rt.property_id
+           join organization_members om on om.organization_id=p.organization_id
+           where rt.id=%s and om.user_id=%s and om.status='active'""",
+        (str(room_type_id),user_id),
+    ).fetchone()
+
+
+@bp.post("/api/v1/room-types/<uuid:room_type_id>/physical-rooms")
+@login_required
+def create_physical_rooms(room_type_id):
+    try:
+        body=PhysicalRoomBatchCreate.model_validate(request.get_json(silent=True) or {})
+    except ValidationError as exc:
+        raise RoyaError("VALIDATION_ERROR","Invalid room numbers.",422,{"errors":exc.errors()}) from exc
+
+    numbers=[]
+    for value in body.room_numbers:
+        number=(value or "").strip()
+        if not number or len(number)>30:
+            raise RoyaError("VALIDATION_ERROR","Each room number must be between 1 and 30 characters.",422)
+        if number not in numbers:
+            numbers.append(number)
+    if not numbers:
+        raise RoyaError("VALIDATION_ERROR","Add at least one room number.",422)
+
+    user=current_identity(required=True)
+    with db_connection() as conn:
+        with conn.transaction():
+            access=_physical_room_access(conn,room_type_id,user.user_id)
+            if not access or access["role"] not in {"owner","manager","reservations"}:
+                raise RoyaError("FORBIDDEN","You cannot manage room readiness for this hotel.",403)
+
+            existing=list(conn.execute(
+                """select room_number from physical_rooms
+                   where room_type_id=%s and room_number=any(%s::text[])""",
+                (str(room_type_id),numbers),
+            ).fetchall())
+            if existing:
+                raise RoyaError(
+                    "ROOM_NUMBER_EXISTS",
+                    "One or more room numbers already exist for this room type.",
+                    409,
+                    {"room_numbers":[row["room_number"] for row in existing]},
+                )
+
+            current_count=int(conn.execute(
+                "select count(*) total from physical_rooms where room_type_id=%s",
+                (str(room_type_id),),
+            ).fetchone()["total"] or 0)
+            if current_count+len(numbers)>int(access["total_inventory"]):
+                raise RoyaError(
+                    "PHYSICAL_ROOM_LIMIT",
+                    "Configured room numbers cannot exceed this room type's total inventory.",
+                    409,
+                    {
+                        "total_inventory":int(access["total_inventory"]),
+                        "configured":current_count,
+                        "requested":len(numbers),
+                    },
+                )
+
+            created=[]
+            for number in numbers:
+                row=conn.execute(
+                    """insert into physical_rooms(
+                         room_type_id,room_number,floor,status,housekeeping_status,
+                         housekeeping_updated_at,housekeeping_updated_by
+                       ) values(%s,%s,%s,'active','ready',now(),%s)
+                       returning id,room_type_id,room_number,floor,status,housekeeping_status,
+                                 current_reservation_id,housekeeping_updated_at""",
+                    (str(room_type_id),number,(body.floor or "").strip() or None,user.user_id),
+                ).fetchone()
+                created.append(dict(row))
+
+            conn.execute(
+                """insert into audit_logs(
+                     actor_user_id,organization_id,property_id,action,entity_type,entity_id,after_json
+                   ) values(%s,%s,%s,'physical_rooms.created','room_type',%s,%s::jsonb)""",
+                (
+                    user.user_id,access["organization_id"],access["property_id"],str(room_type_id),
+                    json.dumps({"room_numbers":numbers,"floor":(body.floor or "").strip() or None}),
+                ),
+            )
+    return ok(created,201)
+
+
+@bp.put("/api/v1/physical-rooms/<uuid:physical_room_id>/readiness")
+@login_required
+def update_physical_room_readiness(physical_room_id):
+    try:
+        body=PhysicalRoomReadinessUpdate.model_validate(request.get_json(silent=True) or {})
+    except ValidationError as exc:
+        raise RoyaError("VALIDATION_ERROR","Invalid room readiness status.",422,{"errors":exc.errors()}) from exc
+
+    user=current_identity(required=True)
+    with db_connection() as conn:
+        with conn.transaction():
+            room=conn.execute(
+                """select pr.*,rt.property_id,p.organization_id,om.role
+                   from physical_rooms pr
+                   join room_types rt on rt.id=pr.room_type_id
+                   join properties p on p.id=rt.property_id
+                   join organization_members om on om.organization_id=p.organization_id
+                   where pr.id=%s and om.user_id=%s and om.status='active'
+                   for update of pr""",
+                (str(physical_room_id),user.user_id),
+            ).fetchone()
+            if not room:
+                raise RoyaError("ROOM_NOT_FOUND","Room not found.",404)
+            if room["role"] not in {"owner","manager","reservations"}:
+                raise RoyaError("FORBIDDEN","Your hotel role cannot update room readiness.",403)
+            if room["status"]=="inactive":
+                raise RoyaError("ROOM_INACTIVE","Inactive rooms cannot be updated.",409)
+            if room["current_reservation_id"]:
+                raise RoyaError("ROOM_OCCUPIED","An occupied room cannot change housekeeping status.",409)
+
+            before={
+                "status":room["status"],
+                "housekeeping_status":room["housekeeping_status"],
+            }
+            if body.status=="out_of_service":
+                row=conn.execute(
+                    """update physical_rooms
+                       set status='out_of_service',housekeeping_updated_at=now(),housekeeping_updated_by=%s
+                       where id=%s
+                       returning id,room_type_id,room_number,floor,status,housekeeping_status,
+                                 current_reservation_id,housekeeping_updated_at""",
+                    (user.user_id,str(physical_room_id)),
+                ).fetchone()
+            else:
+                row=conn.execute(
+                    """update physical_rooms
+                       set status='active',housekeeping_status=%s,
+                           housekeeping_updated_at=now(),housekeeping_updated_by=%s
+                       where id=%s
+                       returning id,room_type_id,room_number,floor,status,housekeeping_status,
+                                 current_reservation_id,housekeeping_updated_at""",
+                    (body.status,user.user_id,str(physical_room_id)),
+                ).fetchone()
+
+            conn.execute(
+                """insert into audit_logs(
+                     actor_user_id,organization_id,property_id,action,entity_type,entity_id,before_json,after_json
+                   ) values(%s,%s,%s,'physical_room.readiness_updated','physical_room',%s,%s::jsonb,%s::jsonb)""",
+                (
+                    user.user_id,room["organization_id"],room["property_id"],str(physical_room_id),
+                    json.dumps(before,default=str),
+                    json.dumps({
+                        "status":row["status"],
+                        "housekeeping_status":row["housekeeping_status"],
+                    },default=str),
+                ),
+            )
+
+    result=dict(row)
+    result["readiness_status"]="out_of_service" if row["status"]=="out_of_service" else row["housekeeping_status"]
+    return ok(result)
+
+
+@bp.delete("/api/v1/physical-rooms/<uuid:physical_room_id>")
+@login_required
+def delete_physical_room(physical_room_id):
+    user=current_identity(required=True)
+    with db_connection() as conn:
+        with conn.transaction():
+            room=conn.execute(
+                """select pr.*,rt.property_id,p.organization_id,om.role
+                   from physical_rooms pr
+                   join room_types rt on rt.id=pr.room_type_id
+                   join properties p on p.id=rt.property_id
+                   join organization_members om on om.organization_id=p.organization_id
+                   where pr.id=%s and om.user_id=%s and om.status='active'
+                   for update of pr""",
+                (str(physical_room_id),user.user_id),
+            ).fetchone()
+            if not room:
+                raise RoyaError("ROOM_NOT_FOUND","Room not found.",404)
+            if room["role"] not in {"owner","manager","reservations"}:
+                raise RoyaError("FORBIDDEN","Your hotel role cannot remove room numbers.",403)
+            if room["current_reservation_id"]:
+                raise RoyaError("ROOM_OCCUPIED","An occupied room cannot be removed.",409)
+
+            conn.execute("delete from physical_rooms where id=%s",(str(physical_room_id),))
+            conn.execute(
+                """insert into audit_logs(
+                     actor_user_id,organization_id,property_id,action,entity_type,entity_id,before_json
+                   ) values(%s,%s,%s,'physical_room.deleted','physical_room',%s,%s::jsonb)""",
+                (
+                    user.user_id,room["organization_id"],room["property_id"],str(physical_room_id),
+                    json.dumps({
+                        "room_number":room["room_number"],
+                        "floor":room["floor"],
+                        "status":room["status"],
+                        "housekeeping_status":room["housekeeping_status"],
+                    },default=str),
+                ),
+            )
+    return ok({"deleted":True,"room_id":str(physical_room_id)})
 
 
 def _room_media_access(conn,room_type_id,user_id):
