@@ -37,6 +37,158 @@
   </article>
 </section>
 
+<section class="shell partner-section hotel-ops-section" id="operations-today">
+  <div class="section-heading">
+    <div>
+      <div class="eyebrow">Today</div>
+      <h2>Hotel operations</h2>
+      <p class="muted">A live working view of arrivals, departures, occupancy pressure and actions that need attention.</p>
+    </div>
+    <a class="button button-secondary" href="/partner/analytics">Open analytics</a>
+  </div>
+
+  <div class="hotel-ops-kpis">
+    <article class="card hotel-ops-kpi">
+      <span>Arrivals today</span>
+      <strong>{{ hotel_operations.summary.arrivals_today or 0 }}</strong>
+      <small>confirmed stays due in</small>
+    </article>
+    <article class="card hotel-ops-kpi">
+      <span>Departures today</span>
+      <strong>{{ hotel_operations.summary.departures_today or 0 }}</strong>
+      <small>checked-in stays due out</small>
+    </article>
+    <article class="card hotel-ops-kpi">
+      <span>In house</span>
+      <strong>{{ hotel_operations.summary.in_house or 0 }}</strong>
+      <small>currently checked in</small>
+    </article>
+    <article class="card hotel-ops-kpi">
+      <span>Next 24 hours</span>
+      <strong>{{ hotel_operations.summary.active_next_24h or 0 }}</strong>
+      <small>active stays touching today/tomorrow</small>
+    </article>
+  </div>
+
+  <div class="hotel-ops-layout">
+    <article class="card hotel-ops-actions">
+      <div class="hotel-ops-card-head">
+        <div><div class="eyebrow">Priority queue</div><h3>Daily actions</h3></div>
+        <span class="status-pill">{{ hotel_operations.tasks|length }} item{% if hotel_operations.tasks|length != 1 %}s{% endif %}</span>
+      </div>
+      <div class="hotel-ops-task-list">
+        {% for task in hotel_operations.tasks %}
+          <a class="hotel-ops-task is-{{ task.priority }}" href="{{ task.href }}">
+            <span class="hotel-ops-task-priority">{{ task.priority|title }}</span>
+            <span><strong>{{ task.title }}</strong><small>{{ task.detail }}</small></span>
+            <span aria-hidden="true">→</span>
+          </a>
+        {% else %}
+          <div class="operations-empty">
+            <strong>No urgent hotel actions right now.</strong>
+            <span>Inventory, stays and distribution signals are clear for the current scan.</span>
+          </div>
+        {% endfor %}
+      </div>
+    </article>
+
+    <article class="card hotel-ops-forecast">
+      <div class="hotel-ops-card-head">
+        <div><div class="eyebrow">Forward look</div><h3>{{ hotel_operations.horizon_days }}-day occupancy</h3></div>
+        <span class="muted">Sold / total rooms</span>
+      </div>
+      <div class="hotel-ops-forecast-list">
+        {% for day in hotel_operations.forecast %}
+          <div class="hotel-ops-forecast-row">
+            <time>{{ day.date }}</time>
+            <div class="hotel-ops-bar" aria-label="{{ day.occupancy_percent }}% occupancy">
+              <span style="width: {{ [day.occupancy_percent, 100]|min }}%"></span>
+            </div>
+            <strong>{{ day.occupancy_percent }}%</strong>
+            <small>{{ day.sellable_inventory }} sellable</small>
+          </div>
+        {% else %}
+          <div class="operations-empty"><strong>No future inventory loaded.</strong><span>Add room inventory to unlock the occupancy outlook.</span></div>
+        {% endfor %}
+      </div>
+    </article>
+  </div>
+
+  <div class="hotel-ops-stay-grid">
+    <article class="card" id="operations-arrivals">
+      <div class="hotel-ops-card-head"><div><div class="eyebrow">Front desk</div><h3>Arrivals today</h3></div></div>
+      <div class="hotel-ops-stay-list">
+        {% for stay in hotel_operations.arrivals %}
+          <div class="hotel-ops-stay-row">
+            <span><strong>{{ stay.guest_name }}</strong><small>{{ stay.reference }} · {{ stay.property_name }}</small></span>
+            <span><strong>{{ stay.payment_status|replace('_',' ')|title }}</strong><small>{{ 'Direct Booking' if stay.source_channel == 'direct_booking' else 'Roya Marketplace' }}</small></span>
+          </div>
+        {% else %}
+          <p class="muted">No confirmed arrivals are due today.</p>
+        {% endfor %}
+      </div>
+    </article>
+
+    <article class="card" id="operations-departures">
+      <div class="hotel-ops-card-head"><div><div class="eyebrow">Front desk</div><h3>Departures today</h3></div></div>
+      <div class="hotel-ops-stay-list">
+        {% for stay in hotel_operations.departures %}
+          <div class="hotel-ops-stay-row">
+            <span><strong>{{ stay.guest_name }}</strong><small>{{ stay.reference }} · {{ stay.property_name }}</small></span>
+            <span><strong>{{ stay.payment_status|replace('_',' ')|title }}</strong><small>Check-out {{ stay.check_out }}</small></span>
+          </div>
+        {% else %}
+          <p class="muted">No checked-in guests are due to leave today.</p>
+        {% endfor %}
+      </div>
+    </article>
+  </div>
+
+  {% if hotel_operations.overdue %}
+    <article class="card hotel-ops-overdue">
+      <div class="hotel-ops-card-head"><div><div class="eyebrow">Exception queue</div><h3>Overdue stay actions</h3></div><span class="status-pill status-error">{{ hotel_operations.overdue|length }} unresolved</span></div>
+      <div class="hotel-ops-stay-list">
+        {% for stay in hotel_operations.overdue %}
+          <div class="hotel-ops-stay-row">
+            <span><strong>{{ stay.reference }} · {{ stay.guest_name }}</strong><small>{{ stay.property_name }}</small></span>
+            <span><strong>{{ 'Arrival overdue' if stay.overdue_type == 'arrival' else 'Departure overdue' }}</strong><small>{{ stay.check_in }} → {{ stay.check_out }}</small></span>
+          </div>
+        {% endfor %}
+      </div>
+    </article>
+  {% endif %}
+
+  <div class="hotel-ops-layout">
+    <article class="card" id="operations-inventory">
+      <div class="hotel-ops-card-head"><div><div class="eyebrow">Inventory pressure</div><h3>Low inventory</h3></div><span class="muted">Next {{ hotel_operations.horizon_days }} days</span></div>
+      <div class="hotel-ops-stay-list">
+        {% for item in hotel_operations.low_inventory %}
+          <div class="hotel-ops-stay-row">
+            <span><strong>{{ item.room_type_name }}</strong><small>{{ item.property_name }} · {{ item.date }}</small></span>
+            <span><strong>{{ item.available }} left</strong><small>{{ item.sold_inventory }} sold · {{ item.held_inventory }} held</small></span>
+          </div>
+        {% else %}
+          <p class="muted">No room/date combination is at two sellable rooms or fewer.</p>
+        {% endfor %}
+      </div>
+    </article>
+
+    <article class="card">
+      <div class="hotel-ops-card-head"><div><div class="eyebrow">Last 30 days</div><h3>Booking source</h3></div></div>
+      <div class="hotel-ops-source-list">
+        {% for source in hotel_operations.source_mix %}
+          <div>
+            <span><strong>{{ 'Direct Booking' if source.source_channel == 'direct_booking' else ('Roya Marketplace' if source.source_channel == 'roya_marketplace' else source.source_channel|replace('_',' ')|title) }}</strong><small>{{ source.cancelled_count }} cancelled</small></span>
+            <span><strong>{{ source.booking_count }} bookings</strong><small>₦{{ '%.2f'|format(source.booking_value_minor/100) }}</small></span>
+          </div>
+        {% else %}
+          <p class="muted">No bookings have been created in the last 30 days.</p>
+        {% endfor %}
+      </div>
+    </article>
+  </div>
+</section>
+
 <section class="shell partner-section" id="properties">
   <div class="section-heading">
     <div><div class="eyebrow">Properties</div><h2>Your hotels</h2></div>
