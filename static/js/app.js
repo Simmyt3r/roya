@@ -1834,3 +1834,41 @@ document.querySelectorAll('[data-partner-refund]').forEach(function(form){
     }
   });
 });
+
+
+document.querySelectorAll('[data-partner-reservation-cancel]').forEach(function(button){
+  button.addEventListener('click',async function(){
+    const panel=button.closest('.front-desk-cancel-panel');
+    const message=panel&&panel.querySelector('.form-message');
+    const reason=window.prompt('Why is this front-desk reservation being cancelled?','Guest cancelled') ;
+    if(reason===null)return;
+    if(!button.dataset.idempotencyKey){
+      button.dataset.idempotencyKey=requestKey('frontdesk-cancel');
+    }
+    button.disabled=true;
+    if(message)message.textContent='Cancelling reservation…';
+    try{
+      const response=await fetch(
+        '/api/v1/partner/reservations/'+button.dataset.reservationId+'/cancel',
+        {
+          method:'POST',
+          headers:{
+            'Content-Type':'application/json',
+            'Idempotency-Key':button.dataset.idempotencyKey
+          },
+          body:JSON.stringify({reason:(reason||'').trim()||null})
+        }
+      );
+      const body=await response.json().catch(function(){return {};});
+      if(!response.ok){
+        if(message)message.textContent=(body.error&&body.error.message)||'Reservation could not be cancelled.';
+        return;
+      }
+      window.location.reload();
+    }catch(_error){
+      if(message)message.textContent='Reservation could not be cancelled. You can retry safely.';
+    }finally{
+      button.disabled=false;
+    }
+  });
+});
