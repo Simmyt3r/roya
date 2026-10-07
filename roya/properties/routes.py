@@ -248,6 +248,7 @@ def partner_rooms_page():
                     "selected_property":None,
                     "rooms":[],
                     "rooms_by_property":{},
+                    "physical_rooms_by_type":{},
                 },
             )
 
@@ -293,7 +294,30 @@ def partner_rooms_page():
                          order by ri.sort_order,ri.created_at limit 1) cover_image,
                       (select ri.alt_text from room_images ri
                          where ri.room_type_id=rt.id
-                         order by ri.sort_order,ri.created_at limit 1) cover_alt
+                         order by ri.sort_order,ri.created_at limit 1) cover_alt,
+                      (select count(*) from physical_rooms pr
+                         where pr.room_type_id=rt.id)::bigint physical_room_count,
+                      (select count(*) from physical_rooms pr
+                         where pr.room_type_id=rt.id
+                           and pr.status='active'
+                           and pr.housekeeping_status='ready'
+                           and pr.current_reservation_id is null)::bigint ready_room_count,
+                      (select count(*) from physical_rooms pr
+                         where pr.room_type_id=rt.id
+                           and pr.status='active'
+                           and pr.housekeeping_status='cleaning'
+                           and pr.current_reservation_id is null)::bigint cleaning_room_count,
+                      (select count(*) from physical_rooms pr
+                         where pr.room_type_id=rt.id
+                           and pr.status='active'
+                           and pr.housekeeping_status='dirty'
+                           and pr.current_reservation_id is null)::bigint dirty_room_count,
+                      (select count(*) from physical_rooms pr
+                         where pr.room_type_id=rt.id
+                           and pr.current_reservation_id is not null)::bigint occupied_room_count,
+                      (select count(*) from physical_rooms pr
+                         where pr.room_type_id=rt.id
+                           and pr.status='out_of_service')::bigint out_of_service_room_count
                    from room_types rt
                    join properties p on p.id=rt.property_id
                    join organization_members om on om.organization_id=p.organization_id
@@ -304,9 +328,29 @@ def partner_rooms_page():
             ).fetchall()
         ]
 
+        room_ids=[str(room["id"]) for room in rooms]
+        physical_rooms=[
+            dict(row) for row in conn.execute(
+                """select pr.id,pr.room_type_id,pr.room_number,pr.floor,pr.status,
+                          pr.housekeeping_status,pr.current_reservation_id,pr.assigned_at,
+                          pr.housekeeping_updated_at,r.reference current_reservation_reference
+                   from physical_rooms pr
+                   left join reservations r on r.id=pr.current_reservation_id
+                   where pr.room_type_id=any(%s::uuid[])
+                   order by pr.room_type_id,
+                            nullif(regexp_replace(pr.room_number,'\\D','','g'),'')::bigint nulls last,
+                            pr.room_number""",
+                (room_ids,),
+            ).fetchall()
+        ] if room_ids else []
+
     rooms_by_property={}
     for room in rooms:
         rooms_by_property.setdefault(str(room["property_id"]),[]).append(room)
+
+    physical_rooms_by_type={}
+    for physical_room in physical_rooms:
+        physical_rooms_by_type.setdefault(str(physical_room["room_type_id"]),[]).append(physical_room)
 
     return render_template(
         "partner/rooms.html",
@@ -316,6 +360,7 @@ def partner_rooms_page():
             "selected_property":selected_property,
             "rooms":rooms,
             "rooms_by_property":rooms_by_property,
+            "physical_rooms_by_type":physical_rooms_by_type,
         },
     )
 
