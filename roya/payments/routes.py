@@ -16,6 +16,12 @@ class PartnerPaymentRecord(BaseModel):
     note: str | None = Field(default=None,max_length=500)
 
 
+class PartnerRefundRecord(BaseModel):
+    amount_minor: int = Field(gt=0)
+    method: Literal["cash","pos_card","bank_transfer","other"]
+    reason: str | None = Field(default=None,max_length=1000)
+
+
 @bp.post("/api/v1/payments/initiate")
 @login_required
 def initiate_payment():
@@ -66,6 +72,32 @@ def record_partner_payment(reservation_id):
             body.amount_minor,
             body.method,
             body.note,
+            request.headers.get("Idempotency-Key",""),
+        ),
+        201,
+    )
+
+
+@bp.post("/api/v1/partner/reservations/<uuid:reservation_id>/refunds")
+@login_required
+def record_partner_refund(reservation_id):
+    try:
+        body=PartnerRefundRecord.model_validate(request.get_json(silent=True) or {})
+    except ValidationError as exc:
+        raise RoyaError(
+            "VALIDATION_ERROR",
+            "Invalid hotel refund details.",
+            422,
+            {"errors":exc.errors()},
+        ) from exc
+    identity=current_identity(required=True)
+    return ok(
+        service.record_partner_refund(
+            str(reservation_id),
+            identity.user_id,
+            body.amount_minor,
+            body.method,
+            body.reason,
             request.headers.get("Idempotency-Key",""),
         ),
         201,
