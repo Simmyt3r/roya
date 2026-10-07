@@ -345,6 +345,11 @@ def partner_dashboard():
     if not organizations:
         return redirect("/partner/start")
 
+    session["can_view_hotel_reports"]=any(
+        organization["role"] in {"owner","manager","finance"}
+        for organization in organizations
+    )
+
     hotel_operations = hotel_operations_snapshot(
         user.user_id,
         horizon_days=request.args.get("days",7),
