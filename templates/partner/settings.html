@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Hotel settings · iRoya{% endblock %}
+{% block content %}
+<section class="shell page-head settings-page-head">
+  <div>
+    <div class="eyebrow">Hotel workspace</div>
+    <h1>Settings</h1>
+    <p>Manage hotel access and open the properties whose public details you want to change.</p>
+  </div>
+  <a class="button button-secondary" href="/partner">Back to home</a>
+</section>
+
+<section class="shell settings-grid">
+  <article class="card settings-overview">
+    <div class="eyebrow">Your hotels</div>
+    <h2>Property settings</h2>
+    <p class="muted">Room setup, photos, amenities, check-in times and public hotel details live inside each property.</p>
+    <div class="settings-property-list">
+      {% for property in properties %}
+        <a href="/partner/properties/{{ property.id }}">
+          <span><strong>{{ property.name }}</strong><small>{{ property.city }} · {{ property.organization_name }}</small></span>
+          <span>Manage →</span>
+        </a>
+      {% else %}
+        <div class="empty"><p>No property has been added yet.</p><a class="button button-small" href="/partner/properties/new">Add hotel</a></div>
+      {% endfor %}
+    </div>
+  </article>
+
+  <article class="card settings-role-guide">
+    <div class="eyebrow">Access guide</div>
+    <h2>What each role can do</h2>
+    <div class="settings-role-list">
+      <span><strong>Owner</strong><small>Full hotel access, including managers and team controls.</small></span>
+      <span><strong>Manager</strong><small>Runs hotel operations and manages non-manager team members.</small></span>
+      <span><strong>Reservations</strong><small>Manages bookings, rooms, rates and front-desk actions.</small></span>
+      <span><strong>Finance</strong><small>Views reports and handles permitted refund operations.</small></span>
+      <span><strong>Staff</strong><small>Read-only hotel workspace access.</small></span>
+    </div>
+  </article>
+</section>
+
+<section class="shell partner-section settings-team-section" id="team">
+  <div class="section-heading">
+    <div>
+      <div class="eyebrow">Team & access</div>
+      <h2>Hotel team</h2>
+      <p class="muted">Keep each person on the smallest role they need. It is less dramatic than recovering from accidental access later.</p>
+    </div>
+  </div>
+
+  <div class="team-layout">
+    <div class="card team-list">
+      {% for member in team_members %}
+        <div class="team-row team-row-manage" data-team-member data-organization="{{ member.organization_id }}" data-user="{{ member.user_id }}">
+          <div class="team-avatar">{{ (member.name or member.email)[:1]|upper }}</div>
+          <div>
+            <strong>{{ member.name or member.email }}</strong>
+            <div class="muted">{{ member.email }} · {{ member.organization_name }}</div>
+            {% if member.status != "active" %}<div class="muted">Access {{ member.status|title }}</div>{% endif %}
+          </div>
+          {% if member.role == "owner" %}
+            <span class="status-pill">Owner</span>
+          {% elif member.actor_role == "owner" or (member.actor_role == "manager" and member.role not in ["owner","manager"]) %}
+            <div class="team-controls">
+              <select data-team-role aria-label="Role for {{ member.email }}">
+                {% if member.actor_role == "owner" %}<option value="manager" {% if member.role == "manager" %}selected{% endif %}>Manager</option>{% endif %}
+                <option value="reservations" {% if member.role == "reservations" %}selected{% endif %}>Reservations</option>
+                <option value="finance" {% if member.role == "finance" %}selected{% endif %}>Finance</option>
+                <option value="staff" {% if member.role == "staff" %}selected{% endif %}>Staff</option>
+              </select>
+              <button class="button button-small button-secondary" type="button" data-team-status="{{ 'suspended' if member.status == 'active' else 'active' }}">{{ "Suspend" if member.status == "active" else "Restore" }}</button>
+              <button class="button button-small" type="button" data-team-save>Save</button>
+            </div>
+          {% else %}
+            <span class="status-pill">{{ member.role|title }}</span>
+          {% endif %}
+          <p class="form-message team-message"></p>
+        </div>
+      {% else %}
+        <div class="empty"><p>No hotel team members were found.</p></div>
+      {% endfor %}
+    </div>
+
+    {% if manageable_organizations %}
+    <form class="card partner-form team-form" data-member-form>
+      <div>
+        <div class="eyebrow">Add access</div>
+        <h3>Add or invite teammate</h3>
+        <p class="muted">Existing iRoya users are added immediately. New users receive a secure 7-day invitation link.</p>
+      </div>
+      <label>Hotel organization
+        <select name="organization_id" required>
+          {% for organization in manageable_organizations %}
+            <option value="{{ organization.id }}">{{ organization.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Email<input name="email" type="email" required autocomplete="email"></label>
+      <label>Role
+        <select name="role" required>
+          {% if manageable_organizations|selectattr("role","equalto","owner")|list %}<option value="manager">Manager</option>{% endif %}
+          <option value="reservations">Reservations</option>
+          <option value="finance">Finance</option>
+          <option value="staff">Staff</option>
+        </select>
+      </label>
+      <button class="button" type="submit">Add to hotel team</button>
+      <p class="form-message"></p>
+      <div class="invite-result" data-invite-result hidden>
+        <label>Invitation link<input type="text" readonly data-invite-link></label>
+        <button class="button button-small button-secondary" type="button" data-copy-invite>Copy invitation link</button>
+      </div>
+    </form>
+    {% endif %}
+  </div>
+
+  {% if pending_invites %}
+  <div class="card pending-invites settings-pending-invites">
+    <div class="eyebrow">Pending invitations</div>
+    <div class="pending-invite-list">
+      {% for invite in pending_invites %}
+      <div class="pending-invite-row" data-pending-invite data-organization="{{ invite.organization_id }}" data-invite="{{ invite.id }}">
+        <div>
+          <strong>{{ invite.email }}</strong>
+          <div class="muted">{{ invite.organization_name }} · {{ invite.role|title }} · expires {{ invite.expires_at }}</div>
+        </div>
+        {% if invite.actor_role == "owner" or invite.role != "manager" %}
+          <button class="button button-small button-secondary" type="button" data-invite-revoke>Revoke</button>
+        {% endif %}
+        <p class="form-message"></p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}
