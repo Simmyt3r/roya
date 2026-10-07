@@ -49,6 +49,19 @@ def cancel_reservation_route(reservation_id):
     return ok(service.cancel(str(reservation_id),identity.user_id,body.get("reason")))
 
 
+@bp.get("/partner/guests")
+@login_required
+def partner_guests():
+    identity=current_identity(required=True)
+    workspace=service.guest_workspace_for_partner(
+        identity.user_id,
+        property_id=request.args.get("property_id"),
+        query=request.args.get("q"),
+        limit=50,
+    )
+    return render_template("partner/guests.html",workspace=workspace)
+
+
 @bp.get("/partner/reservations")
 @login_required
 def partner_reservation_workspace():
