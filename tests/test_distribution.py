@@ -158,4 +158,4 @@ def test_distribution_page_explains_automatic_sync(monkeypatch):
     app=create_app({"TESTING":True,"WTF_CSRF_ENABLED":False,"DATABASE_URL":""})
     response=app.test_client().get("/partner/distribution")
     assert response.status_code==200
-    assert b"every six hours" in response.data
+    assert b"once a day" in response.data
