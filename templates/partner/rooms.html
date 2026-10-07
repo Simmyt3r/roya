@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Rooms · Hotel · iRoya{% endblock %}
+{% block content %}
+<section class="shell page-head rooms-workspace-head">
+  <div>
+    <div class="eyebrow">Hotel workspace</div>
+    <h1>Rooms</h1>
+    <p>See what can be sold, what needs setup, and open the hotel only when you need to change details.</p>
+  </div>
+  <a class="button button-secondary" href="/partner/properties/new">Add hotel</a>
+</section>
+
+<section class="shell rooms-workspace-toolbar">
+  <form method="get" action="/partner/rooms">
+    <label for="rooms-property">Property
+      <select id="rooms-property" name="property_id" onchange="this.form.submit()">
+        <option value="">All properties</option>
+        {% for property in workspace.properties %}
+          <option value="{{ property.id }}" {% if workspace.selected_property_id == property.id|string %}selected{% endif %}>{{ property.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+  </form>
+  <div>
+    <strong>{{ workspace.rooms|length }} room type{% if workspace.rooms|length != 1 %}s{% endif %}</strong>
+    <span class="muted">{% if workspace.selected_property %}{{ workspace.selected_property.name }}{% else %}Across your hotels{% endif %}</span>
+  </div>
+</section>
+
+<section class="shell rooms-property-list">
+  {% for property in workspace.properties %}
+    {% if not workspace.selected_property_id or workspace.selected_property_id == property.id|string %}
+      {% set property_rooms = workspace.rooms_by_property.get(property.id|string, []) %}
+      <article class="card rooms-property-card">
+        <div class="rooms-property-head">
+          <div>
+            <div class="eyebrow">{{ property.organization_name }}</div>
+            <h2>{{ property.name }}</h2>
+            <p class="muted">{{ property.city }}, {{ property.state }}</p>
+          </div>
+          <div class="status-row">
+            <span class="status-pill">{{ property.verification_status|title }}</span>
+            <span class="status-pill status-muted">{{ property.status|title }}</span>
+          </div>
+        </div>
+
+        <div class="rooms-property-summary">
+          <span><small>Room types</small><strong>{{ property.room_type_count or 0 }}</strong></span>
+          <span><small>Total rooms</small><strong>{{ property.room_units or 0 }}</strong></span>
+          <span><small>Active rates</small><strong>{{ property.active_rate_count or 0 }}</strong></span>
+          <span><small>Sellable types</small><strong>{{ property.sellable_room_type_count or 0 }}</strong></span>
+        </div>
+
+        <div class="rooms-workspace-list">
+          {% for room in property_rooms %}
+            <div class="rooms-workspace-row">
+              {% if room.cover_image %}
+                <img src="{{ room.cover_image }}" alt="{{ room.cover_alt or room.name }}">
+              {% else %}
+                <div class="rooms-workspace-placeholder">Room</div>
+              {% endif %}
+
+              <div class="rooms-workspace-main">
+                <div class="rooms-workspace-title">
+                  <div>
+                    <h3>{{ room.name }}</h3>
+                    <p class="muted">{{ room.total_inventory }} room{% if room.total_inventory != 1 %}s{% endif %} · up to {{ room.capacity_adults }} adult{% if room.capacity_adults != 1 %}s{% endif %}{% if room.bed_configuration %} · {{ room.bed_configuration }}{% endif %}</p>
+                  </div>
+                  <span class="status-pill">{{ room.status|title }}</span>
+                </div>
+
+                <div class="rooms-workspace-meta">
+                  <span>
+                    <small>Rate</small>
+                    {% if room.lowest_rate_minor %}
+                      <strong>{{ room.currency }} {{ '%.2f'|format(room.lowest_rate_minor/100) }}</strong>
+                    {% else %}
+                      <strong class="needs-setup">Add rate</strong>
+                    {% endif %}
+                  </span>
+                  <span>
+                    <small>Next 30 days</small>
+                    <strong>{{ room.days_loaded or 0 }}/30 loaded</strong>
+                  </span>
+                  <span>
+                    <small>Lowest availability</small>
+                    {% if room.min_available is not none %}
+                      <strong class="{% if room.min_available <= 2 %}needs-attention{% endif %}">{{ room.min_available }} room{% if room.min_available != 1 %}s{% endif %}</strong>
+                    {% else %}
+                      <strong class="needs-setup">Not loaded</strong>
+                    {% endif %}
+                  </span>
+                </div>
+              </div>
+
+              <div class="rooms-workspace-actions">
+                <a class="button button-small button-secondary" href="/partner/properties/{{ property.id }}#rooms">Manage room</a>
+              </div>
+            </div>
+          {% else %}
+            <div class="rooms-workspace-empty">
+              <strong>No room types yet.</strong>
+              <span>Add the first room to make this hotel sellable.</span>
+            </div>
+          {% endfor %}
+        </div>
+
+        <div class="rooms-property-actions">
+          {% if property.member_role in ["owner","manager","reservations"] %}
+            <a class="button" href="/partner/properties/{{ property.id }}#add-room">Add room</a>
+          {% endif %}
+          <a class="button button-secondary" href="/partner/properties/{{ property.id }}">Hotel setup</a>
+        </div>
+      </article>
+    {% else %}
+      {% continue %}
+    {% endif %}
+  {% else %}
+    <div class="card operations-empty">
+      <strong>No hotels yet.</strong>
+      <span>Create a hotel first, then add rooms, rates and availability.</span>
+      <a class="button button-small" href="/partner/properties/new">Add hotel</a>
+    </div>
+  {% endfor %}
+</section>
+{% endblock %}
