@@ -1,0 +1,4 @@
+-- Migration history reconciliation.
+-- reservation_notes_and_requests was already recorded at 20261007203416.
+-- Supabase also registered the same already-applied DDL at 20261007203953
+-- during explicit migration registration. Intentionally no-op.
