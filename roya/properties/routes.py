@@ -201,6 +201,125 @@ def property_page(slug):
     )
 
 
+@bp.get("/partner/rooms")
+@login_required
+def partner_rooms_page():
+    identity=current_identity(required=True)
+    if account_type_for_user(identity.user_id)!="hotel":
+        return redirect("/partner/start")
+
+    requested_property=(request.args.get("property_id") or "").strip()
+    with db_connection() as conn:
+        properties=[
+            dict(row) for row in conn.execute(
+                """select
+                     p.id,p.name,p.city,p.state,p.verification_status,p.status,
+                     o.name organization_name,om.role member_role,
+                     (select count(*) from room_types rt
+                        where rt.property_id=p.id and rt.status='active')::bigint room_type_count,
+                     coalesce((select sum(rt.total_inventory) from room_types rt
+                        where rt.property_id=p.id and rt.status='active'),0)::bigint room_units,
+                     (select count(*) from rate_plans rp
+                        join room_types rt on rt.id=rp.room_type_id
+                        where rt.property_id=p.id and rt.status='active' and rp.status='active')::bigint active_rate_count,
+                     (select count(*) from room_types rt
+                        where rt.property_id=p.id and rt.status='active'
+                          and exists(
+                            select 1 from inventory_days i
+                            where i.room_type_id=rt.id
+                              and i.date>=current_date
+                              and i.stop_sell=false
+                              and (i.total_inventory-i.held_inventory-i.sold_inventory)>0
+                          ))::bigint sellable_room_type_count
+                   from properties p
+                   join organizations o on o.id=p.organization_id
+                   join organization_members om on om.organization_id=p.organization_id
+                   where om.user_id=%s and om.status='active'
+                   order by p.name""",
+                (identity.user_id,),
+            ).fetchall()
+        ]
+        if not properties:
+            return render_template(
+                "partner/rooms.html",
+                workspace={
+                    "properties":[],
+                    "selected_property_id":None,
+                    "selected_property":None,
+                    "rooms":[],
+                    "rooms_by_property":{},
+                },
+            )
+
+        selected_property=next(
+            (item for item in properties if str(item["id"])==requested_property),
+            None,
+        ) if requested_property else None
+        if requested_property and not selected_property:
+            raise RoyaError("NOT_FOUND","Property not found.",404)
+        selected_property_id=str(selected_property["id"]) if selected_property else None
+
+        params=[identity.user_id]
+        property_filter=""
+        if selected_property_id:
+            property_filter="and p.id=%s"
+            params.append(selected_property_id)
+
+        rooms=[
+            dict(row) for row in conn.execute(
+                f"""select
+                      rt.id,rt.property_id,rt.name,rt.capacity_adults,rt.capacity_children,
+                      rt.total_inventory,rt.bed_configuration,rt.status,
+                      p.name property_name,om.role member_role,
+                      (select count(*) from rate_plans rp
+                         where rp.room_type_id=rt.id and rp.status='active')::bigint active_rate_count,
+                      (select min(rp.base_price_minor) from rate_plans rp
+                         where rp.room_type_id=rt.id and rp.status='active') lowest_rate_minor,
+                      (select rp.currency from rate_plans rp
+                         where rp.room_type_id=rt.id and rp.status='active'
+                         order by rp.base_price_minor limit 1) currency,
+                      (select count(*) from inventory_days i
+                         where i.room_type_id=rt.id
+                           and i.date>=current_date and i.date<current_date+30)::bigint days_loaded,
+                      (select min(greatest(i.total_inventory-i.held_inventory-i.sold_inventory,0))
+                         from inventory_days i
+                         where i.room_type_id=rt.id
+                           and i.date>=current_date and i.date<current_date+30
+                           and i.stop_sell=false) min_available,
+                      (select max(i.date) from inventory_days i
+                         where i.room_type_id=rt.id and i.date>=current_date) max_inventory_date,
+                      (select ri.path from room_images ri
+                         where ri.room_type_id=rt.id
+                         order by ri.sort_order,ri.created_at limit 1) cover_image,
+                      (select ri.alt_text from room_images ri
+                         where ri.room_type_id=rt.id
+                         order by ri.sort_order,ri.created_at limit 1) cover_alt
+                   from room_types rt
+                   join properties p on p.id=rt.property_id
+                   join organization_members om on om.organization_id=p.organization_id
+                   where om.user_id=%s and om.status='active'
+                     {property_filter}
+                   order by p.name,rt.created_at""",
+                tuple(params),
+            ).fetchall()
+        ]
+
+    rooms_by_property={}
+    for room in rooms:
+        rooms_by_property.setdefault(str(room["property_id"]),[]).append(room)
+
+    return render_template(
+        "partner/rooms.html",
+        workspace={
+            "properties":properties,
+            "selected_property_id":selected_property_id,
+            "selected_property":selected_property,
+            "rooms":rooms,
+            "rooms_by_property":rooms_by_property,
+        },
+    )
+
+
 @bp.get("/partner/properties/new")
 @login_required
 def new_property_page():
