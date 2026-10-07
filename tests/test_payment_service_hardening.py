@@ -95,10 +95,13 @@ def test_partner_refund_listing_applies_property_scope(monkeypatch):
     monkeypatch.setattr(payment_service,"db_connection",lambda:_connection())
     rows=PaymentService().list_for_partner(
         "user-1",
+        organization_id="org-1",
         property_id="property-1",
         limit=25,
     )
 
     assert rows==[]
+    assert "r.organization_id=%s" in captured["sql"]
     assert "r.property_id=%s" in captured["sql"]
-    assert captured["params"]==("user-1","property-1",25)
+    assert "join organizations o" in captured["sql"]
+    assert captured["params"]==("user-1","org-1","property-1",25)
