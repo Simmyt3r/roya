@@ -323,3 +323,161 @@ def test_hotel_navigation_hides_reports_for_non_finance_roles():
         html=render_template("base.html")
 
     assert ">Reports<" not in html
+
+
+def test_partner_reservation_workspace_filters_by_tab_property_and_query(monkeypatch):
+    property_id=str(uuid4())
+    captured=[]
+
+    class _Connection:
+        def execute(self,sql,params):
+            captured.append((sql,params))
+            if "from organization_members" in sql and "select 1" in sql:
+                return _Result(row={"?column?":1})
+            if "select distinct p.id,p.name,p.city" in sql:
+                return _Result(rows=[{"id":property_id,"name":"Example Hotel","city":"Makurdi"}])
+            if "count(*) filter" in sql:
+                return _Result(row={
+                    "today":2,
+                    "upcoming":3,
+                    "pending":1,
+                    "in_house":1,
+                    "completed":8,
+                })
+            if "string_agg(distinct rt.name" in sql:
+                return _Result(rows=[{
+                    "id":str(uuid4()),
+                    "reference":"RYA-FILTER1",
+                    "property_id":property_id,
+                    "guest_name":"Ada Guest",
+                    "guest_email":"ada@example.com",
+                    "guest_phone":"08012345678",
+                    "check_in":"2026-10-08",
+                    "check_out":"2026-10-10",
+                    "nights":2,
+                    "total_price_minor":4000000,
+                    "amount_paid_minor":4000000,
+                    "currency":"NGN",
+                    "status":"confirmed",
+                    "payment_status":"paid",
+                    "guarantee_type":"pay_now",
+                    "source_channel":"direct_booking",
+                    "expires_at":None,
+                    "created_at":"2026-10-07",
+                    "property_name":"Example Hotel",
+                    "member_role":"reservations",
+                    "room_type_names":"Deluxe Room",
+                }])
+            raise AssertionError(sql)
+
+    @contextmanager
+    def _connection():
+        yield _Connection()
+
+    monkeypatch.setattr(reservation_service,"db_connection",lambda:_connection())
+    workspace=ReservationService().workspace_for_partner(
+        "user-1",
+        tab="upcoming",
+        property_id=property_id,
+        query="Ada",
+        limit=25,
+    )
+
+    assert workspace["tab"]=="upcoming"
+    assert workspace["selected_property_id"]==property_id
+    assert workspace["counts"]["upcoming"]==3
+    assert workspace["reservations"][0]["reference"]=="RYA-FILTER1"
+
+    list_sql,list_params=captured[-1]
+    assert "r.status='confirmed'" in list_sql
+    assert "r.check_in>current_date" in list_sql
+    assert "r.property_id=%s" in list_sql
+    assert "r.guest_name ilike %s" in list_sql
+    assert list_params[0:2]==("user-1",property_id)
+    assert list_params[-1]==25
+
+
+def test_partner_reservation_workspace_rejects_unknown_tab():
+    with pytest.raises(RoyaError) as exc:
+        ReservationService().workspace_for_partner("user-1",tab="mystery")
+    assert exc.value.code=="VALIDATION_ERROR"
+
+
+def test_partner_reservation_workspace_requires_membership(monkeypatch):
+    class _Connection:
+        def execute(self,sql,params):
+            return _Result(row=None)
+
+    @contextmanager
+    def _connection():
+        yield _Connection()
+
+    monkeypatch.setattr(reservation_service,"db_connection",lambda:_connection())
+    with pytest.raises(RoyaError) as exc:
+        ReservationService().workspace_for_partner("user-1")
+    assert exc.value.code=="FORBIDDEN"
+
+
+def test_partner_reservations_page_renders_tabs_and_actions(monkeypatch):
+    identity=SimpleNamespace(user_id=str(uuid4()),email="desk@example.com")
+    property_id=str(uuid4())
+    reservation_id=str(uuid4())
+    workspace={
+        "tab":"today",
+        "query":"",
+        "properties":[{"id":property_id,"name":"Example Hotel","city":"Makurdi"}],
+        "selected_property_id":property_id,
+        "selected_property":{"id":property_id,"name":"Example Hotel","city":"Makurdi"},
+        "counts":{"today":1,"upcoming":2,"pending":1,"in_house":1,"completed":5},
+        "reservations":[{
+            "id":reservation_id,
+            "reference":"RYA-TODAY1",
+            "property_id":property_id,
+            "guest_name":"Ada Guest",
+            "guest_email":"ada@example.com",
+            "guest_phone":"08012345678",
+            "check_in":"2026-10-07",
+            "check_out":"2026-10-09",
+            "nights":2,
+            "total_price_minor":4500000,
+            "amount_paid_minor":4500000,
+            "currency":"NGN",
+            "status":"confirmed",
+            "payment_status":"paid",
+            "guarantee_type":"pay_now",
+            "source_channel":"direct_booking",
+            "expires_at":None,
+            "created_at":"2026-10-06",
+            "property_name":"Example Hotel",
+            "member_role":"reservations",
+            "room_type_names":"Deluxe Room",
+        }],
+    }
+
+    monkeypatch.setattr(auth_service,"current_identity",lambda required=False:identity)
+    monkeypatch.setattr(reservation_routes,"current_identity",lambda required=False:identity)
+    monkeypatch.setattr(reservation_routes.service,"workspace_for_partner",lambda *args,**kwargs:workspace)
+
+    app=create_app({"TESTING":True,"WTF_CSRF_ENABLED":False,"DATABASE_URL":""})
+    response=app.test_client().get(f"/partner/reservations?tab=today&property_id={property_id}")
+
+    assert response.status_code==200
+    html=response.get_data(as_text=True)
+    for label in ("Today","Upcoming","Pending","In-house","Completed"):
+        assert label in html
+    assert "RYA-TODAY1" in html
+    assert "Deluxe Room" in html
+    assert 'data-reservation-status="checked_in"' in html
+    assert f'/partner/reservations/{reservation_id}' in html
+
+
+def test_hotel_navigation_links_to_dedicated_reservations_workspace():
+    app=create_app({"TESTING":True,"WTF_CSRF_ENABLED":False,"DATABASE_URL":""})
+    with app.test_request_context("/"):
+        from flask import session
+        session["sid"]="session-1"
+        session["account_type"]="hotel"
+        html=render_template("base.html")
+
+    assert 'href="/partner/reservations">Reservations</a>' in html
+    assert 'href="/partner#recent-reservations">Reservations</a>' not in html
