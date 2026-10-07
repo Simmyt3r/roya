@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% set r = workspace.reservation %}
+{% block title %}{{ r.reference }} · Reservation · iRoya{% endblock %}
+{% block content %}
+<section class="shell reservation-workspace-head">
+  <a class="back-link" href="/partner?property_id={{ r.property_id }}#recent-reservations">← Reservations</a>
+  <div class="reservation-workspace-heading">
+    <div>
+      <div class="eyebrow">{{ r.reference }}</div>
+      <h1>{{ r.guest_name }}</h1>
+      <p>{{ r.property_name }} · {{ r.check_in }} → {{ r.check_out }}</p>
+    </div>
+    <div class="reservation-workspace-status">
+      <span class="status-pill">{{ r.status|replace("_"," ")|title }}</span>
+      <span class="status-pill status-muted">{{ r.payment_status|replace("_"," ")|title }}</span>
+    </div>
+  </div>
+</section>
+
+<section class="shell reservation-workspace-grid">
+  <div class="reservation-workspace-main">
+    <article class="card reservation-workspace-card">
+      <div class="eyebrow">Guest</div>
+      <h2>Contact</h2>
+      <div class="reservation-detail-grid">
+        <div><span>Name</span><strong>{{ r.guest_name }}</strong></div>
+        <div><span>Email</span><a href="mailto:{{ r.guest_email }}">{{ r.guest_email }}</a></div>
+        <div><span>Phone</span>{% if r.guest_phone %}<a href="tel:{{ r.guest_phone }}">{{ r.guest_phone }}</a>{% else %}<strong>Not provided</strong>{% endif %}</div>
+        <div><span>Guests</span><strong>{{ r.adults }} adult{% if r.adults != 1 %}s{% endif %}{% if r.children %}, {{ r.children }} child{% if r.children != 1 %}ren{% endif %}{% endif %}</strong></div>
+      </div>
+    </article>
+
+    <article class="card reservation-workspace-card">
+      <div class="eyebrow">Stay</div>
+      <h2>{{ r.check_in }} → {{ r.check_out }}</h2>
+      <div class="reservation-detail-grid">
+        <div><span>Property</span><strong>{{ r.property_name }}</strong></div>
+        <div><span>Nights</span><strong>{{ r.nights }}</strong></div>
+        <div><span>Check-in</span><strong>{{ r.check_in_time or "Property time" }}</strong></div>
+        <div><span>Check-out</span><strong>{{ r.check_out_time or "Property time" }}</strong></div>
+      </div>
+      <div class="reservation-room-list">
+        {% for item in workspace.items %}
+          <div>
+            <span><strong>{{ item.room_type_name }}</strong><small>{{ item.rate_plan_name }} · {{ item.quantity }} room{% if item.quantity != 1 %}s{% endif %}</small></span>
+            <strong>{{ r.currency }} {{ '%.2f'|format(item.total_price_minor/100) }}</strong>
+          </div>
+        {% endfor %}
+      </div>
+    </article>
+
+    <article class="card reservation-workspace-card">
+      <div class="eyebrow">Payment</div>
+      <h2>{{ r.payment_status|replace("_"," ")|title }}</h2>
+      <div class="reservation-detail-grid">
+        <div><span>Total</span><strong>{{ r.currency }} {{ '%.2f'|format(r.total_price_minor/100) }}</strong></div>
+        <div><span>Paid</span><strong>{{ r.currency }} {{ '%.2f'|format(r.amount_paid_minor/100) }}</strong></div>
+        <div><span>Outstanding</span><strong>{{ r.currency }} {{ '%.2f'|format(((r.total_price_minor or 0)-(r.amount_paid_minor or 0))/100) }}</strong></div>
+        <div><span>Booked through</span><strong>{{ "Direct booking" if r.source_channel == "direct_booking" else "iRoya marketplace" }}</strong></div>
+      </div>
+      {% if workspace.transactions %}
+      <details class="reservation-history">
+        <summary>Payment history</summary>
+        <div class="reservation-history-list">
+          {% for tx in workspace.transactions %}
+            <div><span>{{ tx.status|replace("_"," ")|title }} · {{ tx.provider|title }}</span><strong>{{ tx.currency }} {{ '%.2f'|format(tx.amount_minor/100) }}</strong><small>{{ tx.created_at }}</small></div>
+          {% endfor %}
+        </div>
+      </details>
+      {% endif %}
+      {% if workspace.refunds %}
+      <details class="reservation-history">
+        <summary>Refund history</summary>
+        <div class="reservation-history-list">
+          {% for rf in workspace.refunds %}
+            <div><span>{{ rf.status|replace("_"," ")|title }}</span><strong>{{ rf.currency }} {{ '%.2f'|format(rf.amount_minor/100) }}</strong><small>{{ rf.reason or rf.created_at }}</small></div>
+          {% endfor %}
+        </div>
+      </details>
+      {% endif %}
+    </article>
+
+    {% if workspace.audit %}
+    <details class="card reservation-history reservation-history-card">
+      <summary>Reservation history</summary>
+      <div class="reservation-history-list">
+        {% for event in workspace.audit %}
+          <div><span>{{ event.action|replace("reservation.","")|replace("_"," ")|title }}</span><small>{{ event.created_at }}</small></div>
+        {% endfor %}
+      </div>
+    </details>
+    {% endif %}
+  </div>
+
+  <aside class="reservation-action-panel">
+    <article class="card reservation-action-card">
+      <div class="eyebrow">Next action</div>
+      {% if r.member_role not in ["owner","manager","reservations"] %}
+        <h2>View only</h2>
+        <p class="muted">Your hotel role can view this reservation but cannot change its stay status.</p>
+      {% elif r.status == "pending_confirmation" %}
+        <h2>Review booking</h2>
+        <p class="muted">Confirm the room is ready to accept this reservation.</p>
+        <div data-reservation-approval="{{ r.id }}">
+          <div class="reservation-primary-actions">
+            <button class="button" type="button" data-reservation-decision="approve">Approve reservation</button>
+            <button class="button button-secondary" type="button" data-reservation-decision="reject">Decline</button>
+          </div>
+          <p class="form-message"></p>
+        </div>
+      {% elif r.status == "confirmed" %}
+        <h2>Guest arriving</h2>
+        <p class="muted">Check the guest in when they arrive, or mark the booking as a no-show when appropriate.</p>
+        <div class="reservation-primary-actions">
+          <button class="button" type="button" data-reservation-status="checked_in" data-reservation-id="{{ r.id }}">Check in guest</button>
+          <button class="button button-secondary" type="button" data-reservation-status="no_show" data-reservation-id="{{ r.id }}">Mark no-show</button>
+        </div>
+      {% elif r.status == "checked_in" %}
+        <h2>Guest in-house</h2>
+        <p class="muted">Complete the stay when the guest leaves.</p>
+        <div class="reservation-primary-actions">
+          <button class="button" type="button" data-reservation-status="checked_out" data-reservation-id="{{ r.id }}">Check out guest</button>
+        </div>
+      {% elif r.status == "checked_out" %}
+        <h2>Stay completed</h2>
+        <p class="muted">This guest has checked out. No front-desk action is required.</p>
+      {% elif r.status == "no_show" %}
+        <h2>No-show recorded</h2>
+        <p class="muted">This reservation has been marked as a no-show.</p>
+      {% elif r.status == "cancelled" %}
+        <h2>Reservation cancelled</h2>
+        <p class="muted">No front-desk action is required.</p>
+      {% else %}
+        <h2>{{ r.status|replace("_"," ")|title }}</h2>
+        <p class="muted">No front-desk action is available for this reservation state.</p>
+      {% endif %}
+    </article>
+
+    <article class="card reservation-quick-contact">
+      <div class="eyebrow">Quick contact</div>
+      <a href="mailto:{{ r.guest_email }}">Email guest</a>
+      {% if r.guest_phone %}<a href="tel:{{ r.guest_phone }}">Call guest</a>{% endif %}
+    </article>
+  </aside>
+</section>
+{% endblock %}
