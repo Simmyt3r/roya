@@ -21,40 +21,36 @@
 {%- endmacro %}
 {% block title %}Hotel dashboard · iRoya{% endblock %}
 {% block content %}
-<section class="shell page-head partner-page-head">
+<section class="shell page-head partner-page-head hotel-home-head">
   <div>
-    <div class="eyebrow">Hotel workspace</div>
-    <h1>Partner dashboard</h1>
-    <p>Manage the hotel information guests actually depend on: availability, rates and reservations.</p>
+    <div class="eyebrow">Hotel home</div>
+    <h1>Today</h1>
+    <p>Handle arrivals, departures and anything that needs attention.</p>
   </div>
-  <div class="partner-head-actions">
-    {% if finance_organizations %}
-      <a class="button button-secondary" href="/partner/analytics">Analytics</a>
-      <a class="button button-secondary" href="/partner/finance">Finance center</a>
-    {% endif %}
-    {% if manageable_organizations %}<a class="button button-secondary" href="/partner/distribution">Distribution</a>{% endif %}
-    <a class="button" href="/partner/properties/new">Add property</a>
-  </div>
+  <a class="button button-secondary" href="/partner/properties/new">Add property</a>
 </section>
 
-<section class="shell partner-overview">
-  <article class="card">
-    <div class="eyebrow">Organization</div>
-    {% for o in organizations %}
-      <h2>{{ o.name }}</h2>
-      <p class="muted">Your role: {{ o.role|title }}</p>
-    {% endfor %}
-  </article>
-  <article class="card">
-    <div class="eyebrow">Portfolio</div>
-    <strong class="dashboard-number">{{ properties|length }}</strong>
-    <p class="muted">propert{% if properties|length == 1 %}y{% else %}ies{% endif %} in this workspace</p>
-  </article>
-  <article class="card">
-    <div class="eyebrow">Needs attention</div>
-    <strong class="dashboard-number">{{ pending_reservations|length }}</strong>
-    <p class="muted">reservation approval{% if pending_reservations|length != 1 %}s{% endif %}</p>
-  </article>
+<section class="shell hotel-scope-bar">
+  <form method="get" action="/partner" aria-label="Hotel workspace scope">
+    <label for="workspace-property">Working on
+      <select id="workspace-property" name="property_id" onchange="this.form.submit()">
+        <option value="">All properties</option>
+        {% for property in hotel_operations.properties %}
+          <option value="{{ property.id }}" {% if hotel_operations.selected_property_id == property.id|string %}selected{% endif %}>{{ property.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <input type="hidden" name="days" value="{{ hotel_operations.horizon_days }}">
+  </form>
+  <div class="hotel-scope-summary">
+    {% if hotel_operations.selected_property %}
+      <strong>{{ hotel_operations.selected_property.name }}</strong>
+      <span>Property view</span>
+    {% else %}
+      <strong>{{ properties|length }} propert{% if properties|length == 1 %}y{% else %}ies{% endif %}</strong>
+      <span>Portfolio view</span>
+    {% endif %}
+  </div>
 </section>
 
 <section class="shell partner-section hotel-ops-section" id="operations-today">
@@ -62,27 +58,18 @@
     <div>
       <div class="eyebrow">Today</div>
       <h2>Hotel operations</h2>
-      <p class="muted">A live working view of arrivals, departures, occupancy pressure and actions that need attention.{% if hotel_operations.selected_property %} Showing {{ hotel_operations.selected_property.name }} only.{% endif %}</p>
+      <p class="muted">The few things that matter right now.{% if hotel_operations.selected_property %} Showing {{ hotel_operations.selected_property.name }} only.{% endif %}</p>
     </div>
-    <div class="partner-head-actions">
-      <form method="get" action="/partner#operations-today" aria-label="Operations filters">
-        {% if front_desk_query %}<input type="hidden" name="front_desk_q" value="{{ front_desk_query }}">{% endif %}
-        <label class="muted" for="operations-property">Property</label>
-        <select id="operations-property" name="property_id" onchange="this.form.submit()">
-          <option value="">All properties</option>
-          {% for property in hotel_operations.properties %}
-            <option value="{{ property.id }}" {% if hotel_operations.selected_property_id == property.id|string %}selected{% endif %}>{{ property.name }}</option>
-          {% endfor %}
-        </select>
-        <label class="muted" for="operations-days">Forward view</label>
+    <form class="hotel-horizon-form" method="get" action="/partner#operations-today" aria-label="Forward view">
+      {% if hotel_operations.selected_property_id %}<input type="hidden" name="property_id" value="{{ hotel_operations.selected_property_id }}">{% endif %}
+      <label for="operations-days">Forward view
         <select id="operations-days" name="days" onchange="this.form.submit()">
           <option value="3" {% if hotel_operations.horizon_days == 3 %}selected{% endif %}>3 days</option>
           <option value="7" {% if hotel_operations.horizon_days == 7 %}selected{% endif %}>7 days</option>
           <option value="14" {% if hotel_operations.horizon_days == 14 %}selected{% endif %}>14 days</option>
         </select>
-      </form>
-      {% if finance_organizations %}<a class="button button-secondary" href="/partner/analytics">Open analytics</a>{% endif %}
-    </div>
+      </label>
+    </form>
   </div>
 
   <div class="hotel-ops-kpis">
@@ -158,7 +145,7 @@
       <div class="hotel-ops-stay-list">
         {% for stay in hotel_operations.arrivals %}
           <div class="hotel-ops-stay-row">
-            <span><strong>{{ stay.guest_name }}</strong><small>{{ stay.reference }} · {{ stay.property_name }}</small></span>
+            <span><strong>{{ stay.guest_name }}</strong><small><a class="reservation-reference-link" href="/partner/reservations/{{ stay.id }}">{{ stay.reference }}</a> · {{ stay.property_name }}</small></span>
             <span class="hotel-ops-stay-status"><strong>{{ stay.payment_status|replace('_',' ')|title }}</strong><small>{{ 'Direct Booking' if stay.source_channel == 'direct_booking' else 'Roya Marketplace' }}</small>{{ reservation_actions(stay) }}</span>
           </div>
         {% else %}
@@ -172,7 +159,7 @@
       <div class="hotel-ops-stay-list">
         {% for stay in hotel_operations.departures %}
           <div class="hotel-ops-stay-row">
-            <span><strong>{{ stay.guest_name }}</strong><small>{{ stay.reference }} · {{ stay.property_name }}</small></span>
+            <span><strong>{{ stay.guest_name }}</strong><small><a class="reservation-reference-link" href="/partner/reservations/{{ stay.id }}">{{ stay.reference }}</a> · {{ stay.property_name }}</small></span>
             <span class="hotel-ops-stay-status"><strong>{{ stay.payment_status|replace('_',' ')|title }}</strong><small>Check-out {{ stay.check_out }}</small>{{ reservation_actions(stay) }}</span>
           </div>
         {% else %}
@@ -188,7 +175,7 @@
       <div class="hotel-ops-stay-list">
         {% for stay in hotel_operations.overdue %}
           <div class="hotel-ops-stay-row">
-            <span><strong>{{ stay.reference }} · {{ stay.guest_name }}</strong><small>{{ stay.property_name }}</small></span>
+            <span><strong><a class="reservation-reference-link" href="/partner/reservations/{{ stay.id }}">{{ stay.reference }} · {{ stay.guest_name }}</a></strong><small>{{ stay.property_name }}</small></span>
             <span class="hotel-ops-stay-status"><strong>{{ 'Arrival overdue' if stay.overdue_type == 'arrival' else 'Departure overdue' }}</strong><small>{{ stay.check_in }} → {{ stay.check_out }}</small>{{ reservation_actions(stay) }}</span>
           </div>
         {% endfor %}
@@ -256,8 +243,8 @@
         <article class="card front-desk-result">
           <div class="front-desk-result-main">
             <div>
-              <div class="eyebrow">{{ r.reference }}</div>
-              <h3>{{ r.guest_name }}</h3>
+              <div class="eyebrow"><a class="reservation-reference-link" href="/partner/reservations/{{ r.id }}">{{ r.reference }}</a></div>
+              <h3><a href="/partner/reservations/{{ r.id }}">{{ r.guest_name }}</a></h3>
               <p class="muted">{{ r.guest_email }}{% if r.guest_phone %} · {{ r.guest_phone }}{% endif %}</p>
             </div>
             <div class="front-desk-result-state">
@@ -272,6 +259,7 @@
             <span><strong>Total</strong>{{ r.currency }} {{ '%.2f'|format(r.total_price_minor/100) }}</span>
           </div>
           <div class="front-desk-result-actions">
+            <a class="button button-small button-secondary" href="/partner/reservations/{{ r.id }}">Open reservation</a>
             {{ reservation_actions(r) }}
             {% if r.member_role not in ["owner","manager","reservations"] %}
               <span class="muted">Read-only access</span>
@@ -430,7 +418,7 @@
   </div></div>
 </section>
 
-<section class="shell partner-section" id="recent-reservations"><div class="section-heading"><div><div class="eyebrow">Booking activity</div><h2>Recent reservations</h2></div></div><div class="card reservation-table-wrap"><div class="reservation-table responsive-data-table"><div class="reservation-table-row reservation-table-head"><span>Reference</span><span>Guest</span><span>Stay</span><span>Status</span><span>Payment</span><span>Total</span></div>{% for r in partner_reservations %}<div class="reservation-table-row"><strong data-label="Reference">{{ r.reference }}</strong><span data-label="Guest">{{ r.guest_name }}<small>{{ r.property_name }}</small></span><span data-label="Stay">{{ r.check_in }}<small>to {{ r.check_out }}</small></span><span data-label="Status"><span class="status-pill">{{ r.status|replace("_"," ")|title }}</span>{{ reservation_actions(r) }}</span><span data-label="Payment">{{ r.payment_status|replace("_"," ")|title }}</span><strong data-label="Total">{{ r.currency }} {{ '%.2f'|format(r.total_price_minor / 100) }}</strong></div>{% else %}<div class="empty"><p>No reservations yet.</p></div>{% endfor %}</div></div></section>
+<section class="shell partner-section" id="recent-reservations"><div class="section-heading"><div><div class="eyebrow">Reservations</div><h2>Recent bookings</h2><p class="muted">Open a booking for the full guest, stay and payment view.</p></div></div><div class="card reservation-table-wrap"><div class="reservation-table responsive-data-table"><div class="reservation-table-row reservation-table-head"><span>Reference</span><span>Guest</span><span>Stay</span><span>Status</span><span>Payment</span><span>Total</span></div>{% for r in partner_reservations %}<div class="reservation-table-row"><strong data-label="Reference"><a class="reservation-reference-link" href="/partner/reservations/{{ r.id }}">{{ r.reference }}</a></strong><span data-label="Guest">{{ r.guest_name }}<small>{{ r.property_name }}</small></span><span data-label="Stay">{{ r.check_in }}<small>to {{ r.check_out }}</small></span><span data-label="Status"><span class="status-pill">{{ r.status|replace("_"," ")|title }}</span>{{ reservation_actions(r) }}</span><span data-label="Payment">{{ r.payment_status|replace("_"," ")|title }}</span><strong data-label="Total">{{ r.currency }} {{ '%.2f'|format(r.total_price_minor / 100) }}</strong></div>{% else %}<div class="empty"><p>No reservations yet.</p></div>{% endfor %}</div></div></section>
 <section class="shell partner-section partner-approvals" id="reservations">
   <article class="card">
     <div class="approval-head">
