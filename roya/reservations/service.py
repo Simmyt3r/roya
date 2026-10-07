@@ -618,7 +618,12 @@ class ReservationService:
         with db_connection() as conn:
             reservation=conn.execute(
                 """select r.*,p.name property_name,p.city property_city,p.state property_state,
-                          p.check_in_time,p.check_out_time,o.name organization_name,om.role member_role
+                          p.check_in_time,p.check_out_time,o.name organization_name,om.role member_role,
+                          coalesce((
+                            select sum(rf.amount_minor)
+                            from refunds rf
+                            where rf.reservation_id=r.id and rf.status='successful'
+                          ),0)::bigint amount_refunded_minor
                    from reservations r
                    join properties p on p.id=r.property_id
                    join organizations o on o.id=r.organization_id
@@ -651,7 +656,7 @@ class ReservationService:
             ).fetchall())
 
             refunds=list(conn.execute(
-                """select amount_minor,currency,status,reason,created_at,updated_at
+                """select amount_minor,currency,status,reason,method,provider_reference,created_at,updated_at
                    from refunds
                    where reservation_id=%s
                    order by created_at desc
