@@ -224,6 +224,16 @@ class ReservationService:
             raise RoyaError("VALIDATION_ERROR","Reservation result limit is invalid.",422) from exc
 
         with db_connection() as conn:
+            membership=conn.execute(
+                """select 1
+                   from organization_members
+                   where user_id=%s and status='active'
+                   limit 1""",
+                (user_id,),
+            ).fetchone()
+            if not membership:
+                raise RoyaError("FORBIDDEN","Hotel workspace access requires an active hotel membership.",403)
+
             properties=[
                 dict(row) for row in conn.execute(
                     """select distinct p.id,p.name,p.city
