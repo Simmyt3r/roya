@@ -675,6 +675,25 @@ class ReservationService:
                 (reservation_id,),
             ).fetchall())
 
+
+            notes=list(conn.execute(
+                """select
+                     rn.id,rn.kind,rn.body,rn.status,rn.created_at,rn.resolved_at,
+                     coalesce(nullif(trim(cp.name),''),cu.email,'Hotel teammate') created_by_name,
+                     coalesce(nullif(trim(rp.name),''),ru.email,'Hotel teammate') resolved_by_name
+                   from private.reservation_notes rn
+                   left join profiles cp on cp.id=rn.created_by
+                   left join auth.users cu on cu.id=rn.created_by
+                   left join profiles rp on rp.id=rn.resolved_by
+                   left join auth.users ru on ru.id=rn.resolved_by
+                   where rn.reservation_id=%s
+                   order by
+                     case when rn.status='open' then 0 else 1 end,
+                     rn.created_at desc
+                   limit 50""",
+                (reservation_id,),
+            ).fetchall())
+
             assigned_rooms=list(conn.execute(
                 """select pr.id,pr.room_number,pr.floor,pr.housekeeping_status,rt.name room_type_name
                    from physical_rooms pr
@@ -715,6 +734,7 @@ class ReservationService:
             "items":[dict(row) for row in items],
             "transactions":[dict(row) for row in transactions],
             "refunds":[dict(row) for row in refunds],
+            "notes":[dict(row) for row in notes],
             "audit":[dict(row) for row in audit],
             "assigned_rooms":[dict(row) for row in assigned_rooms],
             "room_readiness":{
@@ -723,6 +743,68 @@ class ReservationService:
                 "items":readiness_items,
             },
         }
+
+
+    def add_partner_note(self,reservation_id,user_id,kind,body,idempotency_key):
+        body=(body or "").strip()
+        if kind not in {"guest_request","staff_note"}:
+            raise RoyaError("VALIDATION_ERROR","Choose a valid note type.",422)
+        if not body or len(body)>2000:
+            raise RoyaError("VALIDATION_ERROR","Enter a note between 1 and 2,000 characters.",422)
+        if not idempotency_key or len(idempotency_key)<8 or len(idempotency_key)>160:
+            raise RoyaError("IDEMPOTENCY_KEY_REQUIRED","A valid Idempotency-Key header is required.",400)
+
+        try:
+            with db_connection() as conn:
+                with conn.transaction():
+                    row=conn.execute(
+                        """select * from private.add_partner_reservation_note(
+                             %s::uuid,%s::uuid,%s::text,%s::text,%s::text
+                           )""",
+                        (user_id,reservation_id,kind,body,idempotency_key),
+                    ).fetchone()
+        except RoyaError:
+            raise
+        except Exception as exc:
+            message=str(exc)
+            if "INVALID_KIND" in message or "VALIDATION_ERROR" in message:
+                raise RoyaError("VALIDATION_ERROR","The reservation note is invalid.",422) from exc
+            if "IDEMPOTENCY_KEY_REQUIRED" in message:
+                raise RoyaError("IDEMPOTENCY_KEY_REQUIRED","A valid Idempotency-Key header is required.",400) from exc
+            if "FORBIDDEN" in message:
+                raise RoyaError(
+                    "FORBIDDEN",
+                    "Your hotel role cannot add reservation notes.",
+                    403,
+                ) from exc
+            raise
+        return dict(row) if row else None
+
+
+    def resolve_partner_note(self,reservation_id,note_id,user_id):
+        try:
+            with db_connection() as conn:
+                with conn.transaction():
+                    row=conn.execute(
+                        """select * from private.resolve_partner_reservation_note(
+                             %s::uuid,%s::uuid,%s::uuid
+                           )""",
+                        (user_id,reservation_id,note_id),
+                    ).fetchone()
+        except RoyaError:
+            raise
+        except Exception as exc:
+            message=str(exc)
+            if "NOTE_NOT_FOUND" in message:
+                raise RoyaError("NOT_FOUND","Reservation note not found.",404) from exc
+            if "FORBIDDEN" in message:
+                raise RoyaError(
+                    "FORBIDDEN",
+                    "Your hotel role cannot resolve reservation notes.",
+                    403,
+                ) from exc
+            raise
+        return dict(row) if row else None
 
 
     def amendment_options_for_partner(self,user_id,property_id):
