@@ -67,7 +67,7 @@ def _task(priority,title,detail,href):
     }
 
 
-def build_daily_actions(summary,low_inventory,channel_errors):
+def build_daily_actions(summary,low_inventory,channel_errors,not_ready_arrivals=0):
     tasks=[]
     pending=int(summary.get("pending_approvals") or 0)
     overdue_arrivals=int(summary.get("overdue_arrivals") or 0)
@@ -96,6 +96,13 @@ def build_daily_actions(summary,low_inventory,channel_errors):
             f"{pending} reservation approval{'s' if pending != 1 else ''} waiting",
             "Review hotel-approval bookings before their inventory holds expire.",
             "/partner/reservations?tab=pending",
+        ))
+    if not_ready_arrivals:
+        tasks.append(_task(
+            "warning",
+            f"{not_ready_arrivals} arrival{'s' if not_ready_arrivals != 1 else ''} waiting on room readiness",
+            "One or more tracked room types do not yet have enough ready rooms for check-in.",
+            "/partner/rooms?focus=readiness",
         ))
     if low_inventory:
         tasks.append(_task(
@@ -193,7 +200,26 @@ def hotel_operations_snapshot(user_id,horizon_days=DEFAULT_HORIZON_DAYS,property
 
         arrivals=[dict(row) for row in conn.execute(
             """select r.id,r.organization_id,r.reference,r.guest_name,r.guest_email,r.check_in,r.check_out,r.status,
-                      r.payment_status,r.guarantee_type,r.source_channel,p.name property_name
+                      r.payment_status,r.guarantee_type,r.source_channel,p.name property_name,
+                      coalesce((
+                        select count(*)>0 and bool_and(
+                          (select count(*) from physical_rooms pr where pr.room_type_id=ri.room_type_id)>=rt.total_inventory
+                        )
+                        from reservation_items ri
+                        join room_types rt on rt.id=ri.room_type_id
+                        where ri.reservation_id=r.id
+                      ),false) room_readiness_tracked,
+                      coalesce((
+                        select bool_and(
+                          (select count(*) from physical_rooms pr
+                             where pr.room_type_id=ri.room_type_id
+                               and pr.status='active'
+                               and pr.housekeeping_status='ready'
+                               and pr.current_reservation_id is null)>=ri.quantity
+                        )
+                        from reservation_items ri
+                        where ri.reservation_id=r.id
+                      ),true) rooms_ready
                from reservations r
                join properties p on p.id=r.property_id
                where r.organization_id=any(%s::uuid[])
@@ -310,8 +336,12 @@ def hotel_operations_snapshot(user_id,horizon_days=DEFAULT_HORIZON_DAYS,property
     for stay in arrivals+departures+overdue:
         stay["member_role"]=role_by_organization.get(str(stay["organization_id"]))
 
+    not_ready_arrivals=sum(
+        1 for stay in arrivals
+        if stay.get("room_readiness_tracked") and not stay.get("rooms_ready")
+    )
     tasks=scope_action_links(
-        build_daily_actions(summary,low_inventory,channel_errors),
+        build_daily_actions(summary,low_inventory,channel_errors,not_ready_arrivals),
         selected_property_id,
         horizon_days,
     )
