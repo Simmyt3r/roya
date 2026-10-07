@@ -6,7 +6,13 @@ from flask import render_template
 from roya import create_app
 from roya.auth import service as auth_service
 from roya.organizations import routes as organization_routes
-from roya.organizations.operations_service import build_daily_actions, hotel_operations_snapshot
+from roya.organizations.operations_service import (
+    build_daily_actions,
+    hotel_operations_snapshot,
+    normalize_horizon_days,
+    scope_action_links,
+    select_property_scope,
+)
 
 
 def _identity():
@@ -162,3 +168,82 @@ def test_partner_dashboard_operations_horizon_selector_renders():
     assert '>14 days</option>' in html
     assert "Example Hotel" in html
     assert "Showing Example Hotel only." in html
+
+
+
+def test_operations_scope_helpers_normalize_and_validate_property():
+    first={"id":str(uuid4()),"name":"First Hotel"}
+    second={"id":str(uuid4()),"name":"Second Hotel"}
+    assert normalize_horizon_days("nonsense")==7
+    assert normalize_horizon_days(1)==3
+    assert normalize_horizon_days(99)==14
+
+    selected_id,selected=select_property_scope([first,second],second["id"])
+    assert selected_id==second["id"]
+    assert selected["name"]=="Second Hotel"
+
+    invalid_id,invalid=select_property_scope([first,second],str(uuid4()))
+    assert invalid_id is None
+    assert invalid is None
+
+
+def test_scope_action_links_preserves_selected_property_and_external_routes():
+    property_id=str(uuid4())
+    tasks=[
+        {"href":"/partner#recent-reservations","title":"Stay"},
+        {"href":"/partner/distribution","title":"Distribution"},
+    ]
+    scoped=scope_action_links(tasks,property_id,14)
+    assert scoped[0]["href"]==f"/partner?property_id={property_id}&days=14#recent-reservations"
+    assert scoped[1]["href"]=="/partner/distribution"
+    assert tasks[0]["href"]=="/partner#recent-reservations"
+
+
+def test_partner_dashboard_front_desk_actions_render():
+    snapshot=_snapshot()
+    property_name=snapshot["properties"][0]["name"]
+    snapshot["arrivals"]=[{
+        "id":str(uuid4()),
+        "reference":"RYA-ARRIVE",
+        "guest_name":"Ada Guest",
+        "property_name":property_name,
+        "payment_status":"paid",
+        "source_channel":"direct_booking",
+        "status":"confirmed",
+    }]
+    snapshot["departures"]=[{
+        "id":str(uuid4()),
+        "reference":"RYA-LEAVE",
+        "guest_name":"Ben Guest",
+        "property_name":property_name,
+        "payment_status":"paid",
+        "check_out":"2026-10-07",
+        "status":"checked_in",
+    }]
+    snapshot["overdue"]=[{
+        "id":str(uuid4()),
+        "reference":"RYA-LATE",
+        "guest_name":"Chi Guest",
+        "property_name":property_name,
+        "payment_status":"paid",
+        "check_in":"2026-10-05",
+        "check_out":"2026-10-06",
+        "status":"confirmed",
+        "overdue_type":"arrival",
+    }]
+    app=create_app({"TESTING":True,"WTF_CSRF_ENABLED":False,"DATABASE_URL":""})
+    with app.test_request_context("/partner"):
+        html=render_template(
+            "partner/dashboard.html",
+            organizations=[{"id":str(uuid4()),"name":"Example Group","role":"owner"}],
+            properties=[],pending_reservations=[],partner_reservations=[],partner_refunds=[],
+            team_members=[],pending_invites=[],manageable_organizations=[],
+            finance_organizations=[{"id":str(uuid4()),"name":"Example Group","role":"owner"}],
+            hotel_operations=snapshot,
+        )
+    assert html.count('data-reservation-status="checked_in"')>=2
+    assert 'data-reservation-status="no_show"' in html
+    assert 'data-reservation-status="checked_out"' in html
+    assert "RYA-ARRIVE" in html
+    assert "RYA-LEAVE" in html
+    assert "RYA-LATE" in html
