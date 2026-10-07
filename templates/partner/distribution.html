@@ -36,7 +36,7 @@
 
   <div class="distribution-note">
     <strong>Canonical inventory remains in iRoya.</strong>
-    Channel sync pushes hotel content, rates and inventory from iRoya and records every operation. Once a built-in channel is initialized, iRoya checks it automatically every six hours unless you pause it. External OTA/PMS connectors remain disabled until real provider onboarding and credentials exist.
+    Channel sync pushes hotel content, rates and inventory from iRoya and records every operation. Once a built-in channel is initialized, iRoya checks it automatically once a day unless you pause it. External OTA/PMS connectors remain disabled until real provider onboarding and credentials exist.
   </div>
 
   {% for property in distribution.properties %}
@@ -73,7 +73,7 @@
             <p>{{ channel.description }}</p>
             <div class="distribution-channel-meta">
               <span><strong>Last sync</strong><small>{{ channel.last_synced_at or 'Not synced yet' }}</small></span>
-              <span><strong>Automatic sync</strong><small>{{ 'Every 6 hours' if channel.auto_sync else ('Paused' if channel.connection_id else 'Starts after initialization') }}</small></span>
+              <span><strong>Automatic sync</strong><small>{{ 'Daily' if channel.auto_sync else ('Paused' if channel.connection_id else 'Starts after initialization') }}</small></span>
               <span><strong>Last trigger</strong><small>{{ channel.last_trigger|replace('_',' ')|title if channel.last_trigger else 'None yet' }}</small></span>
               <span><strong>Health</strong><small>{{ channel.health.status|title if channel.health and channel.health.status else 'Not checked yet' }}</small></span>
             </div>
