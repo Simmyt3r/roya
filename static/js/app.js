@@ -538,7 +538,7 @@ if(propertyForm){
       submit.disabled=false;
       return;
     }
-    window.location.href=(data.data&&data.data.redirect_to)||'/partner#properties';
+    window.location.href=(data.data&&data.data.redirect_to)||'/partner/rooms';
   });
 }
 
