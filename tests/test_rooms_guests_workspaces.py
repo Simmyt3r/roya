@@ -68,7 +68,15 @@ def test_rooms_workspace_is_membership_scoped_and_property_filterable(monkeypatc
                     "max_inventory_date":"2026-11-06",
                     "cover_image":None,
                     "cover_alt":None,
+                    "physical_room_count":0,
+                    "ready_room_count":0,
+                    "cleaning_room_count":0,
+                    "dirty_room_count":0,
+                    "occupied_room_count":0,
+                    "out_of_service_room_count":0,
                 }])
+            if "from physical_rooms pr" in sql and "current_reservation_reference" in sql:
+                return _Result(rows=[])
             raise AssertionError(sql)
 
     @contextmanager
