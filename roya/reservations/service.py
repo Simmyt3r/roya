@@ -152,7 +152,11 @@ class ReservationService:
             return []
         if len(query)>120:
             raise RoyaError("VALIDATION_ERROR","Reservation search is too long.",422)
-        limit=max(1,min(int(limit or 20),50))
+        try:
+            limit=int(limit or 20)
+        except (TypeError,ValueError) as exc:
+            raise RoyaError("VALIDATION_ERROR","Search result limit is invalid.",422) from exc
+        limit=max(1,min(limit,50))
         needle=f"%{query}%"
         params=[user_id]
         where=["om.user_id=%s","om.status='active'"]
