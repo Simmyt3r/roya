@@ -337,9 +337,7 @@ def partner_rooms_page():
                    from physical_rooms pr
                    left join reservations r on r.id=pr.current_reservation_id
                    where pr.room_type_id=any(%s::uuid[])
-                   order by pr.room_type_id,
-                            nullif(regexp_replace(pr.room_number,'\\D','','g'),'')::bigint nulls last,
-                            pr.room_number""",
+                   order by pr.room_type_id,coalesce(pr.floor,''),pr.room_number""",
                 (room_ids,),
             ).fetchall()
         ] if room_ids else []
