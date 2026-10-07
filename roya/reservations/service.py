@@ -209,6 +209,144 @@ class ReservationService:
         return rows
 
 
+    def workspace_for_partner(self,user_id,tab="today",property_id=None,query=None,limit=100):
+        tabs={"today","upcoming","pending","in_house","completed"}
+        tab=(tab or "today").strip().lower()
+        if tab not in tabs:
+            raise RoyaError("VALIDATION_ERROR","Unknown reservation view.",422)
+
+        query=(query or "").strip()
+        if len(query)>120:
+            raise RoyaError("VALIDATION_ERROR","Reservation search is too long.",422)
+        try:
+            limit=max(1,min(int(limit or 100),200))
+        except (TypeError,ValueError) as exc:
+            raise RoyaError("VALIDATION_ERROR","Reservation result limit is invalid.",422) from exc
+
+        with db_connection() as conn:
+            properties=[
+                dict(row) for row in conn.execute(
+                    """select distinct p.id,p.name,p.city
+                       from properties p
+                       join organization_members om on om.organization_id=p.organization_id
+                       where om.user_id=%s and om.status='active'
+                       order by p.name""",
+                    (user_id,),
+                ).fetchall()
+            ]
+
+            requested_property=str(property_id or "").strip()
+            selected_property=next(
+                (row for row in properties if str(row["id"])==requested_property),
+                None,
+            ) if requested_property else None
+            if requested_property and not selected_property:
+                raise RoyaError("NOT_FOUND","Property not found.",404)
+            selected_property_id=str(selected_property["id"]) if selected_property else None
+
+            base_where=["om.user_id=%s","om.status='active'"]
+            base_params=[user_id]
+            if selected_property_id:
+                base_where.append("r.property_id=%s")
+                base_params.append(selected_property_id)
+
+            count_row=conn.execute(
+                f"""select
+                       count(*) filter(
+                         where r.status in ('confirmed','checked_in')
+                           and r.check_in<=current_date
+                           and r.check_out>=current_date
+                       ) today,
+                       count(*) filter(
+                         where r.status='confirmed'
+                           and r.check_in>current_date
+                       ) upcoming,
+                       count(*) filter(where r.status='pending_confirmation') pending,
+                       count(*) filter(where r.status='checked_in') in_house,
+                       count(*) filter(where r.status in ('checked_out','cancelled','no_show')) completed
+                    from reservations r
+                    join organization_members om on om.organization_id=r.organization_id
+                    where {' and '.join(base_where)}""",
+                tuple(base_params),
+            ).fetchone()
+
+            view_where=list(base_where)
+            view_params=list(base_params)
+            if tab=="today":
+                view_where.extend([
+                    "r.status in ('confirmed','checked_in')",
+                    "r.check_in<=current_date",
+                    "r.check_out>=current_date",
+                ])
+                order_sql="r.check_in asc,r.check_out asc,r.created_at desc"
+            elif tab=="upcoming":
+                view_where.extend(["r.status='confirmed'","r.check_in>current_date"])
+                order_sql="r.check_in asc,r.created_at desc"
+            elif tab=="pending":
+                view_where.append("r.status='pending_confirmation'")
+                order_sql="r.expires_at asc nulls last,r.created_at asc"
+            elif tab=="in_house":
+                view_where.append("r.status='checked_in'")
+                order_sql="r.check_out asc,r.created_at desc"
+            else:
+                view_where.append("r.status in ('checked_out','cancelled','no_show')")
+                order_sql="r.updated_at desc,r.created_at desc"
+
+            if query:
+                needle=f"%{query}%"
+                view_where.append(
+                    """(
+                       r.reference ilike %s
+                       or r.guest_name ilike %s
+                       or r.guest_email ilike %s
+                       or coalesce(r.guest_phone,'') ilike %s
+                       or p.name ilike %s
+                       or exists(
+                         select 1
+                         from reservation_items sri
+                         join room_types srt on srt.id=sri.room_type_id
+                         where sri.reservation_id=r.id and srt.name ilike %s
+                       )
+                    )"""
+                )
+                view_params.extend([needle,needle,needle,needle,needle,needle])
+
+            view_params.append(limit)
+            reservations=[
+                dict(row) for row in conn.execute(
+                    f"""select
+                           r.id,r.reference,r.property_id,r.guest_name,r.guest_email,r.guest_phone,
+                           r.check_in,r.check_out,r.nights,r.total_price_minor,r.amount_paid_minor,r.currency,
+                           r.status,r.payment_status,r.guarantee_type,r.source_channel,r.expires_at,r.created_at,
+                           p.name property_name,om.role member_role,
+                           coalesce((
+                             select string_agg(distinct rt.name, ', ' order by rt.name)
+                             from reservation_items ri
+                             join room_types rt on rt.id=ri.room_type_id
+                             where ri.reservation_id=r.id
+                           ),'') room_type_names
+                        from reservations r
+                        join properties p on p.id=r.property_id
+                        join organization_members om on om.organization_id=r.organization_id
+                        where {' and '.join(view_where)}
+                        order by {order_sql}
+                        limit %s""",
+                    tuple(view_params),
+                ).fetchall()
+            ]
+
+        counts={key:int((count_row or {}).get(key) or 0) for key in tabs}
+        return {
+            "tab":tab,
+            "query":query,
+            "properties":properties,
+            "selected_property_id":selected_property_id,
+            "selected_property":selected_property,
+            "counts":counts,
+            "reservations":reservations,
+        }
+
+
     def get_for_partner(self,reservation_id,user_id):
         with db_connection() as conn:
             reservation=conn.execute(
