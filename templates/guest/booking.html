@@ -2,7 +2,7 @@
 {% block title %}Complete your booking · {{ property.name }} · iRoya{% endblock %}
 {% block content %}
 <section class="shell booking-head">
-  <a class="back-link" href="javascript:history.back()">← Back to hotel</a>
+  <a class="back-link" href="/hotels/{{ property.slug }}?check_in={{ check_in }}&check_out={{ check_out }}">← Back to hotel</a>
   <div class="eyebrow">Complete your booking</div>
   <h1>{{ property.name }}</h1>
   <p>{{ room.name }} · {{ rate.name }}</p>
