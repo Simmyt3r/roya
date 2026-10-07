@@ -39,3 +39,27 @@ class PartnerReservationDecision(BaseModel):
 
 class PartnerReservationStatusChange(BaseModel):
     status: Literal["checked_in","checked_out","no_show"]
+
+
+class PartnerReservationCreate(BaseModel):
+    property_id: UUID
+    room_type_id: UUID
+    rate_plan_id: UUID
+    check_in: date
+    check_out: date
+    quantity: int = Field(default=1,ge=1,le=10)
+    adults: int = Field(default=1,ge=1,le=20)
+    children: int = Field(default=0,ge=0,le=20)
+    guest_name: str = Field(min_length=2,max_length=150)
+    guest_email: EmailStr | None = None
+    guest_phone: str = Field(min_length=3,max_length=30)
+
+    @model_validator(mode="after")
+    def validate_stay(self):
+        if self.check_in<date.today():
+            raise ValueError("check_in cannot be in the past")
+        if self.check_out<=self.check_in:
+            raise ValueError("check_out must be after check_in")
+        if (self.check_out-self.check_in).days>90:
+            raise ValueError("a reservation cannot exceed 90 nights")
+        return self
