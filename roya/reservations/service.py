@@ -636,7 +636,7 @@ class ReservationService:
                 raise RoyaError("NOT_FOUND","Reservation not found.",404)
 
             items=list(conn.execute(
-                """select ri.id,ri.quantity,ri.unit_price_minor,ri.total_price_minor,
+                """select ri.id,ri.room_type_id,ri.rate_plan_id,ri.quantity,ri.unit_price_minor,ri.total_price_minor,
                           rt.name room_type_name,rp.name rate_plan_name,rp.guarantee_type
                    from reservation_items ri
                    join room_types rt on rt.id=ri.room_type_id
@@ -723,6 +723,37 @@ class ReservationService:
         }
 
 
+    def amendment_options_for_partner(self,user_id,property_id):
+        with db_connection() as conn:
+            rows=conn.execute(
+                """select
+                     rt.id room_type_id,rt.name room_type_name,
+                     rt.capacity_adults,rt.capacity_children,rt.total_inventory,
+                     rp.id rate_plan_id,rp.name rate_plan_name,rp.currency,
+                     rp.base_price_minor,rp.min_stay,rp.meal_plan,rp.refundable,
+                     rp.guarantee_type
+                   from properties p
+                   join organization_members om on om.organization_id=p.organization_id
+                   join room_types rt on rt.property_id=p.id and rt.status='active'
+                   join rate_plans rp on rp.room_type_id=rt.id and rp.status='active'
+                   where p.id=%s
+                     and p.status='active'
+                     and om.user_id=%s
+                     and om.status='active'
+                     and om.role in ('owner','manager','reservations')
+                   order by rt.name,rp.base_price_minor,rp.name""",
+                (property_id,user_id),
+            ).fetchall()
+        options=[dict(row) for row in rows]
+        if not options:
+            raise RoyaError(
+                "RATE_NOT_FOUND",
+                "No active room and rate options are available for this hotel.",
+                409,
+            )
+        return options
+
+
     def partner_amend(self,reservation_id,user_id,payload,idempotency_key):
         if not idempotency_key or len(idempotency_key)<8 or len(idempotency_key)>160:
             raise RoyaError("IDEMPOTENCY_KEY_REQUIRED","A valid Idempotency-Key header is required.",400)
@@ -730,12 +761,14 @@ class ReservationService:
             with db_connection() as conn:
                 with conn.transaction():
                     row=conn.execute(
-                        """select * from private.amend_partner_reservation(
-                             %s::uuid,%s::uuid,%s::date,%s::date,%s::integer,%s::integer,
+                        """select * from private.amend_partner_reservation_v2(
+                             %s::uuid,%s::uuid,%s::uuid,%s::uuid,%s::integer,
+                             %s::date,%s::date,%s::integer,%s::integer,
                              %s::text,%s::text,%s::text,%s::text
                            )""",
                         (
-                            user_id,reservation_id,payload.check_in,payload.check_out,
+                            user_id,reservation_id,str(payload.room_type_id),str(payload.rate_plan_id),
+                            payload.quantity,payload.check_in,payload.check_out,
                             payload.adults,payload.children,payload.guest_name,
                             str(payload.guest_email) if payload.guest_email else "",
                             payload.guest_phone,idempotency_key,
@@ -772,17 +805,23 @@ class ReservationService:
             if "BOOKING_CONFLICT" in message:
                 raise RoyaError(
                     "BOOKING_CONFLICT",
-                    "The current room type is not available for all of the new dates.",
+                    "The selected room type is not available for all of the new dates.",
                     409,
                 ) from exc
             if "RATE_NOT_AVAILABLE" in message:
                 raise RoyaError(
                     "RATE_NOT_FOUND",
-                    "The current rate cannot be used for the amended dates.",
+                    "The selected rate cannot be used for the amended dates.",
+                    409,
+                ) from exc
+            if "ROOM_NOT_AVAILABLE" in message:
+                raise RoyaError(
+                    "ROOM_NOT_FOUND",
+                    "The selected room type is no longer available for booking.",
                     409,
                 ) from exc
             if "CAPACITY_EXCEEDED" in message:
-                raise RoyaError("VALIDATION_ERROR","Guest count exceeds this room's capacity.",422) from exc
+                raise RoyaError("VALIDATION_ERROR","Guest count exceeds the selected room capacity.",422) from exc
             if "PAST_CHECK_IN" in message or "VALIDATION_ERROR" in message:
                 raise RoyaError("VALIDATION_ERROR","The amended stay dates are invalid.",422) from exc
             if "CURRENCY_CHANGE_UNSUPPORTED" in message:
