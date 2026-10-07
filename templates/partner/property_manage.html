@@ -1,12 +1,46 @@
 {% extends "base.html" %}
 {% block title %}{{ property.name }} · Hotel workspace · iRoya{% endblock %}
 {% block content %}
-<section class="shell page-head partner-page-head"><div><a class="back-link" href="/partner">← Hotel dashboard</a><div class="eyebrow">{{ property.organization_name }}</div><h1>{{ property.name }}</h1><p>{{ property.city }}, {{ property.state }} · Your role: {{ property.member_role|title }}</p></div><div class="status-row"><span class="status-pill">{{ property.verification_status|title }}</span><span class="status-pill status-muted">{{ property.status|title }}</span></div></section>
-<section class="shell"><div class="card readiness-card"><div><div class="eyebrow">Go-live readiness</div><h2>{{ "Ready for review" if readiness.ready else "Finish the sellable setup" }}</h2><p class="muted">iRoya verifies that a hotel can actually sell a stay before it becomes public.</p></div><div class="setup-checks setup-checks-large"><span class="{% if readiness.has_room %}ready{% endif %}">Room type</span><span class="{% if readiness.has_rate %}ready{% endif %}">Rate plan</span><span class="{% if readiness.has_inventory %}ready{% endif %}">Future inventory</span></div></div></section>
-{% if property.verification_status == "pending" %}<section class="shell"><div class="notice-card"><strong>Property verification is pending.</strong><span>{% if readiness.ready %}Your sellable setup is complete and the property can be verified by iRoya operations.{% else %}Complete the missing setup above. The property will not appear publicly until it is ready and verified.{% endif %}</span></div></section>{% endif %}
+<section class="shell page-head partner-page-head hotel-manage-head"><div><a class="back-link" href="/partner">← Hotel home</a><div class="eyebrow">{{ property.organization_name }}</div><h1>{{ property.name }}</h1><p>{{ property.city }}, {{ property.state }} · {{ property.member_role|title }} access</p></div><div class="status-row"><span class="status-pill">{{ property.verification_status|title }}</span><span class="status-pill status-muted">{{ property.status|title }}</span></div></section>
+
+<section class="shell hotel-setup-progress hotel-setup-progress-live" aria-label="Hotel setup progress">
+  <a href="#hotel-details" class="is-done"><span>✓</span><strong>Hotel details</strong><small>Created</small></a>
+  <a href="#rooms" class="{% if readiness.has_room %}is-done{% elif not readiness.has_room %}is-current{% endif %}"><span>{{ "✓" if readiness.has_room else "2" }}</span><strong>Rooms</strong><small>{{ "Done" if readiness.has_room else "Next" }}</small></a>
+  <a href="#rooms" class="{% if readiness.has_rate %}is-done{% elif readiness.has_room and not readiness.has_rate %}is-current{% endif %}"><span>{{ "✓" if readiness.has_rate else "3" }}</span><strong>Rates</strong><small>{{ "Done" if readiness.has_rate else "Set price" }}</small></a>
+  <a href="#hotel-photos" class="{% if images %}is-done{% elif readiness.has_rate %}is-current{% endif %}"><span>{{ "✓" if images else "4" }}</span><strong>Photos</strong><small>{{ "Done" if images else "Recommended" }}</small></a>
+  <div class="{% if readiness.ready %}is-done{% endif %}"><span>{{ "✓" if readiness.ready else "5" }}</span><strong>Publish</strong><small>{{ "Ready" if readiness.ready else "Finish setup" }}</small></div>
+</section>
+
+<section class="shell">
+  <div class="card hotel-setup-next">
+    <div>
+      <div class="eyebrow">Next step</div>
+      {% if not readiness.has_room %}
+        <h2>Add your first room</h2><p class="muted">Create the room type guests will choose.</p>
+      {% elif not readiness.has_rate %}
+        <h2>Add a nightly rate</h2><p class="muted">Set a price and how the guest confirms the booking.</p>
+      {% elif not readiness.has_inventory %}
+        <h2>Load room availability</h2><p class="muted">Tell iRoya how many rooms can be sold for future dates.</p>
+      {% elif not images %}
+        <h2>Add hotel photos</h2><p class="muted">Your hotel is sellable. Photos are the recommended finishing touch before promotion.</p>
+      {% else %}
+        <h2>Sellable setup complete</h2><p class="muted">Rooms, rates and availability are ready. Verification controls when the hotel appears publicly.</p>
+      {% endif %}
+    </div>
+    {% if not readiness.has_room %}<a class="button" href="#add-room">Add room</a>
+    {% elif not readiness.has_rate %}<a class="button" href="#rooms">Add rate</a>
+    {% elif not readiness.has_inventory %}<a class="button" href="#rooms">Add availability</a>
+    {% elif not images %}<a class="button" href="#hotel-photos">Add photos</a>
+    {% endif %}
+  </div>
+</section>
+
+{% if property.verification_status == "pending" %}<section class="shell"><div class="notice-card"><strong>Verification pending.</strong><span>{% if readiness.ready %}The sellable setup is complete. iRoya operations can review the hotel before it becomes public.{% else %}Finish the highlighted setup steps first. The hotel stays private until it is ready and verified.{% endif %}</span></div></section>{% endif %}
 
 <section class="shell partner-section hotel-mini-domain">
-  <div class="card mini-domain-card">
+  <details class="card setup-disclosure hotel-direct-address">
+    <summary>Direct hotel address <small>Optional</small></summary>
+    <div class="mini-domain-card">
     <div>
       <div class="eyebrow">iRoya mini-domain</div>
       <h2>Your hotel's direct address</h2>
@@ -29,14 +63,15 @@
       <p class="form-message" role="status" aria-live="polite"></p>
     </form>
     {% endif %}
-  </div>
+    </div>
+  </details>
 </section>
 
-<section class="shell partner-section property-details-section">
+<section class="shell partner-section property-details-section" id="hotel-details">
   <div class="section-heading"><div><div class="eyebrow">Property profile</div><h2>Guest-facing details</h2></div></div>
   {% if can_edit_property %}
-  <details class="card setup-disclosure" open>
-    <summary>Edit property details</summary>
+  <details class="card setup-disclosure">
+    <summary>Hotel details</summary>
     <form class="partner-form compact-form" data-property-details-form data-property="{{ property.id }}">
       {% if property.verification_status == "verified" %}<div class="notice-card"><strong>Verified property.</strong><span>Changing the hotel name or physical location will return it to verification before it becomes public again.</span></div>{% endif %}
       <div class="form-grid">
@@ -56,8 +91,8 @@
   </details>
 
 
-  <details class="card setup-disclosure">
-    <summary>Hotel photos</summary>
+  <details class="card setup-disclosure" id="hotel-photos" {% if not images and readiness.has_rate %}open{% endif %}>
+    <summary>Photos <small>Recommended</small></summary>
     <div class="compact-form">
       <div class="property-photo-grid">
         {% for image in images %}
@@ -89,7 +124,7 @@
   </details>
 
   <details class="card setup-disclosure">
-    <summary>Amenities</summary>
+    <summary>Amenities <small>Optional</small></summary>
     <form class="partner-form compact-form" data-amenities-form data-property="{{ property.id }}">
       <div class="amenity-editor">
         {% for amenity in amenities %}
@@ -104,8 +139,22 @@
   {% endif %}
 </section>
 
-<section class="shell partner-section"><div class="section-heading"><div><div class="eyebrow">Room inventory</div><h2>Rooms, rates & availability</h2></div></div>
-{% if can_manage %}<details class="card setup-disclosure" {% if not rooms %}open{% endif %}><summary>Add room type</summary><form class="partner-form compact-form" data-room-form data-property="{{ property.id }}"><div class="form-grid"><label>Room type name<input name="name" required minlength="2" maxlength="120" placeholder="Deluxe King"></label><label>Total rooms of this type<input name="total_inventory" type="number" min="1" max="1000" value="1" required></label><label>Adult capacity<input name="capacity_adults" type="number" min="1" max="20" value="2" required></label><label>Child capacity<input name="capacity_children" type="number" min="0" max="20" value="0" required></label><label>Base occupancy<input name="base_occupancy" type="number" min="1" max="20" value="1" required></label><label>Bed configuration<input name="bed_configuration" maxlength="200" placeholder="1 King Bed"></label></div><label>Description<textarea name="description" maxlength="3000" rows="3"></textarea></label><button class="button" type="submit">Add room type</button><p class="form-message" aria-live="polite"></p></form></details>{% endif %}
+<section class="shell partner-section" id="rooms"><div class="section-heading"><div><div class="eyebrow">Rooms</div><h2>Rooms, rates & availability</h2><p class="muted">Start with the room. Add pricing and availability after it exists.</p></div></div>
+{% if can_manage %}<details class="card setup-disclosure" id="add-room" {% if not rooms %}open{% endif %}><summary>Add room</summary><form class="partner-form compact-form simple-room-form" data-room-form data-property="{{ property.id }}">
+<div class="form-grid">
+<label>Room name<input name="name" required minlength="2" maxlength="120" placeholder="e.g. Deluxe King"></label>
+<label>How many rooms?<input name="total_inventory" type="number" min="1" max="1000" value="1" required></label>
+<label>Adults per room<input name="capacity_adults" type="number" min="1" max="20" value="2" required></label>
+</div>
+<details class="setup-disclosure inner-disclosure setup-optional-details"><summary>More room details <small>Optional</small></summary><div class="compact-form">
+<div class="form-grid">
+<label>Children per room<input name="capacity_children" type="number" min="0" max="20" value="0" required></label>
+<label>Base occupancy<input name="base_occupancy" type="number" min="1" max="20" value="1" required></label>
+<label>Bed setup<input name="bed_configuration" maxlength="200" placeholder="1 King Bed"></label>
+</div>
+<label>Description<textarea name="description" maxlength="3000" rows="3"></textarea></label>
+</div></details>
+<button class="button" type="submit">Add room & continue</button><p class="form-message" aria-live="polite"></p></form></details>{% endif %}
 <div class="room-admin-list">{% for room in rooms %}<article class="card room-admin-card"><div class="room-admin-head"><div><div class="eyebrow">{{ room.total_inventory }} room{% if room.total_inventory != 1 %}s{% endif %}</div><h3>{{ room.name }}</h3><p class="muted">{{ room.capacity_adults }} adults · {{ room.capacity_children }} children{% if room.bed_configuration %} · {{ room.bed_configuration }}{% endif %}</p></div>{% if room.inventory_summary %}<div class="inventory-chip">{{ room.inventory_summary.days_loaded or 0 }}/30 days loaded</div>{% else %}<div class="inventory-chip inventory-chip-warn">No inventory loaded</div>{% endif %}</div>
 
 {% if can_manage %}
