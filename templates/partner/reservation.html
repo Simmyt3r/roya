@@ -2,6 +2,7 @@
 {% set r = workspace.reservation %}
 {% set room_readiness = workspace.get("room_readiness", {"tracked": false, "ready": true}) %}
 {% set assigned_rooms = workspace.get("assigned_rooms", []) %}
+{% set outstanding_minor = [((r.total_price_minor or 0)-(r.amount_paid_minor or 0)),0]|max %}
 {% block title %}{{ r.reference }} · Reservation · iRoya{% endblock %}
 {% block content %}
 <section class="shell reservation-workspace-head">
@@ -74,12 +75,64 @@
         <div><span>Outstanding</span><strong>{{ r.currency }} {{ '%.2f'|format(((r.total_price_minor or 0)-(r.amount_paid_minor or 0))/100) }}</strong></div>
         <div><span>Booked through</span><strong>{{ "Direct booking" if r.source_channel == "direct_booking" else ("Front desk" if r.source_channel == "front_desk" else "iRoya marketplace") }}</strong></div>
       </div>
+      {% if r.source_channel == "front_desk"
+            and r.member_role in ["owner","manager","reservations","finance"]
+            and r.status in ["confirmed","checked_in","checked_out"]
+            and outstanding_minor > 0 %}
+        <form class="reservation-manual-payment" data-partner-payment data-reservation-id="{{ r.id }}">
+          <div class="reservation-manual-payment-head">
+            <div>
+              <strong>Record hotel payment</strong>
+              <small>Use this only after the hotel has actually received the money. This does not charge a card.</small>
+            </div>
+            <span>{{ r.currency }} {{ '%.2f'|format(outstanding_minor/100) }} due</span>
+          </div>
+          <div class="reservation-manual-payment-fields">
+            <label>Amount ({{ r.currency }})
+              <input
+                name="amount"
+                type="number"
+                min="0.01"
+                max="{{ '%.2f'|format(outstanding_minor/100) }}"
+                step="0.01"
+                value="{{ '%.2f'|format(outstanding_minor/100) }}"
+                inputmode="decimal"
+                required
+              >
+            </label>
+            <label>Method
+              <select name="method" required>
+                <option value="cash">Cash</option>
+                <option value="pos_card">POS / card</option>
+                <option value="bank_transfer">Bank transfer</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+          </div>
+          <label>Note <span class="muted">(optional)</span>
+            <input name="note" maxlength="500" placeholder="Receipt, transfer reference or short note">
+          </label>
+          <button class="button button-small" type="submit">Record payment</button>
+          <p class="form-message" aria-live="polite"></p>
+        </form>
+      {% endif %}
       {% if workspace.transactions %}
       <details class="reservation-history">
         <summary>Payment history</summary>
         <div class="reservation-history-list">
           {% for tx in workspace.transactions %}
-            <div><span>{{ tx.status|replace("_"," ")|title }} · {{ tx.provider|title }}</span><strong>{{ tx.currency }} {{ '%.2f'|format(tx.amount_minor/100) }}</strong><small>{{ tx.created_at }}</small></div>
+            <div>
+              <span>
+                {{ tx.status|replace("_"," ")|title }} ·
+                {% if tx.provider == "hotel" %}
+                  Hotel · {{ (tx.method or "other")|replace("_"," ")|title }}
+                {% else %}
+                  {{ tx.provider|title }}{% if tx.method %} · {{ tx.method|replace("_"," ")|title }}{% endif %}
+                {% endif %}
+              </span>
+              <strong>{{ tx.currency }} {{ '%.2f'|format(tx.amount_minor/100) }}</strong>
+              <small>{{ tx.paid_at or tx.created_at }}</small>
+            </div>
           {% endfor %}
         </div>
       </details>
