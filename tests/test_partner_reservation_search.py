@@ -177,3 +177,136 @@ def test_front_desk_search_renders_actionable_results():
     assert 'data-reservation-decision="approve"' in html
     assert 'data-reservation-status="checked_in"' in html
     assert 'name="property_id"' in html
+
+
+class _Result:
+    def __init__(self,row=None,rows=None):
+        self.row=row
+        self.rows=rows or []
+
+    def fetchone(self):
+        return self.row
+
+    def fetchall(self):
+        return self.rows
+
+
+def test_partner_reservation_workspace_is_membership_scoped(monkeypatch):
+    captured=[]
+    reservation_id=str(uuid4())
+
+    class _Connection:
+        def execute(self,sql,params):
+            captured.append((sql,params))
+            if "from reservations r" in sql and "organization_members om" in sql:
+                return _Result(row={
+                    "id":reservation_id,
+                    "reference":"RYA-WORK1",
+                    "property_id":"property-1",
+                    "organization_id":"org-1",
+                    "guest_name":"Ada Guest",
+                    "guest_email":"ada@example.com",
+                    "guest_phone":"08012345678",
+                    "adults":2,
+                    "children":0,
+                    "check_in":"2026-10-07",
+                    "check_out":"2026-10-09",
+                    "nights":2,
+                    "status":"confirmed",
+                    "payment_status":"paid",
+                    "currency":"NGN",
+                    "total_price_minor":4500000,
+                    "amount_paid_minor":4500000,
+                    "source_channel":"direct_booking",
+                    "property_name":"Example Hotel",
+                    "property_city":"Makurdi",
+                    "property_state":"Benue",
+                    "check_in_time":"14:00",
+                    "check_out_time":"11:00",
+                    "organization_name":"Example Group",
+                    "member_role":"reservations",
+                })
+            return _Result(rows=[])
+
+    @contextmanager
+    def _connection():
+        yield _Connection()
+
+    monkeypatch.setattr(reservation_service,"db_connection",lambda:_connection())
+    workspace=ReservationService().get_for_partner(reservation_id,"user-1")
+
+    assert workspace["reservation"]["reference"]=="RYA-WORK1"
+    first_sql,first_params=captured[0]
+    assert "om.user_id=%s" in first_sql
+    assert "om.status='active'" in first_sql
+    assert first_params==(reservation_id,"user-1")
+
+
+def test_partner_reservation_workspace_page_renders_primary_action(monkeypatch):
+    identity=SimpleNamespace(user_id=str(uuid4()),email="desk@example.com")
+    reservation_id=uuid4()
+    workspace={
+        "reservation":{
+            "id":str(reservation_id),
+            "reference":"RYA-WORK2",
+            "property_id":str(uuid4()),
+            "guest_name":"Ada Guest",
+            "guest_email":"ada@example.com",
+            "guest_phone":"08012345678",
+            "adults":2,
+            "children":0,
+            "property_name":"Example Hotel",
+            "check_in":"2026-10-07",
+            "check_out":"2026-10-09",
+            "nights":2,
+            "check_in_time":"14:00",
+            "check_out_time":"11:00",
+            "status":"confirmed",
+            "payment_status":"paid",
+            "currency":"NGN",
+            "total_price_minor":4500000,
+            "amount_paid_minor":4500000,
+            "source_channel":"direct_booking",
+            "member_role":"reservations",
+        },
+        "items":[{
+            "id":str(uuid4()),
+            "quantity":1,
+            "unit_price_minor":2250000,
+            "total_price_minor":4500000,
+            "room_type_name":"Deluxe Room",
+            "rate_plan_name":"Standard",
+            "guarantee_type":"pay_now",
+        }],
+        "transactions":[],
+        "refunds":[],
+        "audit":[],
+    }
+
+    monkeypatch.setattr(auth_service,"current_identity",lambda required=False:identity)
+    monkeypatch.setattr(reservation_routes,"current_identity",lambda required=False:identity)
+    monkeypatch.setattr(reservation_routes.service,"get_for_partner",lambda reservation_id,user_id:workspace)
+
+    app=create_app({"TESTING":True,"WTF_CSRF_ENABLED":False,"DATABASE_URL":""})
+    response=app.test_client().get(f"/partner/reservations/{reservation_id}")
+
+    assert response.status_code==200
+    html=response.get_data(as_text=True)
+    assert "RYA-WORK2" in html
+    assert "Deluxe Room" in html
+    assert "Check in guest" in html
+    assert 'data-reservation-status="checked_in"' in html
+    assert "Email guest" in html
+
+
+def test_hotel_navigation_uses_task_language():
+    app=create_app({"TESTING":True,"WTF_CSRF_ENABLED":False,"DATABASE_URL":""})
+    with app.test_request_context("/"):
+        from flask import session
+        session["sid"]="session-1"
+        session["account_type"]="hotel"
+        html=render_template("base.html")
+
+    for label in ("Home","Reservations","Rooms","Guests","Reports","Settings"):
+        assert f">{label}<" in html
+    assert ">Dashboard<" not in html
