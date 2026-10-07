@@ -124,6 +124,11 @@
             <strong>{{ guest.guest_name }}</strong>
             <span>{{ guest.property_name }} · {{ guest.room_type_names or "Room" }}</span>
             <small>{{ guest.guest_phone or guest.guest_email }} · {{ guest.reference }}</small>
+            {% if guest.room_readiness_tracked %}
+              <small class="stay-readiness {{ 'is-ready' if guest.rooms_ready else 'is-warning' }}">{{ "Room ready" if guest.rooms_ready else "Needs cleaning" }}</small>
+            {% else %}
+              <small>Room readiness not tracked</small>
+            {% endif %}
           </div>
           <div class="guest-active-actions">
             <a class="button button-small button-secondary" href="/partner/reservations/{{ guest.id }}">Open</a>
