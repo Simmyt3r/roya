@@ -26,7 +26,7 @@ A hotel team member can still use the same account to make personal bookings. Or
 
 ## Hotel workflow
 
-A hotel account can create an organization, add properties, maintain guest-facing details and amenities, upload property photos, create and edit room types and rate plans, load inventory ranges, inspect a 30-day inventory view, add hotel team members, approve hotel-approval reservations, operate front-desk check-in/check-out/no-show states, track optional physical-room readiness, auto-assign ready rooms at check-in, mark assigned rooms dirty at checkout, and process eligible refund requests.
+A hotel account can create an organization, add properties, maintain guest-facing details and amenities, upload property photos, create and edit room types and rate plans, load inventory ranges, inspect a 30-day inventory view, add hotel team members, create atomic front-desk reservations for phone/WhatsApp/walk-in guests, approve hotel-approval reservations, operate check-in/check-out/no-show states, track optional physical-room readiness, auto-assign ready rooms at check-in, mark assigned rooms dirty at checkout, leave property-scoped shift handover notes, and process eligible refund requests.
 
 A property cannot be verified for public sale until it has at least one active room type, one active rate plan and future sellable inventory. Changing a verified property's identity or physical location returns it to verification.
 
@@ -74,7 +74,7 @@ Apply migrations in order from `supabase/migrations`. The current production dat
 
 ## Reservation integrity
 
-`create_reservation(...)` runs inside PostgreSQL. It locks every requested `inventory_days` row, recomputes sellable inventory, writes reservation nights and moves held/sold stock in one transaction. Flask does not use a separate check-then-insert booking flow.
+`create_reservation(...)` runs inside PostgreSQL for guest bookings, and `private.create_partner_reservation(...)` does the same for hotel-created phone/WhatsApp/walk-in bookings. Both lock the requested `inventory_days` rows, recompute sellable inventory, write reservation nights and move stock in one transaction. Flask does not use a separate check-then-insert booking flow.
 
 Reservation and payment states are independent. A pay-at-property reservation may be confirmed while unpaid.
 
