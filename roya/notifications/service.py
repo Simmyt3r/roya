@@ -281,7 +281,7 @@ class NotificationService:
                         "confirmed":"New reservation",
                     }.get(r["status"],"Reservation update")
                     hotel_body=f"{r['reference']} for {r['property_name']} is {r['status'].replace('_',' ')}."
-                    hotel_href="/partner#reservations"
+                    hotel_href=f"/partner/reservations/{r['id']}"
                     for member in members:
                         self._insert_in_app(
                             conn,
@@ -457,7 +457,7 @@ class NotificationService:
                     ).fetchall())
                     hotel_title="Reservation payment received"
                     hotel_body=f"{r['reference']} at {r['property_name']} has recorded payment of {amount}."
-                    hotel_href="/partner#recent-reservations"
+                    hotel_href=f"/partner/reservations/{r['id']}"
                     for member in members:
                         self._insert_in_app(
                             conn,
