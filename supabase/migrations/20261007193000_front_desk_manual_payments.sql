@@ -34,6 +34,8 @@ declare
   v_r public.reservations%rowtype;
   v_role text;
   v_new_paid bigint;
+  v_total_refunded bigint;
+  v_net_paid bigint;
   v_outstanding bigint;
   v_status text;
   v_tx_id uuid:=gen_random_uuid();
@@ -95,12 +97,22 @@ begin
     return;
   end if;
 
-  v_outstanding:=greatest(v_r.total_price_minor-v_r.amount_paid_minor,0);
+  select coalesce(sum(rf.amount_minor),0)::bigint
+  into v_total_refunded
+  from public.refunds rf
+  join public.payment_transactions pt on pt.id=rf.payment_transaction_id
+  where rf.reservation_id=p_reservation_id
+    and rf.status='successful'
+    and pt.provider='hotel';
+
+  v_net_paid:=greatest(v_r.amount_paid_minor-v_total_refunded,0);
+  v_outstanding:=greatest(v_r.total_price_minor-v_net_paid,0);
   if v_outstanding<=0 then raise exception 'ALREADY_PAID'; end if;
   if p_amount_minor>v_outstanding then raise exception 'OVERPAYMENT'; end if;
 
   v_new_paid:=v_r.amount_paid_minor+p_amount_minor;
-  v_outstanding:=greatest(v_r.total_price_minor-v_new_paid,0);
+  v_net_paid:=v_net_paid+p_amount_minor;
+  v_outstanding:=greatest(v_r.total_price_minor-v_net_paid,0);
   v_status:=case when v_outstanding=0 then 'paid' else 'partially_paid' end;
   v_reference:='hotel_'||lower(v_r.reference)||'_'||substr(replace(v_tx_id::text,'-',''),1,10);
 
