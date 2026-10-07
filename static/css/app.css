@@ -2206,3 +2206,74 @@ html{-webkit-text-size-adjust:100%}body{min-width:0;overflow-x:hidden}button,a,i
   .hotel-handover-note>.form-message{grid-column:1}
   .handover-priority{justify-self:start}
 }
+
+
+/* Simple front-desk reservation creation */
+.front-desk-booking-head{padding-bottom:16px}
+.front-desk-booking-head h1{margin:.15rem 0;font-size:clamp(2rem,5vw,3.7rem);letter-spacing:-.05em}
+.front-desk-booking-head p{margin:0;color:var(--muted)}
+.front-desk-booking-progress{padding-bottom:12px}
+.front-desk-stay-filter{
+  display:grid;
+  grid-template-columns:minmax(180px,1.2fr) 1fr 1fr auto;
+  gap:10px;
+  align-items:end;
+  padding:16px;
+  margin-bottom:18px
+}
+.front-desk-stay-filter label{display:grid;gap:5px}
+.front-desk-booking-section{padding-bottom:64px}
+.front-desk-room-options{display:grid;gap:9px;margin-bottom:12px}
+.front-desk-room-option{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  gap:12px;
+  align-items:center;
+  padding:15px 16px;
+  cursor:pointer
+}
+.front-desk-room-option:has(input:checked){
+  border-color:#8eb9b1;
+  background:#f4faf8
+}
+.front-desk-room-option>input{width:18px;height:18px}
+.front-desk-room-copy,.front-desk-room-price{display:grid;gap:2px}
+.front-desk-room-copy small,.front-desk-room-price small{font-size:.69rem;color:var(--muted)}
+.front-desk-room-price{text-align:right}
+.front-desk-room-price strong{font-size:.92rem}
+.front-desk-guest-card{display:grid;gap:14px;padding:20px}
+.front-desk-guest-card h2{margin:.2rem 0}
+.front-desk-guest-card>div>p{margin:0}
+.front-desk-guest-counts{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:9px
+}
+.front-desk-guest-counts label{display:grid;gap:5px}
+.front-desk-confirm{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:14px;
+  padding-top:14px;
+  border-top:1px solid var(--line)
+}
+.front-desk-confirm>div{display:grid;gap:2px}
+.front-desk-confirm small{color:var(--muted)}
+.front-desk-confirm strong{font-size:1.08rem}
+.front-desk-no-rooms{gap:8px}
+@media(max-width:760px){
+  .front-desk-stay-filter{grid-template-columns:1fr 1fr}
+  .front-desk-stay-filter label:first-child{grid-column:1/-1}
+  .front-desk-stay-filter .button{grid-column:1/-1;width:100%}
+  .front-desk-guest-counts{grid-template-columns:1fr 1fr 1fr}
+}
+@media(max-width:540px){
+  .front-desk-stay-filter{grid-template-columns:1fr}
+  .front-desk-stay-filter label:first-child,.front-desk-stay-filter .button{grid-column:1}
+  .front-desk-room-option{grid-template-columns:auto 1fr}
+  .front-desk-room-price{grid-column:2;text-align:left}
+  .front-desk-guest-counts{grid-template-columns:1fr}
+  .front-desk-confirm{align-items:stretch;flex-direction:column}
+  .front-desk-confirm .button{width:100%}
+}
