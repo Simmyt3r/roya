@@ -157,6 +157,29 @@ def partner_reservation_decision(reservation_id):
     return ok(service.partner_decide(str(reservation_id),identity.user_id,body.decision,body.reason))
 
 
+@bp.post("/api/v1/partner/reservations/<uuid:reservation_id>/cancel")
+@login_required
+def cancel_partner_reservation(reservation_id):
+    try:
+        body=PartnerReservationCancel.model_validate(request.get_json(silent=True) or {})
+    except ValidationError as exc:
+        raise RoyaError(
+            "VALIDATION_ERROR",
+            "Invalid cancellation details.",
+            422,
+            {"errors":exc.errors()},
+        ) from exc
+    identity=current_identity(required=True)
+    return ok(
+        service.partner_cancel(
+            str(reservation_id),
+            identity.user_id,
+            body.reason,
+            request.headers.get("Idempotency-Key",""),
+        )
+    )
+
+
 @bp.post("/api/v1/partner/reservations/<uuid:reservation_id>/status")
 @login_required
 def partner_reservation_status(reservation_id):
