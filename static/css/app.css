@@ -2493,3 +2493,53 @@ html{-webkit-text-size-adjust:100%}body{min-width:0;overflow-x:hidden}button,a,i
   .confirmation-block{break-inside:avoid;background:#fff}
   .confirmation-brand-lockup img{print-color-adjust:exact;-webkit-print-color-adjust:exact}
 }
+
+
+/* Reservation requests and internal notes */
+.reservation-notes-card{display:grid;gap:13px}
+.reservation-note-list{display:grid;gap:9px}
+.reservation-note{
+  display:grid;
+  gap:7px;
+  padding:12px;
+  border:1px solid #e4ece9;
+  border-radius:12px;
+  background:#fbfdfc
+}
+.reservation-note.is-resolved{opacity:.66;background:#f7f9f8}
+.reservation-note-head,.reservation-note-meta{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px
+}
+.reservation-note-head small,.reservation-note-meta span{
+  color:var(--muted);
+  font-size:.68rem
+}
+.reservation-note p{margin:0;line-height:1.5;white-space:pre-wrap}
+.reservation-note-meta{flex-wrap:wrap}
+.reservation-note-form{
+  display:grid;
+  grid-template-columns:minmax(150px,.28fr) minmax(0,1fr) auto;
+  gap:9px;
+  align-items:end;
+  padding-top:12px;
+  border-top:1px solid var(--line)
+}
+.reservation-note-form label{display:grid;gap:5px}
+.reservation-note-form textarea{resize:vertical;min-height:78px}
+.reservation-note-form .form-message{grid-column:1/-1;margin:0}
+.confirmation-request-list{display:grid;gap:8px;margin-top:8px}
+.confirmation-request-list p{
+  margin:0;
+  padding:10px 12px;
+  border-radius:10px;
+  background:#fff;
+  border:1px solid #e6eeec;
+  line-height:1.5
+}
+@media(max-width:700px){
+  .reservation-note-form{grid-template-columns:1fr}
+  .reservation-note-form .button{width:100%}
+}
