@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 {% set r = workspace.reservation %}
+{% set room_readiness = workspace.get("room_readiness", {"tracked": false, "ready": true}) %}
+{% set assigned_rooms = workspace.get("assigned_rooms", []) %}
 {% block title %}{{ r.reference }} · Reservation · iRoya{% endblock %}
 {% block content %}
 <section class="shell reservation-workspace-head">
@@ -48,17 +50,17 @@
         {% endfor %}
       </div>
 
-      {% if workspace.assigned_rooms %}
+      {% if assigned_rooms %}
         <div class="reservation-assigned-rooms">
-          <div class="eyebrow">Assigned room{% if workspace.assigned_rooms|length != 1 %}s{% endif %}</div>
-          {% for room in workspace.assigned_rooms %}
+          <div class="eyebrow">Assigned room{% if assigned_rooms|length != 1 %}s{% endif %}</div>
+          {% for room in assigned_rooms %}
             <span><strong>Room {{ room.room_number }}</strong><small>{{ room.room_type_name }}{% if room.floor %} · Floor {{ room.floor }}{% endif %}</small></span>
           {% endfor %}
         </div>
-      {% elif workspace.room_readiness.tracked and r.status == "confirmed" %}
-        <div class="reservation-readiness-note {{ 'is-ready' if workspace.room_readiness.ready else 'is-warning' }}">
-          <strong>{{ "Rooms ready for check-in" if workspace.room_readiness.ready else "Room readiness needs attention" }}</strong>
-          <span>{{ "iRoya will assign the ready room numbers automatically at check-in." if workspace.room_readiness.ready else "Open Rooms and finish cleaning the required room type before check-in." }}</span>
+      {% elif room_readiness.tracked and r.status == "confirmed" %}
+        <div class="reservation-readiness-note {{ 'is-ready' if room_readiness.ready else 'is-warning' }}">
+          <strong>{{ "Rooms ready for check-in" if room_readiness.ready else "Room readiness needs attention" }}</strong>
+          <span>{{ "iRoya will assign the ready room numbers automatically at check-in." if room_readiness.ready else "Open Rooms and finish cleaning the required room type before check-in." }}</span>
         </div>
       {% endif %}
     </article>
@@ -124,7 +126,7 @@
         </div>
       {% elif r.status == "confirmed" %}
         <h2>Guest arriving</h2>
-        {% if workspace.room_readiness.tracked and not workspace.room_readiness.ready %}
+        {% if room_readiness.tracked and not room_readiness.ready %}
           <p class="muted">A tracked room still needs cleaning or readiness work before check-in.</p>
           <div class="reservation-primary-actions">
             <a class="button" href="/partner/rooms?property_id={{ r.property_id }}&focus=readiness">Open room readiness</a>
