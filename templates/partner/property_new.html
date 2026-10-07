@@ -1,16 +1,31 @@
 {% extends "base.html" %}
-{% block title %}Add property · iRoya{% endblock %}
+{% block title %}Add hotel · iRoya{% endblock %}
 {% block content %}
-<section class="shell page-head">
+<section class="shell page-head hotel-setup-head">
   <div>
     <div class="eyebrow">Hotel setup</div>
-    <h1>Add a property</h1>
-    <p>Start with the information a guest needs to identify and reach the hotel. Rooms and rates come next.</p>
+    <h1>Add your hotel</h1>
+    <p>Start with the basics. Rooms, rates and photos come after this step.</p>
   </div>
+  <a class="button button-secondary" href="/partner">Back to home</a>
 </section>
 
-<section class="shell form-shell">
-  <form class="card partner-form" data-property-form>
+<section class="shell hotel-setup-progress" aria-label="Hotel setup progress">
+  <div class="is-current"><span>1</span><strong>Hotel details</strong><small>Now</small></div>
+  <div><span>2</span><strong>Rooms</strong><small>Next</small></div>
+  <div><span>3</span><strong>Rates</strong><small>Then</small></div>
+  <div><span>4</span><strong>Photos</strong><small>Optional polish</small></div>
+  <div><span>5</span><strong>Publish</strong><small>Finish</small></div>
+</section>
+
+<section class="shell form-shell hotel-setup-form-shell">
+  <form class="card partner-form hotel-setup-form" data-property-form>
+    <div class="hotel-form-intro">
+      <div class="eyebrow">Step 1 of 5</div>
+      <h2>Tell us about the hotel</h2>
+      <p class="muted">Only the information needed to create the property is shown first.</p>
+    </div>
+
     <label>Hotel organization
       <select name="organization_id" required>
         {% for o in organizations %}
@@ -18,19 +33,33 @@
         {% endfor %}
       </select>
     </label>
-    <label>Property name<input name="name" minlength="2" maxlength="180" required placeholder="e.g. Royal Palm Hotel Ikeja"></label>
-    <label>Description<textarea name="description" maxlength="5000" rows="4" placeholder="A concise description of the stay and location."></textarea></label>
+
+    <label>Hotel name
+      <input name="name" minlength="2" maxlength="180" required placeholder="e.g. Royal Palm Hotel">
+    </label>
+
     <div class="form-grid">
-      <label>Address<input name="address" minlength="3" maxlength="300" required></label>
-      <label>City<input name="city" minlength="2" maxlength="100" required></label>
-      <label>State<input name="state" minlength="2" maxlength="100" required></label>
+      <label>Address<input name="address" minlength="3" maxlength="300" required placeholder="Street or area"></label>
+      <label>City<input name="city" minlength="2" maxlength="100" required placeholder="e.g. Makurdi"></label>
+      <label>State<input name="state" minlength="2" maxlength="100" required placeholder="e.g. Benue"></label>
       <label>Country<input name="country" value="Nigeria" minlength="2" maxlength="100" required></label>
-      <label>Phone<input name="phone" maxlength="30" type="tel"></label>
-      <label>Email<input name="email" maxlength="200" type="email"></label>
-      <label>Check-in time<input name="check_in_time" value="14:00" type="time" required></label>
-      <label>Check-out time<input name="check_out_time" value="12:00" type="time" required></label>
     </div>
-    <button class="button" type="submit">Create property</button>
+
+    <details class="setup-disclosure setup-optional-details">
+      <summary>Optional details</summary>
+      <div class="compact-form">
+        <p class="muted">Add these now or complete them later from hotel settings.</p>
+        <label>Description<textarea name="description" maxlength="5000" rows="4" placeholder="What should guests know about this hotel?"></textarea></label>
+        <div class="form-grid">
+          <label>Phone<input name="phone" maxlength="30" type="tel"></label>
+          <label>Email<input name="email" maxlength="200" type="email"></label>
+          <label>Check-in time<input name="check_in_time" value="14:00" type="time"></label>
+          <label>Check-out time<input name="check_out_time" value="12:00" type="time"></label>
+        </div>
+      </div>
+    </details>
+
+    <button class="button hotel-setup-primary" type="submit">Create hotel & continue</button>
     <p class="form-message" aria-live="polite"></p>
   </form>
 </section>
