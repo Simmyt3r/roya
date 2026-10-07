@@ -2323,3 +2323,18 @@ html{-webkit-text-size-adjust:100%}body{min-width:0;overflow-x:hidden}button,a,i
   background:#fffaf6
 }
 .reservation-manual-refund .reservation-manual-payment-head>span{color:#8b5a20}
+
+
+.front-desk-cancel-panel{
+  display:grid;
+  gap:6px;
+  margin-top:14px;
+  padding-top:13px;
+  border-top:1px solid var(--line)
+}
+.front-desk-cancel-panel strong{font-size:.76rem;color:#8c4439}
+.front-desk-cancel-panel p{margin:0;color:var(--muted);font-size:.7rem;line-height:1.45}
+.front-desk-cancel-panel .button{justify-self:start}
+@media(max-width:560px){
+  .front-desk-cancel-panel .button{width:100%}
+}
