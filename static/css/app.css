@@ -2356,6 +2356,13 @@ html{-webkit-text-size-adjust:100%}body{min-width:0;overflow-x:hidden}button,a,i
 .front-desk-amend-note{margin:14px 0 0;line-height:1.55}
 .front-desk-amend-form{display:grid;gap:14px}
 .front-desk-amend-form>div:first-child p{margin:0;line-height:1.5}
+.front-desk-amend-room{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(100px,.28fr);
+  gap:10px;
+  align-items:end
+}
+.front-desk-amend-room>p{grid-column:1/-1;margin:0;font-size:.7rem;line-height:1.45}
 .front-desk-amend-dates,.front-desk-amend-guests{
   display:grid;
   grid-template-columns:1fr 1fr;
@@ -2379,7 +2386,8 @@ html{-webkit-text-size-adjust:100%}body{min-width:0;overflow-x:hidden}button,a,i
   .front-desk-amend-layout{grid-template-columns:1fr}
 }
 @media(max-width:560px){
-  .front-desk-amend-dates,.front-desk-amend-guests{grid-template-columns:1fr}
+  .front-desk-amend-room,.front-desk-amend-dates,.front-desk-amend-guests{grid-template-columns:1fr}
+  .front-desk-amend-room>p{grid-column:1}
   .front-desk-amend-actions{display:grid}
   .front-desk-amend-actions .button,.front-desk-change-stay .button{width:100%}
 }
