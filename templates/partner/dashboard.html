@@ -235,6 +235,29 @@
     </article>
   </div>
 
+  {% if hotel_operations.get("guest_requests", []) %}
+    <article class="card hotel-ops-overdue hotel-guest-requests" id="guest-requests">
+      <div class="hotel-ops-card-head">
+        <div><div class="eyebrow">Guest care</div><h3>Open guest requests</h3></div>
+        <span class="status-pill status-error">{{ hotel_operations.guest_requests|length }} open</span>
+      </div>
+      <div class="hotel-ops-stay-list">
+        {% for request in hotel_operations.guest_requests %}
+          <div class="hotel-ops-stay-row">
+            <span>
+              <strong><a class="reservation-reference-link" href="/partner/reservations/{{ request.reservation_id }}">{{ request.guest_name }}</a></strong>
+              <small>{{ request.reference }} · {{ request.property_name }} · {{ request.check_in }} → {{ request.check_out }}</small>
+            </span>
+            <span class="hotel-ops-stay-status guest-request-summary">
+              <strong>{{ request.body }}</strong>
+              <small>{{ request.created_by_name }} · {{ request.created_at }}</small>
+            </span>
+          </div>
+        {% endfor %}
+      </div>
+    </article>
+  {% endif %}
+
   {% if hotel_operations.overdue %}
     <article class="card hotel-ops-overdue" id="operations-overdue">
       <div class="hotel-ops-card-head"><div><div class="eyebrow">Exception queue</div><h3>Overdue stay actions</h3></div><span class="status-pill status-error">{{ hotel_operations.overdue|length }} unresolved</span></div>
