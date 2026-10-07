@@ -67,6 +67,7 @@ def test_daily_actions_prioritize_operational_exceptions():
     assert "overdue departure" in tasks[1]["title"]
     assert any(task["href"]=="/partner/reservations?tab=pending" for task in tasks)
     assert any(task["href"]=="/partner/rooms?focus=inventory" for task in tasks)
+    assert any(task["href"]=="/partner/finance?focus=refunds" for task in tasks)
     assert any(task["href"]=="/partner/distribution" for task in tasks)
 
 
@@ -133,7 +134,9 @@ def test_partner_dashboard_operations_section_renders():
     assert "Hotel operations" in html
     assert "7-day occupancy" in html
     assert "Arrivals today" in html
-    assert "Booking source" in html
+    assert "Booking source" not in html
+    assert "Low inventory" not in html
+    assert "Refund requests" not in html
     assert "Recent bookings" not in html
     assert "Pending approvals" not in html
 
@@ -196,16 +199,19 @@ def test_scope_action_links_preserves_selected_property_and_external_routes():
         {"href":"/partner#operations-overdue","title":"Stay"},
         {"href":"/partner/reservations?tab=pending","title":"Pending"},
         {"href":"/partner/rooms?focus=inventory","title":"Inventory"},
+        {"href":"/partner/finance?focus=refunds","title":"Refunds"},
         {"href":"/partner/distribution","title":"Distribution"},
     ]
     scoped=scope_action_links(tasks,property_id,14)
     assert scoped[0]["href"]==f"/partner?property_id={property_id}&days=14#operations-overdue"
     assert scoped[1]["href"]==f"/partner/reservations?tab=pending&property_id={property_id}"
     assert scoped[2]["href"]==f"/partner/rooms?focus=inventory&property_id={property_id}"
-    assert scoped[3]["href"]=="/partner/distribution"
+    assert scoped[3]["href"]==f"/partner/finance?focus=refunds&property_id={property_id}"
+    assert scoped[4]["href"]=="/partner/distribution"
     assert tasks[0]["href"]=="/partner#operations-overdue"
     assert tasks[1]["href"]=="/partner/reservations?tab=pending"
     assert tasks[2]["href"]=="/partner/rooms?focus=inventory"
+    assert tasks[3]["href"]=="/partner/finance?focus=refunds"
 
 
 def test_partner_dashboard_front_desk_actions_render():
