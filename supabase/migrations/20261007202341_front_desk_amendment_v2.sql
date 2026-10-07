@@ -1,0 +1,5 @@
+-- Migration history reconciliation.
+-- The amendment v2 DDL was already applied from
+-- 20261007210000_front_desk_amendment_v2.sql while Supabase also registered
+-- this earlier version through an explicit apply_migration call.
+-- Intentionally no-op so local and remote migration histories remain aligned.
