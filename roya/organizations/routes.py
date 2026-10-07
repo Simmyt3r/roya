@@ -9,7 +9,6 @@ from roya.common.db import db_connection
 from roya.common.errors import RoyaError
 from roya.common.response import ok
 from roya.common.slug import slugify
-from roya.reservations.service import ReservationService
 from .operations_service import hotel_operations_snapshot
 from .invites import accept_invite, issue_invite, preview_invite, revoke_invite
 
@@ -298,17 +297,6 @@ def partner_dashboard():
                 (user.user_id,),
             ).fetchall()
         )
-        properties = list(
-            conn.execute(
-                """select p.id,p.name,p.slug,p.mini_domain,p.city,p.verification_status,p.status,o.name organization_name
-                   from properties p join organizations o on o.id=p.organization_id
-                   join organization_members om on om.organization_id=o.id
-                   where om.user_id=%s and om.status='active' order by p.created_at desc""",
-                (user.user_id,),
-            ).fetchall()
-        )
-
-
     if not organizations:
         return redirect("/partner/start")
 
@@ -323,14 +311,6 @@ def partner_dashboard():
         property_id=request.args.get("property_id"),
     )
     selected_property_id=hotel_operations.get("selected_property_id")
-    reservation_service=ReservationService()
-    front_desk_query=(request.args.get("front_desk_q") or "").strip()
-    front_desk_results=reservation_service.search_for_partner(
-        user.user_id,
-        front_desk_query,
-        property_id=selected_property_id,
-        limit=20,
-    ) if front_desk_query else []
     from roya.payments.service import PaymentService
     partner_refunds = PaymentService().list_for_partner(
         user.user_id,
@@ -341,10 +321,7 @@ def partner_dashboard():
     return render_template(
         "partner/dashboard.html",
         organizations=organizations,
-        properties=properties,
         partner_refunds=partner_refunds,
-        front_desk_query=front_desk_query,
-        front_desk_results=front_desk_results,
         hotel_operations=hotel_operations,
     )
 
