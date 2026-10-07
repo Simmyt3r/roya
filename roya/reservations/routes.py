@@ -132,8 +132,8 @@ def booking_page():
     with db_connection() as conn:
         row=conn.execute(
             """select rt.*,p.name property_name,p.id property_id,rp.id rate_id,rp.name rate_name,
-                      rp.base_price_minor,rp.guarantee_type,rp.refundable,rp.cancellation_policy,
-                      rp.min_stay rate_min_stay
+                      rp.base_price_minor,rp.currency,rp.guarantee_type,rp.refundable,rp.cancellation_policy,
+                      rp.deposit_percent,rp.min_stay rate_min_stay
                from room_types rt
                join properties p on p.id=rt.property_id
                join rate_plans rp on rp.room_type_id=rt.id
@@ -150,17 +150,24 @@ def booking_page():
                 """select
                      count(*) total_nights,
                      count(*) filter(
-                       where stop_sell=false
-                         and min_stay<=%s
-                         and (total_inventory-held_inventory-sold_inventory)>0
-                         and not (date=%s and closed_to_arrival)
-                         and not (date=(%s::date-1) and closed_to_departure)
-                     ) sellable_nights
-                   from inventory_days
-                   where room_type_id=%s
-                     and date>=%s
-                     and date<%s""",
-                (nights,check_in,check_out,room_type_id,check_in,check_out),
+                       where i.stop_sell=false
+                         and i.min_stay<=%s
+                         and (i.total_inventory-i.held_inventory-i.sold_inventory)>0
+                         and not (i.date=%s and i.closed_to_arrival)
+                         and not (i.date=(%s::date-1) and i.closed_to_departure)
+                     ) sellable_nights,
+                     coalesce(sum(coalesce(dr.price_minor,i.price_override_minor,%s)),0)::bigint total_price_minor
+                   from inventory_days i
+                   left join daily_rates dr
+                     on dr.rate_plan_id=%s
+                    and dr.date=i.date
+                   where i.room_type_id=%s
+                     and i.date>=%s
+                     and i.date<%s""",
+                (
+                    nights,check_in,check_out,int(row["base_price_minor"]),
+                    rate_plan_id,room_type_id,check_in,check_out,
+                ),
             ).fetchone()
     if not row:
         raise RoyaError("RATE_NOT_FOUND","Selected room/rate is unavailable.",404)
@@ -175,6 +182,16 @@ def booking_page():
             409,
         )
 
+    total_price_minor=int(availability["total_price_minor"] or 0)
+    guarantee_type=row["guarantee_type"]
+    if guarantee_type=="pay_now":
+        amount_due_minor=total_price_minor
+    elif guarantee_type=="deposit":
+        deposit_percent=int(row["deposit_percent"] or 0)
+        amount_due_minor=(total_price_minor*deposit_percent+99)//100
+    else:
+        amount_due_minor=0
+
     prop={"id":row["property_id"],"name":row["property_name"]}
     room={
         "id":row["id"],
@@ -182,9 +199,24 @@ def booking_page():
         "capacity_adults":row["capacity_adults"],
         "capacity_children":row["capacity_children"],
     }
-    rate={"id":row["rate_id"],"name":row["rate_name"],"base_price_minor":row["base_price_minor"],"guarantee_type":row["guarantee_type"],"refundable":row["refundable"],"cancellation_policy":row["cancellation_policy"] or {}}
+    rate={
+        "id":row["rate_id"],
+        "name":row["rate_name"],
+        "base_price_minor":row["base_price_minor"],
+        "currency":row["currency"],
+        "guarantee_type":guarantee_type,
+        "refundable":row["refundable"],
+        "cancellation_policy":row["cancellation_policy"] or {},
+        "deposit_percent":int(row["deposit_percent"] or 0),
+        "total_price_minor":total_price_minor,
+        "amount_due_minor":amount_due_minor,
+    }
     guest={"name":(profile["name"] if profile else "") or "","email":identity.email or "","phone":(profile["phone"] if profile else "") or ""}
-    return render_template("guest/booking.html",property=prop,room=room,rate=rate,check_in=check_in,check_out=check_out,nights=nights,guest=guest)
+    return render_template(
+        "guest/booking.html",
+        property=prop,room=room,rate=rate,
+        check_in=check_in,check_out=check_out,nights=nights,guest=guest,
+    )
 
 
 @bp.get("/reservation/<uuid:reservation_id>")
