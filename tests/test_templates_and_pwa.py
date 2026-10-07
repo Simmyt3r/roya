@@ -56,7 +56,7 @@ def test_static_pwa_assets_are_served_with_expected_content():
     sw=client.get("/static/js/sw.js")
     assert sw.status_code==200
     sw_text=sw.get_data(as_text=True)
-    assert "iroya-shell-v22" in sw_text
+    assert "iroya-shell-v23" in sw_text
     assert "'/api/'" in sw_text
     assert "'/partner'" in sw_text
     assert "'/account'" in sw_text
