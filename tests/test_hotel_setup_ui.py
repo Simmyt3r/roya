@@ -58,7 +58,7 @@ def test_new_hotel_setup_shows_essential_first_step():
     assert "Rates" in html
     assert "Photos" in html
     assert "Publish" in html
-    assert "Create hotel &amp; continue" in html
+    assert "Create hotel & continue" in html
     assert "Optional details" in html
     assert 'name="name"' in html
     assert 'name="address"' in html
@@ -82,7 +82,7 @@ def test_property_setup_guides_owner_to_first_room():
         )
 
     assert "Add your first room" in html
-    assert "Add room &amp; continue" in html
+    assert "Add room & continue" in html
     assert "Direct hotel address" in html
     assert "Optional" in html
     assert 'id="add-room"' in html
@@ -112,7 +112,7 @@ def test_property_setup_hides_rate_complexity_under_advanced_settings():
     assert 'name="meal_plan"' in html
     assert 'name="min_stay"' in html
     assert 'name="deposit_percent"' in html
-    assert "Add rate &amp; continue" in html
+    assert "Add rate & continue" in html
 
 
 def test_property_setup_keeps_simple_availability_and_advanced_controls():
