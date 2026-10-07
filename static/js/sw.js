@@ -1,4 +1,4 @@
-const CACHE='iroya-shell-v19';
+const CACHE='iroya-shell-v20';
 const SHELL=['/','/static/css/app.css','/static/js/app.js','/static/manifest.json','/static/brand/iroya-logo.svg'];
 const PRIVATE_PREFIXES=['/api/','/reservation/','/partner','/account','/notifications','/book','/invite/','/payment/'];
 
