@@ -113,6 +113,20 @@
     </article>
   </div>
 
+  <article class="card analytics-mix-card analytics-source-card">
+    <div class="eyebrow">Acquisition</div><h3>Booking source</h3>
+    <p class="muted">See whether reservations originated from a hotel's mini-domain or the wider iRoya marketplace.</p>
+    <div class="analytics-mix-list">
+      {% for row in analytics.source_mix %}
+        <div>
+          <span>{{ 'Direct Booking' if row.source_channel == 'direct_booking' else ('Roya Marketplace' if row.source_channel == 'roya_marketplace' else row.source_channel|replace('_',' ')|title) }}</span>
+          <strong>{{ row.booking_count }}</strong>
+          <small>₦{{ '%.2f'|format(row.booking_value_minor/100) }} · {{ row.cancelled_count }} cancelled</small>
+        </div>
+      {% else %}<p class="muted">No attributed reservations were created in this period.</p>{% endfor %}
+    </div>
+  </article>
+
   <div class="section-heading"><div><div class="eyebrow">Daily pace</div><h2>Occupancy and room revenue</h2></div></div>
   <article class="card analytics-trend-card">
     <div class="analytics-trend">
