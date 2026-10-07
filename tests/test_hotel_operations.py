@@ -66,6 +66,7 @@ def test_daily_actions_prioritize_operational_exceptions():
     assert tasks[1]["priority"]=="critical"
     assert "overdue departure" in tasks[1]["title"]
     assert any(task["href"]=="/partner/reservations?tab=pending" for task in tasks)
+    assert any(task["href"]=="/partner/rooms?focus=inventory" for task in tasks)
     assert any(task["href"]=="/partner/distribution" for task in tasks)
 
 
@@ -194,14 +195,17 @@ def test_scope_action_links_preserves_selected_property_and_external_routes():
     tasks=[
         {"href":"/partner#operations-overdue","title":"Stay"},
         {"href":"/partner/reservations?tab=pending","title":"Pending"},
+        {"href":"/partner/rooms?focus=inventory","title":"Inventory"},
         {"href":"/partner/distribution","title":"Distribution"},
     ]
     scoped=scope_action_links(tasks,property_id,14)
     assert scoped[0]["href"]==f"/partner?property_id={property_id}&days=14#operations-overdue"
     assert scoped[1]["href"]==f"/partner/reservations?tab=pending&property_id={property_id}"
-    assert scoped[2]["href"]=="/partner/distribution"
+    assert scoped[2]["href"]==f"/partner/rooms?focus=inventory&property_id={property_id}"
+    assert scoped[3]["href"]=="/partner/distribution"
     assert tasks[0]["href"]=="/partner#operations-overdue"
     assert tasks[1]["href"]=="/partner/reservations?tab=pending"
+    assert tasks[2]["href"]=="/partner/rooms?focus=inventory"
 
 
 def test_partner_dashboard_front_desk_actions_render():
