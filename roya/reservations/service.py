@@ -266,7 +266,26 @@ class ReservationService:
                             from reservation_items ri
                             join room_types rt on rt.id=ri.room_type_id
                             where ri.reservation_id=r.id
-                          ),'') room_type_names
+                          ),'') room_type_names,
+                          coalesce((
+                            select count(*)>0 and bool_and(
+                              (select count(*) from physical_rooms pr where pr.room_type_id=ri.room_type_id)>=rt.total_inventory
+                            )
+                            from reservation_items ri
+                            join room_types rt on rt.id=ri.room_type_id
+                            where ri.reservation_id=r.id
+                          ),false) room_readiness_tracked,
+                          coalesce((
+                            select bool_and(
+                              (select count(*) from physical_rooms pr
+                                 where pr.room_type_id=ri.room_type_id
+                                   and pr.status='active'
+                                   and pr.housekeeping_status='ready'
+                                   and pr.current_reservation_id is null)>=ri.quantity
+                            )
+                            from reservation_items ri
+                            where ri.reservation_id=r.id
+                          ),true) rooms_ready
                        from reservations r
                        join properties p on p.id=r.property_id
                        join organization_members om on om.organization_id=r.organization_id
