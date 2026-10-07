@@ -642,7 +642,7 @@ class ReservationService:
             ).fetchall())
 
             transactions=list(conn.execute(
-                """select provider,provider_reference,amount_minor,currency,status,paid_at,created_at
+                """select provider,provider_reference,amount_minor,currency,status,method,paid_at,created_at
                    from payment_transactions
                    where reservation_id=%s
                    order by created_at desc
