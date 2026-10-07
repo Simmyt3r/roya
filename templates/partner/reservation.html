@@ -69,6 +69,60 @@
       {% endif %}
     </article>
 
+    <article class="card reservation-workspace-card reservation-notes-card">
+      <div class="eyebrow">Requests & notes</div>
+      <h2>Reservation context</h2>
+      <p class="muted">Guest requests can be shared on the confirmation. Staff notes stay internal to the hotel.</p>
+
+      {% if workspace.get("notes", []) %}
+        <div class="reservation-note-list">
+          {% for note in workspace.get("notes", []) %}
+            <div class="reservation-note {{ 'is-resolved' if note.status == 'resolved' else '' }}">
+              <div class="reservation-note-head">
+                <span class="status-pill {{ 'status-muted' if note.kind == 'staff_note' else '' }}">
+                  {{ "Guest request" if note.kind == "guest_request" else "Staff note" }}
+                </span>
+                <small>{{ note.status|title }}</small>
+              </div>
+              <p>{{ note.body }}</p>
+              <div class="reservation-note-meta">
+                <span>{{ note.created_by_name }} · {{ note.created_at }}</span>
+                {% if note.status == "resolved" and note.resolved_at %}
+                  <span>Resolved{% if note.resolved_by_name %} by {{ note.resolved_by_name }}{% endif %} · {{ note.resolved_at }}</span>
+                {% elif r.member_role in ["owner","manager","reservations","staff"] %}
+                  <button class="button button-small button-secondary" type="button"
+                    data-reservation-note-resolve
+                    data-reservation-id="{{ r.id }}"
+                    data-note-id="{{ note.id }}">Resolve</button>
+                {% endif %}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty compact-empty">
+          <strong>No requests or notes yet</strong>
+          <span>Add only information that helps the hotel deliver this stay.</span>
+        </div>
+      {% endif %}
+
+      {% if r.member_role in ["owner","manager","reservations","staff"] %}
+        <form class="reservation-note-form" data-reservation-note-form data-reservation-id="{{ r.id }}">
+          <label>Type
+            <select name="kind" required>
+              <option value="guest_request">Guest request</option>
+              <option value="staff_note">Staff note</option>
+            </select>
+          </label>
+          <label>Note
+            <textarea name="body" rows="3" maxlength="2000" placeholder="Late arrival, airport pickup, dietary need, accessibility request, internal reception note…" required></textarea>
+          </label>
+          <button class="button button-small" type="submit">Add note</button>
+          <p class="form-message" aria-live="polite"></p>
+        </form>
+      {% endif %}
+    </article>
+
     <article class="card reservation-workspace-card">
       <div class="eyebrow">Payment</div>
       <h2>{{ r.payment_status|replace("_"," ")|title }}</h2>
