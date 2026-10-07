@@ -1588,3 +1588,64 @@ document.querySelectorAll('[data-physical-room]').forEach(function(row){
     });
   }
 });
+
+
+document.querySelectorAll('[data-handover-form]').forEach(function(form){
+  form.addEventListener('submit',async function(event){
+    event.preventDefault();
+    const message=form.querySelector('.form-message');
+    const submit=form.querySelector('button[type="submit"]');
+    const data=Object.fromEntries(new FormData(form).entries());
+    submit.disabled=true;
+    message.textContent='Saving handover note…';
+    try{
+      const response=await fetch('/api/v1/partner/handover',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          property_id:data.property_id,
+          priority:data.priority||'normal',
+          note:(data.note||'').trim()
+        })
+      });
+      const body=await response.json().catch(function(){return {};});
+      if(!response.ok){
+        message.textContent=(body.error&&body.error.message)||'Handover note could not be saved.';
+        return;
+      }
+      window.location.reload();
+    }catch(_error){
+      message.textContent='Handover note could not be saved.';
+    }finally{
+      submit.disabled=false;
+    }
+  });
+});
+
+document.querySelectorAll('[data-handover-note]').forEach(function(row){
+  const resolve=row.querySelector('[data-handover-resolve]');
+  const message=row.querySelector('.form-message');
+  if(!resolve)return;
+  resolve.addEventListener('click',async function(){
+    if(!window.confirm('Mark this handover note as resolved?'))return;
+    resolve.disabled=true;
+    if(message)message.textContent='Resolving…';
+    try{
+      const response=await fetch('/api/v1/partner/handover/'+row.dataset.handoverNote+'/resolve',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:'{}'
+      });
+      const body=await response.json().catch(function(){return {};});
+      if(!response.ok){
+        if(message)message.textContent=(body.error&&body.error.message)||'Handover note could not be resolved.';
+        resolve.disabled=false;
+        return;
+      }
+      row.remove();
+    }catch(_error){
+      if(message)message.textContent='Handover note could not be resolved.';
+      resolve.disabled=false;
+    }
+  });
+});
