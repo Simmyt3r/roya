@@ -79,7 +79,11 @@ def build_daily_actions(summary,low_inventory,channel_errors):
 
 
 def hotel_operations_snapshot(user_id,horizon_days=7):
-    horizon_days=max(3,min(int(horizon_days or 7),14))
+    try:
+        horizon_days=int(horizon_days or 7)
+    except (TypeError,ValueError):
+        horizon_days=7
+    horizon_days=max(3,min(horizon_days,14))
     with db_connection() as conn:
         memberships=[
             dict(row) for row in conn.execute(
