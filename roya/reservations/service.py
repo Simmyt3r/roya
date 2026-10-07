@@ -514,12 +514,22 @@ class ReservationService:
                 (reservation_id,),
             ).fetchall())
 
+            assigned_rooms=list(conn.execute(
+                """select pr.id,pr.room_number,pr.floor,pr.housekeeping_status,rt.name room_type_name
+                   from physical_rooms pr
+                   join room_types rt on rt.id=pr.room_type_id
+                   where pr.current_reservation_id=%s
+                   order by rt.name,pr.room_number""",
+                (reservation_id,),
+            ).fetchall())
+
         return {
             "reservation":dict(reservation),
             "items":[dict(row) for row in items],
             "transactions":[dict(row) for row in transactions],
             "refunds":[dict(row) for row in refunds],
             "audit":[dict(row) for row in audit],
+            "assigned_rooms":[dict(row) for row in assigned_rooms],
         }
 
 
@@ -597,13 +607,86 @@ class ReservationService:
                         409,
                     )
 
+                room_changes=[]
                 if target_status=="checked_in":
+                    items=list(conn.execute(
+                        """select ri.room_type_id,ri.quantity,rt.name room_type_name,rt.total_inventory
+                           from reservation_items ri
+                           join room_types rt on rt.id=ri.room_type_id
+                           where ri.reservation_id=%s
+                           order by ri.id""",
+                        (reservation_id,),
+                    ).fetchall())
+
+                    for item in items:
+                        configured=int(conn.execute(
+                            "select count(*) total from physical_rooms where room_type_id=%s",
+                            (item["room_type_id"],),
+                        ).fetchone()["total"] or 0)
+                        if configured<int(item["total_inventory"]):
+                            continue
+
+                        ready=list(conn.execute(
+                            """select id,room_number
+                               from physical_rooms
+                               where room_type_id=%s
+                                 and status='active'
+                                 and housekeeping_status='ready'
+                                 and current_reservation_id is null
+                               order by room_number
+                               for update skip locked
+                               limit %s""",
+                            (item["room_type_id"],int(item["quantity"])),
+                        ).fetchall())
+                        if len(ready)<int(item["quantity"]):
+                            raise RoyaError(
+                                "ROOM_NOT_READY",
+                                f"{item['room_type_name']} does not have enough ready rooms for check-in.",
+                                409,
+                                {
+                                    "room_type":item["room_type_name"],
+                                    "required":int(item["quantity"]),
+                                    "ready":len(ready),
+                                },
+                            )
+
+                        for physical_room in ready:
+                            assigned=conn.execute(
+                                """update physical_rooms
+                                   set current_reservation_id=%s,assigned_at=now()
+                                   where id=%s
+                                   returning id,room_number""",
+                                (reservation_id,physical_room["id"]),
+                            ).fetchone()
+                            room_changes.append({
+                                "room_id":str(assigned["id"]),
+                                "room_number":assigned["room_number"],
+                                "change":"assigned",
+                            })
+
                     row=conn.execute(
                         """update reservations set status='checked_in',checked_in_at=coalesce(checked_in_at,now()),
                                   updated_at=now() where id=%s returning *""",
                         (reservation_id,),
                     ).fetchone()
                 elif target_status=="checked_out":
+                    released=list(conn.execute(
+                        """update physical_rooms
+                           set current_reservation_id=null,assigned_at=null,
+                               housekeeping_status='dirty',housekeeping_updated_at=now(),
+                               housekeeping_updated_by=%s
+                           where current_reservation_id=%s
+                           returning id,room_number""",
+                        (user_id,reservation_id),
+                    ).fetchall())
+                    room_changes=[
+                        {
+                            "room_id":str(physical_room["id"]),
+                            "room_number":physical_room["room_number"],
+                            "change":"released_dirty",
+                        }
+                        for physical_room in released
+                    ]
                     row=conn.execute(
                         """update reservations set status='checked_out',checked_out_at=coalesce(checked_out_at,now()),
                                   updated_at=now() where id=%s returning *""",
@@ -623,7 +706,7 @@ class ReservationService:
                         user_id,access["organization_id"],access["property_id"],
                         "reservation."+target_status,reservation_id,
                         json.dumps({"status":access["status"]}),
-                        json.dumps({"status":target_status},default=str),
+                        json.dumps({"status":target_status,"room_changes":room_changes},default=str),
                     ),
                 )
         NotificationService().notify_guest_status(reservation_id,target_status)
