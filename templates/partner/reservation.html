@@ -243,6 +243,18 @@
             <button class="button button-secondary" type="button" data-reservation-status="no_show" data-reservation-id="{{ r.id }}">Mark no-show</button>
           </div>
         {% endif %}
+
+        {% if r.source_channel == "front_desk" %}
+          <div class="front-desk-cancel-panel">
+            {% if net_paid_minor > 0 %}
+              <strong>Cancellation locked</strong>
+              <p>Return and record {{ r.currency }} {{ '%.2f'|format(net_paid_minor/100) }} before cancelling this reservation.</p>
+            {% else %}
+              <button class="button button-small button-secondary" type="button" data-partner-reservation-cancel data-reservation-id="{{ r.id }}">Cancel reservation</button>
+              <p class="form-message" aria-live="polite"></p>
+            {% endif %}
+          </div>
+        {% endif %}
       {% elif r.status == "checked_in" %}
         <h2>Guest in-house</h2>
         <p class="muted">Complete the stay when the guest leaves.</p>
