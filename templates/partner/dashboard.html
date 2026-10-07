@@ -44,7 +44,17 @@
       <h2>Hotel operations</h2>
       <p class="muted">A live working view of arrivals, departures, occupancy pressure and actions that need attention.</p>
     </div>
-    {% if finance_organizations %}<a class="button button-secondary" href="/partner/analytics">Open analytics</a>{% endif %}
+    <div class="partner-head-actions">
+      <form method="get" action="/partner#operations-today" aria-label="Operations forecast window">
+        <label class="muted" for="operations-days">Forward view</label>
+        <select id="operations-days" name="days" onchange="this.form.submit()">
+          <option value="3" {% if hotel_operations.horizon_days == 3 %}selected{% endif %}>3 days</option>
+          <option value="7" {% if hotel_operations.horizon_days == 7 %}selected{% endif %}>7 days</option>
+          <option value="14" {% if hotel_operations.horizon_days == 14 %}selected{% endif %}>14 days</option>
+        </select>
+      </form>
+      {% if finance_organizations %}<a class="button button-secondary" href="/partner/analytics">Open analytics</a>{% endif %}
+    </div>
   </div>
 
   <div class="hotel-ops-kpis">
