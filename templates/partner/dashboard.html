@@ -44,7 +44,7 @@
       <h2>Hotel operations</h2>
       <p class="muted">A live working view of arrivals, departures, occupancy pressure and actions that need attention.</p>
     </div>
-    <a class="button button-secondary" href="/partner/analytics">Open analytics</a>
+    {% if finance_organizations %}<a class="button button-secondary" href="/partner/analytics">Open analytics</a>{% endif %}
   </div>
 
   <div class="hotel-ops-kpis">
