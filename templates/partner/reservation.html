@@ -2,7 +2,10 @@
 {% set r = workspace.reservation %}
 {% set room_readiness = workspace.get("room_readiness", {"tracked": false, "ready": true}) %}
 {% set assigned_rooms = workspace.get("assigned_rooms", []) %}
+{% set refunded_minor = r.get("amount_refunded_minor", 0) or 0 %}
+{% set net_paid_minor = [((r.amount_paid_minor or 0)-refunded_minor),0]|max %}
 {% set outstanding_minor = [((r.total_price_minor or 0)-(r.amount_paid_minor or 0)),0]|max %}
+{% set hotel_balance_minor = [((r.total_price_minor or 0)-net_paid_minor),0]|max %}
 {% block title %}{{ r.reference }} · Reservation · iRoya{% endblock %}
 {% block content %}
 <section class="shell reservation-workspace-head">
@@ -71,21 +74,22 @@
       <h2>{{ r.payment_status|replace("_"," ")|title }}</h2>
       <div class="reservation-detail-grid">
         <div><span>Total</span><strong>{{ r.currency }} {{ '%.2f'|format(r.total_price_minor/100) }}</strong></div>
-        <div><span>Paid</span><strong>{{ r.currency }} {{ '%.2f'|format(r.amount_paid_minor/100) }}</strong></div>
-        <div><span>Outstanding</span><strong>{{ r.currency }} {{ '%.2f'|format(((r.total_price_minor or 0)-(r.amount_paid_minor or 0))/100) }}</strong></div>
+        <div><span>Gross collected</span><strong>{{ r.currency }} {{ '%.2f'|format((r.amount_paid_minor or 0)/100) }}</strong></div>
+        <div><span>Refunded</span><strong>{{ r.currency }} {{ '%.2f'|format(refunded_minor/100) }}</strong></div>
+        <div><span>Net collected</span><strong>{{ r.currency }} {{ '%.2f'|format(net_paid_minor/100) }}</strong></div>
         <div><span>Booked through</span><strong>{{ "Direct booking" if r.source_channel == "direct_booking" else ("Front desk" if r.source_channel == "front_desk" else "iRoya marketplace") }}</strong></div>
       </div>
       {% if r.source_channel == "front_desk"
             and r.member_role in ["owner","manager","reservations","finance"]
             and r.status in ["confirmed","checked_in","checked_out"]
-            and outstanding_minor > 0 %}
+            and hotel_balance_minor > 0 %}
         <form class="reservation-manual-payment" data-partner-payment data-reservation-id="{{ r.id }}">
           <div class="reservation-manual-payment-head">
             <div>
               <strong>Record hotel payment</strong>
               <small>Use this only after the hotel has actually received the money. This does not charge a card.</small>
             </div>
-            <span>{{ r.currency }} {{ '%.2f'|format(outstanding_minor/100) }} due</span>
+            <span>{{ r.currency }} {{ '%.2f'|format(hotel_balance_minor/100) }} recordable balance</span>
           </div>
           <div class="reservation-manual-payment-fields">
             <label>Amount ({{ r.currency }})
@@ -93,9 +97,9 @@
                 name="amount"
                 type="number"
                 min="0.01"
-                max="{{ '%.2f'|format(outstanding_minor/100) }}"
+                max="{{ '%.2f'|format(hotel_balance_minor/100) }}"
                 step="0.01"
-                value="{{ '%.2f'|format(outstanding_minor/100) }}"
+                value="{{ '%.2f'|format(hotel_balance_minor/100) }}"
                 inputmode="decimal"
                 required
               >
@@ -116,6 +120,49 @@
           <p class="form-message" aria-live="polite"></p>
         </form>
       {% endif %}
+
+      {% if r.source_channel == "front_desk"
+            and r.member_role in ["owner","manager","finance"]
+            and r.status in ["confirmed","checked_in","checked_out","cancelled","no_show"]
+            and net_paid_minor > 0 %}
+        <form class="reservation-manual-payment reservation-manual-refund" data-partner-refund data-reservation-id="{{ r.id }}">
+          <div class="reservation-manual-payment-head">
+            <div>
+              <strong>Record returned money</strong>
+              <small>Use this only after the hotel has actually returned money to the guest. iRoya records the refund; it does not move funds.</small>
+            </div>
+            <span>{{ r.currency }} {{ '%.2f'|format(net_paid_minor/100) }} refundable</span>
+          </div>
+          <div class="reservation-manual-payment-fields">
+            <label>Amount ({{ r.currency }})
+              <input
+                name="amount"
+                type="number"
+                min="0.01"
+                max="{{ '%.2f'|format(net_paid_minor/100) }}"
+                step="0.01"
+                value="{{ '%.2f'|format(net_paid_minor/100) }}"
+                inputmode="decimal"
+                required
+              >
+            </label>
+            <label>Returned by
+              <select name="method" required>
+                <option value="cash">Cash</option>
+                <option value="pos_card">POS / card reversal</option>
+                <option value="bank_transfer">Bank transfer</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+          </div>
+          <label>Reason
+            <input name="reason" maxlength="1000" placeholder="Cancellation, overcharge correction, service recovery…" required>
+          </label>
+          <button class="button button-small button-secondary" type="submit">Record refund</button>
+          <p class="form-message" aria-live="polite"></p>
+        </form>
+      {% endif %}
+
       {% if workspace.transactions %}
       <details class="reservation-history">
         <summary>Payment history</summary>
@@ -142,7 +189,11 @@
         <summary>Refund history</summary>
         <div class="reservation-history-list">
           {% for rf in workspace.refunds %}
-            <div><span>{{ rf.status|replace("_"," ")|title }}</span><strong>{{ rf.currency }} {{ '%.2f'|format(rf.amount_minor/100) }}</strong><small>{{ rf.reason or rf.created_at }}</small></div>
+            <div>
+              <span>{{ rf.status|replace("_"," ")|title }}{% if rf.method %} · {{ rf.method|replace("_"," ")|title }}{% endif %}</span>
+              <strong>{{ rf.currency }} {{ '%.2f'|format(rf.amount_minor/100) }}</strong>
+              <small>{{ rf.reason or rf.created_at }}</small>
+            </div>
           {% endfor %}
         </div>
       </details>
