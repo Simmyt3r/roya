@@ -89,7 +89,7 @@
           <div class="reservation-row-property">
             <span>Property</span>
             <strong>{{ r.property_name }}</strong>
-            <small>{{ "Direct booking" if r.source_channel == "direct_booking" else "iRoya marketplace" }}</small>
+            <small>{{ "Direct booking" if r.source_channel == "direct_booking" else ("Front desk" if r.source_channel == "front_desk" else "iRoya marketplace") }}</small>
           </div>
           <div class="reservation-row-money">
             <span>Total</span>
