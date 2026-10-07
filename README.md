@@ -68,7 +68,7 @@ Platform administrators can configure SMTP notifications and Paystack under **Ad
 
 Current production project ref: `nagadxvccyiilowcuruk` in `ap-southeast-1`.
 
-Apply migrations in order from `supabase/migrations`. The current production database includes the v3 foundation/security/index/cron/partner-decision migrations plus the guest-vs-hotel account type migration.
+Apply migrations in order from `supabase/migrations`. Production also includes the hotel operations migrations for room readiness, shift handover, front-desk reservations, hotel-collected payments/refunds, safe cancellation and atomic front-desk stay amendments.
 
 `supabase/seed.sql` is development/demo data and must not run automatically as production content.
 
@@ -84,7 +84,7 @@ The locking design was race-tested on the earlier project. The replacement Supab
 
 Paystack payment initialization is idempotency-key protected. Signed webhooks and server-side verification drive successful online payment state.
 
-For hotel-created `front_desk` reservations, authorized hotel staff can record money already received by cash, POS/card, bank transfer or another offline method. Owners, managers and finance staff can also record money the hotel has already returned to the guest. A confirmed front-desk reservation can be cancelled by hotel operations only after its net hotel-collected balance is zero; cancellation then releases sold inventory atomically. These payment, refund and cancellation actions are idempotent, audited and share the canonical reservation/payment/refund ledger. They do not invoke Paystack; iRoya records the real-world movement after it happens.
+For hotel-created `front_desk` reservations, authorized hotel staff can record money already received by cash, POS/card, bank transfer or another offline method. Owners, managers and finance staff can also record money the hotel has already returned to the guest. A confirmed front-desk reservation can be amended atomically for dates, guest details and occupancy while keeping its room type, rate plan and quantity fixed; iRoya rechecks inventory, reprices the stay and blocks cheaper amendments that require an unrecorded refund. A confirmed front-desk reservation can be cancelled only after its net hotel-collected balance is zero, at which point sold inventory is released atomically. These payment, refund, amendment and cancellation actions are idempotent, audited and share the canonical reservation/payment/refund ledger. They do not invoke Paystack; iRoya records the real-world movement after it happens.
 
 Paid cancellation does not immediately cancel inventory. It creates refund review records. Authorized hotel roles initiate Paystack refunds; iRoya waits for refund processing/webhooks and only releases a still-active reservation after the captured amount has been fully refunded. Cancellation-policy enforcement still needs its final policy engine before public launch.
 
