@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% macro reservation_actions(reservation) -%}
-  {% if reservation.status == "confirmed" %}
+  {% if reservation.member_role in ["owner","manager","reservations"] and reservation.status == "confirmed" %}
     <div class="approval-actions front-desk-actions">
       <button class="button button-small" type="button" data-reservation-status="checked_in" data-reservation-id="{{ reservation.id }}">Check in</button>
       <button class="button button-small button-secondary" type="button" data-reservation-status="no_show" data-reservation-id="{{ reservation.id }}">No-show</button>
     </div>
-  {% elif reservation.status == "checked_in" %}
+  {% elif reservation.member_role in ["owner","manager","reservations"] and reservation.status == "checked_in" %}
     <div class="approval-actions front-desk-actions">
       <button class="button button-small" type="button" data-reservation-status="checked_out" data-reservation-id="{{ reservation.id }}">Check out</button>
     </div>
@@ -377,10 +377,14 @@
             <div class="muted">{{ r.property_name }} · {{ r.check_in }} to {{ r.check_out }} · {{ r.currency }} {{ '%.2f'|format(r.total_price_minor / 100) }}</div>
             {% if r.expires_at %}<div class="muted">Approval hold expires {{ r.expires_at }}</div>{% endif %}
           </div>
+          {% if r.member_role in ["owner","manager","reservations"] %}
           <div class="approval-actions">
             <button class="button button-small" type="button" data-reservation-decision="approve">Approve</button>
             <button class="button button-small button-secondary" type="button" data-reservation-decision="reject">Reject</button>
           </div>
+          {% else %}
+          <span class="muted">Read-only access</span>
+          {% endif %}
           <p class="form-message"></p>
         </div>
       {% else %}
