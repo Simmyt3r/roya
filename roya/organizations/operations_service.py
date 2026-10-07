@@ -31,6 +31,8 @@ def scope_action_links(tasks,property_id,horizon_days):
             item["href"]=item["href"].replace("/partner#",prefix,1)
         elif item["href"].startswith("/partner/reservations?"):
             item["href"]+=f"&property_id={property_id}"
+        elif item["href"].startswith("/partner/rooms?"):
+            item["href"]+=f"&property_id={property_id}"
         scoped.append(item)
     return scoped
 
@@ -84,7 +86,7 @@ def build_daily_actions(summary,low_inventory,channel_errors):
             "critical",
             f"{overdue_departures} overdue departure{'s' if overdue_departures != 1 else ''}",
             "Checked-in stays are past their planned check-out date and need front-desk review.",
-            "/partner#recent-reservations",
+            "/partner#operations-overdue",
         ))
     if pending:
         tasks.append(_task(
@@ -98,7 +100,7 @@ def build_daily_actions(summary,low_inventory,channel_errors):
             "warning",
             f"{len(low_inventory)} low-inventory room date{'s' if len(low_inventory) != 1 else ''}",
             "Future sellable inventory is at two rooms or fewer for these room/date combinations.",
-            "/partner#operations-inventory",
+            "/partner/rooms?focus=inventory",
         ))
     if channel_errors:
         tasks.append(_task(
