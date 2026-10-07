@@ -1128,3 +1128,13 @@ html{-webkit-text-size-adjust:100%}body{min-width:0;overflow-x:hidden}button,a,i
 @media(max-width:370px){
   .hotel-ops-kpis{grid-template-columns:1fr}
 }
+
+
+/* Front-desk operational actions */
+.hotel-ops-stay-status{display:grid;justify-items:end;gap:3px;text-align:right}
+.hotel-ops-stay-status .front-desk-actions{margin-top:5px;justify-content:flex-end;flex-wrap:wrap}
+@media(max-width:700px){
+  .hotel-ops-stay-row{grid-template-columns:1fr}
+  .hotel-ops-stay-status{justify-items:start;text-align:left}
+  .hotel-ops-stay-status .front-desk-actions{justify-content:flex-start}
+}
