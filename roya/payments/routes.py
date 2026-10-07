@@ -1,4 +1,6 @@
 from flask import Blueprint, render_template, request
+from typing import Literal
+from pydantic import BaseModel, Field, ValidationError
 from roya.auth.service import current_identity, login_required
 from roya.common.errors import RoyaError
 from roya.common.response import ok
@@ -6,6 +8,12 @@ from .service import PaymentService
 
 bp=Blueprint("payments",__name__)
 service=PaymentService()
+
+
+class PartnerPaymentRecord(BaseModel):
+    amount_minor: int = Field(gt=0)
+    method: Literal["cash","pos_card","bank_transfer","other"]
+    note: str | None = Field(default=None,max_length=500)
 
 
 @bp.post("/api/v1/payments/initiate")
@@ -36,6 +44,32 @@ def request_refund():
 def process_refund(refund_id):
     identity=current_identity(required=True)
     return ok(service.process_refund(str(refund_id),identity.user_id))
+
+
+@bp.post("/api/v1/partner/reservations/<uuid:reservation_id>/payments")
+@login_required
+def record_partner_payment(reservation_id):
+    try:
+        body=PartnerPaymentRecord.model_validate(request.get_json(silent=True) or {})
+    except ValidationError as exc:
+        raise RoyaError(
+            "VALIDATION_ERROR",
+            "Invalid hotel payment details.",
+            422,
+            {"errors":exc.errors()},
+        ) from exc
+    identity=current_identity(required=True)
+    return ok(
+        service.record_partner_payment(
+            str(reservation_id),
+            identity.user_id,
+            body.amount_minor,
+            body.method,
+            body.note,
+            request.headers.get("Idempotency-Key",""),
+        ),
+        201,
+    )
 
 
 @bp.post("/api/webhooks/paystack")
