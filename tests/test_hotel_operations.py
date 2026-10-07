@@ -1,6 +1,8 @@
 from types import SimpleNamespace
 from uuid import uuid4
 
+from flask import render_template
+
 from roya import create_app
 from roya.auth import service as auth_service
 from roya.organizations import routes as organization_routes
@@ -91,3 +93,26 @@ def test_partner_operations_summary_api(monkeypatch):
     assert data["summary"]["arrivals_today"]==2
     assert data["summary"]["in_house"]==4
     assert data["horizon_days"]==7
+
+
+def test_partner_dashboard_operations_section_renders():
+    snapshot=_snapshot()
+    app=create_app({"TESTING":True,"WTF_CSRF_ENABLED":False,"DATABASE_URL":""})
+    with app.test_request_context("/partner"):
+        html=render_template(
+            "partner/dashboard.html",
+            organizations=[{"id":str(uuid4()),"name":"Example Group","role":"owner"}],
+            properties=[],
+            pending_reservations=[],
+            partner_reservations=[],
+            partner_refunds=[],
+            team_members=[],
+            pending_invites=[],
+            manageable_organizations=[],
+            finance_organizations=[{"id":str(uuid4()),"name":"Example Group","role":"owner"}],
+            hotel_operations=snapshot,
+        )
+    assert "Hotel operations" in html
+    assert "7-day occupancy" in html
+    assert "Arrivals today" in html
+    assert "Booking source" in html
