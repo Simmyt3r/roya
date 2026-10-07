@@ -1071,3 +1071,60 @@ html{-webkit-text-size-adjust:100%}body{min-width:0;overflow-x:hidden}button,a,i
   .distribution-channel-actions{display:grid;grid-template-columns:1fr}
   .distribution-channel-actions .button{width:100%}
 }
+
+
+/* Hotel operations intelligence */
+.hotel-ops-section{scroll-margin-top:88px}
+.hotel-ops-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px}
+.hotel-ops-kpi{display:grid;gap:4px;padding:16px}
+.hotel-ops-kpi>span{font-size:.68rem;font-weight:900;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.hotel-ops-kpi strong{font-size:1.9rem;line-height:1}
+.hotel-ops-kpi small{font-size:.7rem;color:var(--muted)}
+.hotel-ops-layout{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr);gap:14px;margin-bottom:14px}
+.hotel-ops-actions,.hotel-ops-forecast,.hotel-ops-overdue,.hotel-ops-layout>.card,.hotel-ops-stay-grid>.card{padding:18px}
+.hotel-ops-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}
+.hotel-ops-card-head h3{margin:.2rem 0 0}
+.hotel-ops-task-list,.hotel-ops-stay-list,.hotel-ops-source-list,.hotel-ops-forecast-list{display:grid}
+.hotel-ops-task{display:grid;grid-template-columns:72px minmax(0,1fr) auto;gap:10px;align-items:center;padding:11px 0;border-top:1px solid #eef2f1;color:inherit;text-decoration:none}
+.hotel-ops-task:first-child{border-top:0}
+.hotel-ops-task strong,.hotel-ops-task small{display:block}
+.hotel-ops-task small{margin-top:2px;color:var(--muted);font-size:.7rem}
+.hotel-ops-task-priority{font-size:.64rem;font-weight:900;text-transform:uppercase;letter-spacing:.04em}
+.hotel-ops-task.is-critical .hotel-ops-task-priority{color:#9f2f21}
+.hotel-ops-task.is-warning .hotel-ops-task-priority{color:#8a6412}
+.hotel-ops-task.is-info .hotel-ops-task-priority{color:#285d76}
+.hotel-ops-forecast-row{display:grid;grid-template-columns:86px minmax(90px,1fr) 52px 74px;gap:9px;align-items:center;padding:8px 0;border-top:1px solid #eef2f1;font-size:.72rem}
+.hotel-ops-forecast-row:first-child{border-top:0}
+.hotel-ops-forecast-row small{color:var(--muted);text-align:right}
+.hotel-ops-bar{height:8px;border-radius:999px;background:#edf2f1;overflow:hidden}
+.hotel-ops-bar span{display:block;height:100%;background:var(--brand);border-radius:inherit}
+.hotel-ops-stay-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.hotel-ops-stay-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 0;border-top:1px solid #eef2f1}
+.hotel-ops-stay-row:first-child{border-top:0}
+.hotel-ops-stay-row span:last-child{text-align:right}
+.hotel-ops-stay-row strong,.hotel-ops-stay-row small{display:block}
+.hotel-ops-stay-row small{margin-top:2px;color:var(--muted);font-size:.7rem}
+.hotel-ops-overdue{margin-bottom:14px;border-color:#e4b6af}
+.hotel-ops-source-list>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 0;border-top:1px solid #eef2f1}
+.hotel-ops-source-list>div:first-child{border-top:0}
+.hotel-ops-source-list span:last-child{text-align:right}
+.hotel-ops-source-list strong,.hotel-ops-source-list small{display:block}
+.hotel-ops-source-list small{font-size:.7rem;color:var(--muted);margin-top:2px}
+@media(max-width:900px){
+  .hotel-ops-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .hotel-ops-layout,.hotel-ops-stay-grid{grid-template-columns:1fr}
+}
+@media(max-width:560px){
+  .hotel-ops-kpis{grid-template-columns:1fr 1fr;gap:8px}
+  .hotel-ops-kpi{padding:13px}
+  .hotel-ops-kpi strong{font-size:1.55rem}
+  .hotel-ops-card-head{flex-direction:column}
+  .hotel-ops-task{grid-template-columns:64px minmax(0,1fr) auto}
+  .hotel-ops-forecast-row{grid-template-columns:72px minmax(70px,1fr) 48px}
+  .hotel-ops-forecast-row small{grid-column:2/4;text-align:left}
+  .hotel-ops-stay-row{grid-template-columns:1fr}
+  .hotel-ops-stay-row span:last-child{text-align:left}
+}
+@media(max-width:370px){
+  .hotel-ops-kpis{grid-template-columns:1fr}
+}
