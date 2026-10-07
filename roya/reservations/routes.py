@@ -5,7 +5,7 @@ from pydantic import ValidationError
 from roya.auth.service import current_identity, login_required
 from roya.common.errors import RoyaError
 from roya.common.response import ok
-from .schemas import PartnerReservationCreate, PartnerReservationDecision, PartnerReservationStatusChange, ReservationCreate
+from .schemas import PartnerReservationCancel, PartnerReservationCreate, PartnerReservationDecision, PartnerReservationStatusChange, ReservationCreate
 from .service import ReservationService
 from roya.reviews.service import ReviewService
 
