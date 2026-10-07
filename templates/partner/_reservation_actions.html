@@ -9,7 +9,11 @@
     </div>
   {% elif reservation.member_role in ["owner","manager","reservations"] and reservation.status == "confirmed" %}
     <div class="approval-actions front-desk-actions">
-      <button class="button button-small" type="button" data-reservation-status="checked_in" data-reservation-id="{{ reservation.id }}">Check in</button>
+      {% if reservation.room_readiness_tracked and not reservation.rooms_ready %}
+        <button class="button button-small" type="button" disabled title="A tracked room still needs to be made ready">Room not ready</button>
+      {% else %}
+        <button class="button button-small" type="button" data-reservation-status="checked_in" data-reservation-id="{{ reservation.id }}">Check in</button>
+      {% endif %}
       <button class="button button-small button-secondary" type="button" data-reservation-status="no_show" data-reservation-id="{{ reservation.id }}">No-show</button>
     </div>
   {% elif reservation.member_role in ["owner","manager","reservations"] and reservation.status == "checked_in" %}
