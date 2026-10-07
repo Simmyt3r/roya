@@ -208,9 +208,7 @@ begin
   if v_net_paid>v_total then raise exception 'REFUND_REQUIRED'; end if;
   v_balance:=greatest(v_total-v_net_paid,0);
 
-  if v_total_refunded>0 then
-    v_payment_status:=case when v_net_paid=0 then 'refunded' else 'partially_refunded' end;
-  elsif v_net_paid>=v_total and v_total>0 then
+  if v_balance=0 and v_net_paid>0 then
     v_payment_status:='paid';
   elsif v_net_paid>0 then
     v_payment_status:='partially_paid';
