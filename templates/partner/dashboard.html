@@ -8,7 +8,7 @@
     <h1>Today</h1>
     <p>Handle arrivals, departures and anything that needs attention.</p>
   </div>
-  <a class="button button-secondary" href="/partner/properties/new">Add property</a>
+  <a class="button button-secondary" href="/partner/reservations?tab=today">View reservations</a>
 </section>
 
 <section class="shell hotel-scope-bar">
@@ -28,7 +28,7 @@
       <strong>{{ hotel_operations.selected_property.name }}</strong>
       <span>Property view</span>
     {% else %}
-      <strong>{{ properties|length }} propert{% if properties|length == 1 %}y{% else %}ies{% endif %}</strong>
+      <strong>{{ hotel_operations.properties|length }} propert{% if hotel_operations.properties|length == 1 %}y{% else %}ies{% endif %}</strong>
       <span>Portfolio view</span>
     {% endif %}
   </div>
@@ -200,99 +200,6 @@
     </div>
   </details>
 </section>
-
-<section class="shell partner-section front-desk-search" id="front-desk-search">
-  <div class="section-heading">
-    <div>
-      <div class="eyebrow">Front desk</div>
-      <h2>Find a guest or reservation</h2>
-      <p class="muted">Search by reservation reference, guest name, email, phone, property or room type.{% if hotel_operations.selected_property %} Results are limited to {{ hotel_operations.selected_property.name }}.{% endif %}</p>
-    </div>
-  </div>
-
-  <form class="card front-desk-search-form" method="get" action="/partner#front-desk-search" role="search">
-    <input type="hidden" name="days" value="{{ hotel_operations.horizon_days }}">
-    {% if hotel_operations.selected_property_id %}<input type="hidden" name="property_id" value="{{ hotel_operations.selected_property_id }}">{% endif %}
-    <label for="front-desk-query">Guest or reservation
-      <input id="front-desk-query" name="front_desk_q" type="search" minlength="2" maxlength="120" value="{{ front_desk_query }}" placeholder="e.g. RYA-123, Ada, 080…, guest@email.com" autocomplete="off">
-    </label>
-    <button class="button" type="submit">Search</button>
-    {% if front_desk_query %}<a class="button button-secondary" href="/partner?days={{ hotel_operations.horizon_days }}{% if hotel_operations.selected_property_id %}&property_id={{ hotel_operations.selected_property_id }}{% endif %}#front-desk-search">Clear</a>{% endif %}
-  </form>
-
-  {% if front_desk_query %}
-    <div class="front-desk-search-summary">
-      <strong>{{ front_desk_results|length }} result{% if front_desk_results|length != 1 %}s{% endif %}</strong>
-      <span class="muted">for “{{ front_desk_query }}”</span>
-    </div>
-    <div class="front-desk-result-list">
-      {% for r in front_desk_results %}
-        <article class="card front-desk-result">
-          <div class="front-desk-result-main">
-            <div>
-              <div class="eyebrow"><a class="reservation-reference-link" href="/partner/reservations/{{ r.id }}">{{ r.reference }}</a></div>
-              <h3><a href="/partner/reservations/{{ r.id }}">{{ r.guest_name }}</a></h3>
-              <p class="muted">{{ r.guest_email }}{% if r.guest_phone %} · {{ r.guest_phone }}{% endif %}</p>
-            </div>
-            <div class="front-desk-result-state">
-              <span class="status-pill">{{ r.status|replace('_',' ')|title }}</span>
-              <span class="status-pill status-muted">{{ r.payment_status|replace('_',' ')|title }}</span>
-            </div>
-          </div>
-          <div class="front-desk-result-meta">
-            <span><strong>Property</strong>{{ r.property_name }}</span>
-            <span><strong>Room</strong>{{ r.room_type_names or 'Room not listed' }}</span>
-            <span><strong>Stay</strong>{{ r.check_in }} → {{ r.check_out }}</span>
-            <span><strong>Total</strong>{{ r.currency }} {{ '%.2f'|format(r.total_price_minor/100) }}</span>
-          </div>
-          <div class="front-desk-result-actions">
-            <a class="button button-small button-secondary" href="/partner/reservations/{{ r.id }}">Open reservation</a>
-            {{ reservation_actions(r) }}
-            {% if r.member_role not in ["owner","manager","reservations"] %}
-              <span class="muted">Read-only access</span>
-            {% elif r.status not in ["pending_confirmation","confirmed","checked_in"] %}
-              <span class="muted">No front-desk action is available for this reservation state.</span>
-            {% endif %}
-          </div>
-        </article>
-      {% else %}
-        <div class="card operations-empty">
-          <strong>No matching reservation found.</strong>
-          <span>Check the spelling, reference, phone number, email address, property or room name.</span>
-        </div>
-      {% endfor %}
-    </div>
-  {% endif %}
-</section>
-
-<section class="shell partner-section" id="properties">
-  <div class="section-heading">
-    <div><div class="eyebrow">Properties</div><h2>Your hotels</h2></div>
-    <a class="button button-secondary" href="/partner/properties/new">Add property</a>
-  </div>
-  <div class="partner-property-grid">
-    {% for p in properties %}
-      <a class="card partner-property-card" href="/partner/properties/{{ p.id }}">
-        <div>
-          <strong>{{ p.name }}</strong>
-          <p class="muted">{{ p.city }} · {{ p.organization_name }}</p>
-          {% if p.mini_domain %}<small class="mini-domain-inline">{{ p.mini_domain }}.iroya.ng</small>{% endif %}
-        </div>
-        <div class="status-row">
-          <span class="status-pill">{{ p.verification_status|title }}</span>
-          <span class="status-pill status-muted">{{ p.status|title }}</span>
-        </div>
-      </a>
-    {% else %}
-      <div class="empty">
-        <h3>Add your first property</h3>
-        <p class="muted">A property holds the rooms, rates, inventory and reservation rules guests will see.</p>
-        <a class="button" href="/partner/properties/new">Add property</a>
-      </div>
-    {% endfor %}
-  </div>
-</section>
-
 
 <section class="shell partner-section" id="refunds">
   <div class="section-heading"><div><div class="eyebrow">Money operations</div><h2>Refund requests</h2></div></div>
