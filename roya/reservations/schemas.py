@@ -63,3 +63,7 @@ class PartnerReservationCreate(BaseModel):
         if (self.check_out-self.check_in).days>90:
             raise ValueError("a reservation cannot exceed 90 nights")
         return self
+
+
+class PartnerReservationCancel(BaseModel):
+    reason: str | None = Field(default=None,max_length=1000)
