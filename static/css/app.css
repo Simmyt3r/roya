@@ -1064,3 +1064,10 @@ html{-webkit-text-size-adjust:100%}body{min-width:0;overflow-x:hidden}button,a,i
   .distribution-readiness{grid-template-columns:1fr}
   .distribution-channel-head{flex-direction:column}
 }
+
+
+.distribution-channel-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+@media(max-width:620px){
+  .distribution-channel-actions{display:grid;grid-template-columns:1fr}
+  .distribution-channel-actions .button{width:100%}
+}
