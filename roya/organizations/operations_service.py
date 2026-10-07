@@ -33,6 +33,8 @@ def scope_action_links(tasks,property_id,horizon_days):
             item["href"]+=f"&property_id={property_id}"
         elif item["href"].startswith("/partner/rooms?"):
             item["href"]+=f"&property_id={property_id}"
+        elif item["href"].startswith("/partner/finance?"):
+            item["href"]+=f"&property_id={property_id}"
         scoped.append(item)
     return scoped
 
@@ -114,7 +116,7 @@ def build_daily_actions(summary,low_inventory,channel_errors):
             "warning",
             f"{refund_attention} refund request{'s' if refund_attention != 1 else ''} need attention",
             "Requested or processing refunds are still open for this hotel workspace.",
-            "/partner#refunds",
+            "/partner/finance?focus=refunds",
         ))
     if arrivals:
         tasks.append(_task(
