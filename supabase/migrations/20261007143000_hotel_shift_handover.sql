@@ -32,6 +32,14 @@ create index if not exists idx_hotel_handover_resolved_by
   where resolved_by is not null;
 
 alter table private.hotel_handover_notes enable row level security;
+
+create policy hotel_handover_notes_no_client_access
+on private.hotel_handover_notes
+for all
+to anon,authenticated
+using (false)
+with check (false);
+
 revoke all on table private.hotel_handover_notes from public,anon,authenticated;
 
 comment on table private.hotel_handover_notes is
