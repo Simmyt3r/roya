@@ -441,21 +441,28 @@ class PaymentService:
         NotificationService().notify_refund_requested(str(reservation_id))
         return {"reservation_id":reservation_id,"status":"requested","refunds":created}
 
-    def list_for_partner(self,user_id,limit=50):
+    def list_for_partner(self,user_id,property_id=None,limit=50):
+        params=[user_id]
+        property_clause=""
+        if property_id:
+            property_clause=" and r.property_id=%s"
+            params.append(property_id)
+        params.append(limit)
         with db_connection() as conn:
             return list(conn.execute(
-                """select rf.id,rf.reservation_id,rf.amount_minor,rf.currency,rf.status,rf.reason,rf.created_at,
-                          r.reference reservation_reference,r.guest_name,r.guest_email,p.name property_name,
-                          om.role member_role
-                   from refunds rf
-                   join reservations r on r.id=rf.reservation_id
-                   join properties p on p.id=r.property_id
-                   join organization_members om on om.organization_id=r.organization_id
-                   where om.user_id=%s and om.status='active'
-                     and rf.status in ('requested','processing')
-                   order by case when rf.status='requested' then 0 else 1 end,rf.created_at asc
-                   limit %s""",
-                (user_id,limit),
+                f"""select rf.id,rf.reservation_id,rf.amount_minor,rf.currency,rf.status,rf.reason,rf.created_at,
+                           r.reference reservation_reference,r.guest_name,r.guest_email,p.name property_name,
+                           om.role member_role
+                    from refunds rf
+                    join reservations r on r.id=rf.reservation_id
+                    join properties p on p.id=r.property_id
+                    join organization_members om on om.organization_id=r.organization_id
+                    where om.user_id=%s and om.status='active'
+                      {property_clause}
+                      and rf.status in ('requested','processing')
+                    order by case when rf.status='requested' then 0 else 1 end,rf.created_at asc
+                    limit %s""",
+                tuple(params),
             ).fetchall())
 
     def process_refund(self,refund_id,user_id):
