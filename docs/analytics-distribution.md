@@ -34,6 +34,12 @@ Booking-behaviour metrics use reservations **created during** the selected perio
 
 Guest rating uses visible reviews created in the selected period.
 
+### Booking source attribution
+
+Every reservation stores a `source_channel`. Main-domain iRoya bookings are attributed to `roya_marketplace`; reservations created from a matching verified hotel mini-domain are attributed to `direct_booking`. A hotel mini-domain cannot create a reservation for another property.
+
+Idempotent reservation replays preserve the original source rather than overwriting it. Analytics groups reservation count, booking value and cancellations by source channel.
+
 All money values remain stored and calculated in minor currency units until display/export formatting.
 
 ## Distribution manager
@@ -51,9 +57,11 @@ Only these adapters are operational:
 
 These are built-in channels and do not require external provider credentials.
 
-Opening the Distribution Manager is read-only. A channel connection is created or updated only after an explicit sync request.
+Opening the Distribution Manager is read-only. A channel connection is created or updated only after an explicit sync request. The database enforces one property/channel connection with a unique partial index.
 
-An explicit sync currently performs:
+After initialization, an active built-in connection is eligible for scheduled synchronization every six hours. Owners/managers may pause a connection by moving it to `disconnected`; disconnected connections are ignored by scheduled sync. Manual sync resumes a disconnected built-in channel.
+
+A manual or scheduled sync currently performs:
 
 1. adapter health check
 2. property push
@@ -64,7 +72,7 @@ An explicit sync currently performs:
 7. connection status/last-sync update
 8. audit logging
 
-A transaction-level advisory lock prevents concurrent initialization of the same property/channel pair.
+Sync logs record whether the trigger was `manual` or `scheduled`. The connection settings retain health, last trigger, last attempt timestamp and last sync status. A transaction-level advisory lock plus database uniqueness prevents duplicate initialization of the same property/channel pair.
 
 ### Future adapters
 
