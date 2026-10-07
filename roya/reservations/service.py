@@ -617,7 +617,9 @@ class ReservationService:
     def get_for_partner(self,reservation_id,user_id):
         with db_connection() as conn:
             reservation=conn.execute(
-                """select r.*,p.name property_name,p.city property_city,p.state property_state,
+                """select r.*,p.name property_name,p.address property_address,
+                          p.city property_city,p.state property_state,p.country property_country,
+                          p.phone property_phone,p.email property_email,
                           p.check_in_time,p.check_out_time,o.name organization_name,om.role member_role,
                           coalesce((
                             select sum(rf.amount_minor)
