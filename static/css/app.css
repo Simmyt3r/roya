@@ -1169,3 +1169,88 @@ html{-webkit-text-size-adjust:100%}body{min-width:0;overflow-x:hidden}button,a,i
 @media(max-width:480px){
   .front-desk-result-meta{grid-template-columns:1fr}
 }
+
+
+/* Simplified hotel workspace */
+.hotel-home-head{align-items:center}
+.hotel-home-head h1{margin-bottom:.05em}
+.hotel-scope-bar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:14px 16px;
+  margin-bottom:14px;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:16px
+}
+.hotel-scope-bar form{margin:0}
+.hotel-scope-bar label{display:grid;grid-template-columns:auto minmax(190px,320px);align-items:center;gap:10px;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em}
+.hotel-scope-bar select{min-height:40px;font-size:.88rem;text-transform:none;letter-spacing:normal;font-weight:750}
+.hotel-scope-summary{display:grid;justify-items:end;gap:1px}
+.hotel-scope-summary strong{font-size:.88rem}
+.hotel-scope-summary span{font-size:.7rem;color:var(--muted)}
+.hotel-horizon-form label{min-width:125px}
+.reservation-reference-link{font-weight:850;color:var(--brand)}
+.reservation-reference-link:hover{text-decoration:underline;text-underline-offset:3px}
+.front-desk-result h3 a:hover{color:var(--brand)}
+.main-nav{gap:12px}
+.main-nav>a:not(.button){font-size:.84rem}
+
+/* Unified reservation workspace */
+.reservation-workspace-head{padding:34px 0 18px}
+.reservation-workspace-head .back-link{display:inline-block;margin-bottom:18px;color:var(--muted);font-weight:750;font-size:.84rem}
+.reservation-workspace-heading{display:flex;justify-content:space-between;align-items:flex-end;gap:20px}
+.reservation-workspace-heading h1{margin:.1em 0;font-size:clamp(2rem,5vw,3.7rem);letter-spacing:-.05em}
+.reservation-workspace-heading p{margin:0;color:var(--muted)}
+.reservation-workspace-status{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+.reservation-workspace-grid{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:18px;align-items:start;padding-bottom:72px}
+.reservation-workspace-main{display:grid;gap:14px}
+.reservation-workspace-card{padding:21px}
+.reservation-workspace-card h2{margin:.15rem 0 1rem;font-size:1.35rem}
+.reservation-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.reservation-detail-grid>div{display:grid;gap:2px;padding:12px 13px;background:#f7faf9;border:1px solid #e7eeec;border-radius:12px;min-width:0}
+.reservation-detail-grid span{font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:800}
+.reservation-detail-grid strong,.reservation-detail-grid a{font-size:.88rem;overflow-wrap:anywhere}
+.reservation-detail-grid a{color:var(--brand);font-weight:800}
+.reservation-room-list{display:grid;margin-top:14px;border-top:1px solid #edf1f0}
+.reservation-room-list>div{display:flex;justify-content:space-between;gap:14px;align-items:center;padding:12px 0;border-bottom:1px solid #edf1f0}
+.reservation-room-list span{display:grid;gap:2px}
+.reservation-room-list small{color:var(--muted)}
+.reservation-action-panel{position:sticky;top:88px;display:grid;gap:12px}
+.reservation-action-card{display:grid;gap:10px}
+.reservation-action-card h2{margin:.1rem 0;font-size:1.45rem}
+.reservation-action-card p{margin:0 0 4px}
+.reservation-primary-actions{display:grid;gap:8px}
+.reservation-primary-actions .button{width:100%}
+.reservation-quick-contact{display:grid;gap:8px}
+.reservation-quick-contact a{min-height:42px;display:flex;align-items:center;padding:9px 11px;border:1px solid var(--line);border-radius:11px;font-weight:800}
+.reservation-quick-contact a:hover{background:#f5f8f7}
+.reservation-history{margin-top:14px}
+.reservation-history>summary{cursor:pointer;font-weight:850;color:var(--ink)}
+.reservation-history-card{padding:18px 21px}
+.reservation-history-list{display:grid;margin-top:10px}
+.reservation-history-list>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding:10px 0;border-top:1px solid #edf1f0}
+.reservation-history-list small{grid-column:1/-1;color:var(--muted);font-size:.7rem}
+
+@media(max-width:900px){
+  .reservation-workspace-grid{grid-template-columns:1fr}
+  .reservation-action-panel{position:static;order:-1}
+}
+@media(max-width:700px){
+  .hotel-home-head{align-items:flex-start}
+  .hotel-home-head>.button{width:auto}
+  .hotel-scope-bar{align-items:stretch;flex-direction:column}
+  .hotel-scope-bar label{grid-template-columns:1fr;gap:5px}
+  .hotel-scope-bar select{width:100%}
+  .hotel-scope-summary{justify-items:start}
+  .reservation-workspace-heading{align-items:flex-start;flex-direction:column}
+  .reservation-workspace-status{justify-content:flex-start}
+  .reservation-detail-grid{grid-template-columns:1fr}
+  .reservation-room-list>div{align-items:flex-start;flex-direction:column}
+}
+@media(max-width:420px){
+  .reservation-workspace-head{padding-top:24px}
+  .reservation-workspace-grid{padding-bottom:48px}
+}
