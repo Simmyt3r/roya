@@ -195,3 +195,55 @@ def test_hotel_navigation_uses_settings_workspace():
 
     assert 'href="/partner/settings">Settings</a>' in html
     assert 'href="/partner#team">Settings</a>' not in html
+
+
+def test_public_hotel_page_uses_choose_review_confirm_language():
+    app=create_app({"TESTING":True,"WTF_CSRF_ENABLED":False,"DATABASE_URL":""})
+    check_in=date.today()+timedelta(days=7)
+    check_out=check_in+timedelta(days=2)
+    with app.test_request_context("/hotels/example-hotel"):
+        from flask import render_template
+        html=render_template(
+            "public/property.html",
+            property={
+                "id":"property-1",
+                "name":"Example Hotel",
+                "slug":"example-hotel",
+                "address":"1 Example Road",
+                "city":"Makurdi",
+                "state":"Benue",
+                "description":"A comfortable independent hotel.",
+                "check_in_time":"14:00",
+                "check_out_time":"12:00",
+            },
+            images=[],
+            amenities=[{"name":"Wi-Fi"}],
+            rooms=[{
+                "id":"room-1",
+                "name":"Deluxe King",
+                "description":"Quiet room with a king bed.",
+                "capacity_adults":2,
+                "rate_plan_id":"rate-1",
+                "rate_plan_name":"Standard",
+                "base_price_minor":2500000,
+                "currency":"NGN",
+                "guarantee_type":"pay_at_property",
+                "refundable":True,
+                "meal_plan":"room_only",
+                "cancellation_policy":{"free_cancellation_hours":24},
+                "cover_image":None,
+                "cover_alt":None,
+            }],
+            check_in=check_in,
+            check_out=check_out,
+            guests=2,
+            reviews=[],
+            review_summary={"average_rating":0,"review_count":0},
+            booking_origin="https://iroya.ng",
+        )
+
+    assert "Choose your room" in html
+    assert "Pay at hotel" in html
+    assert "Free cancellation available" in html
+    assert "Review booking" in html
+    assert "Only rooms available for your selected dates are shown." in html
