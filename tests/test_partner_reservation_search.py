@@ -305,8 +305,21 @@ def test_hotel_navigation_uses_task_language():
         from flask import session
         session["sid"]="session-1"
         session["account_type"]="hotel"
+        session["can_view_hotel_reports"]=True
         html=render_template("base.html")
 
     for label in ("Home","Reservations","Rooms","Guests","Reports","Settings"):
         assert f">{label}<" in html
     assert ">Dashboard<" not in html
+
+
+def test_hotel_navigation_hides_reports_for_non_finance_roles():
+    app=create_app({"TESTING":True,"WTF_CSRF_ENABLED":False,"DATABASE_URL":""})
+    with app.test_request_context("/"):
+        from flask import session
+        session["sid"]="session-1"
+        session["account_type"]="hotel"
+        session["can_view_hotel_reports"]=False
+        html=render_template("base.html")
+
+    assert ">Reports<" not in html
