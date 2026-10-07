@@ -161,7 +161,10 @@ class _MutationConnection:
                 "resolved_at":"2026-10-07 14:15",
             })
         if "insert into audit_logs" in sql:
-            self.audit_actions.append(params[3])
+            if "'handover.created'" in sql:
+                self.audit_actions.append("handover.created")
+            elif "'handover.resolved'" in sql:
+                self.audit_actions.append("handover.resolved")
             return _Result()
         raise AssertionError(sql)
 
