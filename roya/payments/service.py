@@ -44,6 +44,69 @@ class PaymentService:
                 raise RoyaError("PAYMENT_NOT_FOUND","Payment transaction not found.",404) from exc
             raise
 
+    def record_partner_payment(self,reservation_id,user_id,amount_minor,method,note,idempotency_key):
+        try:
+            amount_minor=int(amount_minor)
+        except (TypeError,ValueError) as exc:
+            raise RoyaError("VALIDATION_ERROR","Payment amount is invalid.",422) from exc
+        if amount_minor<=0:
+            raise RoyaError("VALIDATION_ERROR","Payment amount must be greater than zero.",422)
+        method=(method or "").strip().lower()
+        if method not in {"cash","pos_card","bank_transfer","other"}:
+            raise RoyaError("VALIDATION_ERROR","Choose a valid hotel payment method.",422)
+        note=(note or "").strip()
+        if len(note)>500:
+            raise RoyaError("VALIDATION_ERROR","Payment note is too long.",422)
+        if not idempotency_key or len(idempotency_key)<8 or len(idempotency_key)>160:
+            raise RoyaError("IDEMPOTENCY_KEY_REQUIRED","A valid Idempotency-Key header is required.",400)
+
+        try:
+            with db_connection() as conn:
+                with conn.transaction():
+                    row=conn.execute(
+                        """select * from private.record_partner_payment(
+                             %s::uuid,%s::uuid,%s::bigint,%s::text,%s::text,%s::text
+                           )""",
+                        (
+                            user_id,reservation_id,amount_minor,method,
+                            note,idempotency_key,
+                        ),
+                    ).fetchone()
+        except RoyaError:
+            raise
+        except Exception as exc:
+            message=str(exc)
+            if "OFFLINE_PAYMENT_SOURCE_UNSUPPORTED" in message:
+                raise RoyaError(
+                    "OFFLINE_PAYMENT_SOURCE_UNSUPPORTED",
+                    "Hotel-collected payments are currently supported only for front-desk reservations.",
+                    409,
+                ) from exc
+            if "RESERVATION_NOT_PAYABLE" in message:
+                raise RoyaError(
+                    "RESERVATION_NOT_PAYABLE",
+                    "This reservation cannot accept a hotel-collected payment.",
+                    409,
+                ) from exc
+            if "ALREADY_PAID" in message:
+                raise RoyaError("ALREADY_PAID","This reservation is already fully paid.",409) from exc
+            if "OVERPAYMENT" in message:
+                raise RoyaError(
+                    "OVERPAYMENT",
+                    "The recorded amount is greater than the reservation balance.",
+                    422,
+                ) from exc
+            if "INVALID_AMOUNT" in message:
+                raise RoyaError("VALIDATION_ERROR","Payment amount must be greater than zero.",422) from exc
+            if "INVALID_METHOD" in message:
+                raise RoyaError("VALIDATION_ERROR","Choose a valid hotel payment method.",422) from exc
+            if "IDEMPOTENCY_KEY_REQUIRED" in message:
+                raise RoyaError("IDEMPOTENCY_KEY_REQUIRED","A valid Idempotency-Key header is required.",400) from exc
+            if "FORBIDDEN" in message:
+                raise RoyaError("FORBIDDEN","Your hotel role cannot record payments for this reservation.",403) from exc
+            raise
+        return dict(row) if row else None
+
     def initialize(self,reservation_id,user_id,idempotency_key):
         if not idempotency_key:
             raise RoyaError("IDEMPOTENCY_KEY_REQUIRED","A valid Idempotency-Key header is required.",400)
