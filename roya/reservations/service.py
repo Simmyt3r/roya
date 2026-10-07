@@ -723,6 +723,52 @@ class ReservationService:
         }
 
 
+    def partner_cancel(self,reservation_id,user_id,reason,idempotency_key):
+        reason=(reason or "").strip()
+        if len(reason)>1000:
+            raise RoyaError("VALIDATION_ERROR","Cancellation reason is too long.",422)
+        if not idempotency_key or len(idempotency_key)<8 or len(idempotency_key)>160:
+            raise RoyaError("IDEMPOTENCY_KEY_REQUIRED","A valid Idempotency-Key header is required.",400)
+
+        try:
+            with db_connection() as conn:
+                with conn.transaction():
+                    row=conn.execute(
+                        """select * from private.cancel_partner_reservation(
+                             %s::uuid,%s::uuid,%s::text,%s::text
+                           )""",
+                        (user_id,reservation_id,reason,idempotency_key),
+                    ).fetchone()
+        except RoyaError:
+            raise
+        except Exception as exc:
+            message=str(exc)
+            if "PARTNER_CANCEL_SOURCE_UNSUPPORTED" in message:
+                raise RoyaError(
+                    "PARTNER_CANCEL_SOURCE_UNSUPPORTED",
+                    "Hotel-side cancellation is currently available only for front-desk reservations.",
+                    409,
+                ) from exc
+            if "REFUND_REQUIRED" in message:
+                raise RoyaError(
+                    "REFUND_REQUIRED",
+                    "Return and record all hotel-collected money before cancelling this reservation.",
+                    409,
+                ) from exc
+            if "RESERVATION_NOT_CANCELLABLE" in message:
+                raise RoyaError(
+                    "RESERVATION_NOT_CANCELLABLE",
+                    "Only a confirmed front-desk reservation can be cancelled from the hotel workspace.",
+                    409,
+                ) from exc
+            if "IDEMPOTENCY_KEY_REQUIRED" in message:
+                raise RoyaError("IDEMPOTENCY_KEY_REQUIRED","A valid Idempotency-Key header is required.",400) from exc
+            if "FORBIDDEN" in message:
+                raise RoyaError("FORBIDDEN","Your hotel role cannot cancel this reservation.",403) from exc
+            raise
+        return dict(row) if row else None
+
+
     def partner_decide(self,reservation_id,user_id,decision,reason=None):
         approve=decision=="approve"
         try:
