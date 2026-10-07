@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% set r = workspace.reservation %}
+{% set item = workspace["items"][0] %}
+{% set refunded_minor = r.get("amount_refunded_minor", 0) or 0 %}
+{% set net_paid_minor = [((r.amount_paid_minor or 0)-refunded_minor),0]|max %}
+{% block title %}Change {{ r.reference }} · Hotel · iRoya{% endblock %}
+{% block content %}
+<section class="shell page-head front-desk-amend-head">
+  <div>
+    <a class="back-link" href="/partner/reservations/{{ r.id }}">← {{ r.reference }}</a>
+    <div class="eyebrow">Front desk</div>
+    <h1>Change stay</h1>
+    <p>Update dates or guest details without creating a second reservation.</p>
+  </div>
+</section>
+
+<section class="shell front-desk-amend-layout">
+  <article class="card front-desk-amend-summary">
+    <div class="eyebrow">Fixed for this change</div>
+    <h2>{{ item.room_type_name }}</h2>
+    <div class="reservation-detail-grid">
+      <div><span>Rate</span><strong>{{ item.rate_plan_name }}</strong></div>
+      <div><span>Rooms</span><strong>{{ item.quantity }}</strong></div>
+      <div><span>Current total</span><strong>{{ r.currency }} {{ '%.2f'|format((r.total_price_minor or 0)/100) }}</strong></div>
+      <div><span>Net collected</span><strong>{{ r.currency }} {{ '%.2f'|format(net_paid_minor/100) }}</strong></div>
+    </div>
+    <p class="muted front-desk-amend-note">
+      The room type, rate plan and quantity stay unchanged. iRoya will recheck inventory and recalculate the stay from current daily rates when you save.
+    </p>
+    <div class="reservation-readiness-note is-warning">
+      <strong>Money safety</strong>
+      <span>If the amended stay costs less than the guest's net payment, iRoya will block the change until the excess is recorded as refunded.</span>
+    </div>
+  </article>
+
+  <form class="card front-desk-amend-form" data-front-desk-amendment data-reservation-id="{{ r.id }}">
+    <div>
+      <div class="eyebrow">Stay details</div>
+      <h2>New reservation details</h2>
+      <p class="muted">Saving is atomic: either the new dates, price and inventory all change together, or nothing changes.</p>
+    </div>
+
+    <div class="front-desk-amend-dates">
+      <label>Check in
+        <input name="check_in" type="date" value="{{ r.check_in }}" required>
+      </label>
+      <label>Check out
+        <input name="check_out" type="date" value="{{ r.check_out }}" required>
+      </label>
+    </div>
+
+    <div class="form-grid">
+      <label>Guest name
+        <input name="guest_name" minlength="2" maxlength="150" value="{{ r.guest_name }}" autocomplete="name" required>
+      </label>
+      <label>Phone
+        <input name="guest_phone" minlength="3" maxlength="30" value="{{ r.guest_phone or '' }}" autocomplete="tel" required>
+      </label>
+      <label>Email <span class="muted">(optional)</span>
+        <input name="guest_email" type="email" maxlength="200" value="{{ r.guest_email or '' }}" autocomplete="email">
+      </label>
+    </div>
+
+    <div class="front-desk-amend-guests">
+      <label>Adults
+        <input name="adults" type="number" min="1" max="20" value="{{ r.adults }}" required>
+      </label>
+      <label>Children
+        <input name="children" type="number" min="0" max="20" value="{{ r.children }}" required>
+      </label>
+    </div>
+
+    <div class="front-desk-amend-actions">
+      <a class="button button-secondary" href="/partner/reservations/{{ r.id }}">Cancel changes</a>
+      <button class="button" type="submit">Save changes</button>
+    </div>
+    <p class="form-message" aria-live="polite"></p>
+  </form>
+</section>
+{% endblock %}
