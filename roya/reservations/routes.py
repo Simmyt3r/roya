@@ -150,6 +150,10 @@ def partner_reservation_edit(reservation_id):
             "This reservation contains multiple room items and cannot use the simple change-stay workflow.",
             409,
         )
+    workspace["amend_options"]=service.amendment_options_for_partner(
+        identity.user_id,
+        str(reservation["property_id"]),
+    )
     return render_template("partner/reservation_edit.html",workspace=workspace)
 
 
