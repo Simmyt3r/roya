@@ -36,12 +36,12 @@
       </div>
       {% if session.get("sid") %}
         {% if session.get("account_type") == "hotel" %}
-          <a href="/partner">Dashboard</a>
-          <a href="/partner#properties">Properties</a>
-          <a href="/partner#reservations">Reservations</a>
-          <a href="/partner#team">Team</a>
-          <a href="/search">Book a stay</a>
-          <a href="/account">My stays</a>
+          <a href="/partner">Home</a>
+          <a href="/partner#recent-reservations">Reservations</a>
+          <a href="/partner#properties">Rooms</a>
+          <a href="/partner#front-desk-search">Guests</a>
+          <a href="/partner/analytics">Reports</a>
+          <a href="/partner#team">Settings</a>
           <span class="account-role account-role-hotel">Hotel</span>
         {% else %}
           <a href="/search">Find a stay</a>
