@@ -10,6 +10,7 @@ from roya.common.errors import RoyaError
 from roya.common.response import ok
 from roya.common.slug import slugify
 from .operations_service import hotel_operations_snapshot
+from .handover_service import create_handover_note, handover_snapshot, resolve_handover_note
 from .invites import accept_invite, issue_invite, preview_invite, revoke_invite
 
 bp = Blueprint("organizations", __name__)
@@ -31,6 +32,12 @@ class OrganizationMemberUpdate(BaseModel):
 
 class InviteAccept(BaseModel):
     token: str = Field(min_length=20,max_length=256)
+
+
+class HandoverNoteCreate(BaseModel):
+    property_id: uuid.UUID
+    note: str = Field(min_length=1,max_length=1000)
+    priority: Literal["normal","important","urgent"] = "normal"
 
 
 
@@ -310,11 +317,43 @@ def partner_dashboard():
         horizon_days=request.args.get("days",7),
         property_id=request.args.get("property_id"),
     )
+    handover=handover_snapshot(
+        user.user_id,
+        property_id=hotel_operations.get("selected_property_id"),
+        limit=20,
+    )
     return render_template(
         "partner/dashboard.html",
         organizations=organizations,
         hotel_operations=hotel_operations,
+        handover=handover,
     )
+
+
+@bp.post("/api/v1/partner/handover")
+@login_required
+def create_partner_handover():
+    try:
+        body=HandoverNoteCreate.model_validate(request.get_json(silent=True) or {})
+    except ValidationError as exc:
+        raise RoyaError("VALIDATION_ERROR","Invalid handover note.",422,{"errors":exc.errors()}) from exc
+    user=current_identity(required=True)
+    return ok(
+        create_handover_note(
+            user.user_id,
+            str(body.property_id),
+            body.note,
+            body.priority,
+        ),
+        201,
+    )
+
+
+@bp.post("/api/v1/partner/handover/<uuid:note_id>/resolve")
+@login_required
+def resolve_partner_handover(note_id):
+    user=current_identity(required=True)
+    return ok(resolve_handover_note(user.user_id,str(note_id)))
 
 
 @bp.get("/partner/settings")
