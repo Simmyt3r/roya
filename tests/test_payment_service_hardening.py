@@ -77,3 +77,28 @@ def test_reconciliation_continues_after_one_provider_failure(monkeypatch):
         "pending":1,
         "errors":1,
     }
+
+
+
+def test_partner_refund_listing_applies_property_scope(monkeypatch):
+    captured={}
+    class _Connection:
+        def execute(self,sql,params):
+            captured["sql"]=sql
+            captured["params"]=params
+            return _RowsResult([])
+
+    @contextmanager
+    def _connection():
+        yield _Connection()
+
+    monkeypatch.setattr(payment_service,"db_connection",lambda:_connection())
+    rows=PaymentService().list_for_partner(
+        "user-1",
+        property_id="property-1",
+        limit=25,
+    )
+
+    assert rows==[]
+    assert "r.property_id=%s" in captured["sql"]
+    assert captured["params"]==("user-1","property-1",25)
