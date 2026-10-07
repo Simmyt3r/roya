@@ -107,6 +107,75 @@ class PaymentService:
             raise
         return dict(row) if row else None
 
+    def record_partner_refund(self,reservation_id,user_id,amount_minor,method,reason,idempotency_key):
+        try:
+            amount_minor=int(amount_minor)
+        except (TypeError,ValueError) as exc:
+            raise RoyaError("VALIDATION_ERROR","Refund amount is invalid.",422) from exc
+        if amount_minor<=0:
+            raise RoyaError("VALIDATION_ERROR","Refund amount must be greater than zero.",422)
+        method=(method or "").strip().lower()
+        if method not in {"cash","pos_card","bank_transfer","other"}:
+            raise RoyaError("VALIDATION_ERROR","Choose a valid hotel refund method.",422)
+        reason=(reason or "").strip()
+        if len(reason)>1000:
+            raise RoyaError("VALIDATION_ERROR","Refund reason is too long.",422)
+        if not idempotency_key or len(idempotency_key)<8 or len(idempotency_key)>160:
+            raise RoyaError("IDEMPOTENCY_KEY_REQUIRED","A valid Idempotency-Key header is required.",400)
+
+        try:
+            with db_connection() as conn:
+                with conn.transaction():
+                    row=conn.execute(
+                        """select * from private.record_partner_refund(
+                             %s::uuid,%s::uuid,%s::bigint,%s::text,%s::text,%s::text
+                           )""",
+                        (
+                            user_id,reservation_id,amount_minor,method,
+                            reason,idempotency_key,
+                        ),
+                    ).fetchone()
+        except RoyaError:
+            raise
+        except Exception as exc:
+            message=str(exc)
+            if "OFFLINE_REFUND_SOURCE_UNSUPPORTED" in message:
+                raise RoyaError(
+                    "OFFLINE_REFUND_SOURCE_UNSUPPORTED",
+                    "Hotel-recorded refunds are currently supported only for front-desk reservations.",
+                    409,
+                ) from exc
+            if "RESERVATION_NOT_REFUNDABLE" in message:
+                raise RoyaError(
+                    "RESERVATION_NOT_REFUNDABLE",
+                    "This reservation state cannot accept a hotel-recorded refund.",
+                    409,
+                ) from exc
+            if "NO_HOTEL_PAYMENT" in message:
+                raise RoyaError("NO_HOTEL_PAYMENT","No hotel-collected payment is available to refund.",409) from exc
+            if "OVERREFUND" in message:
+                raise RoyaError(
+                    "OVERREFUND",
+                    "The refund amount is greater than the net hotel-collected payment.",
+                    422,
+                ) from exc
+            if "REFUND_ALLOCATION_FAILED" in message:
+                raise RoyaError(
+                    "REFUND_ALLOCATION_FAILED",
+                    "The refund could not be matched safely to the original hotel payment entries.",
+                    409,
+                ) from exc
+            if "INVALID_AMOUNT" in message:
+                raise RoyaError("VALIDATION_ERROR","Refund amount must be greater than zero.",422) from exc
+            if "INVALID_METHOD" in message:
+                raise RoyaError("VALIDATION_ERROR","Choose a valid hotel refund method.",422) from exc
+            if "IDEMPOTENCY_KEY_REQUIRED" in message:
+                raise RoyaError("IDEMPOTENCY_KEY_REQUIRED","A valid Idempotency-Key header is required.",400) from exc
+            if "FORBIDDEN" in message:
+                raise RoyaError("FORBIDDEN","Only hotel owners, managers or finance staff can record refunds.",403) from exc
+            raise
+        return dict(row) if row else None
+
     def initialize(self,reservation_id,user_id,idempotency_key):
         if not idempotency_key:
             raise RoyaError("IDEMPOTENCY_KEY_REQUIRED","A valid Idempotency-Key header is required.",400)
