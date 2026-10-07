@@ -26,7 +26,7 @@ A hotel team member can still use the same account to make personal bookings. Or
 
 ## Hotel workflow
 
-A hotel account can create an organization, add properties, maintain guest-facing details and amenities, upload property photos, create and edit room types and rate plans, load inventory ranges, inspect a 30-day inventory view, add hotel team members, approve hotel-approval reservations, operate front-desk check-in/check-out/no-show states, and process eligible refund requests.
+A hotel account can create an organization, add properties, maintain guest-facing details and amenities, upload property photos, create and edit room types and rate plans, load inventory ranges, inspect a 30-day inventory view, add hotel team members, approve hotel-approval reservations, operate front-desk check-in/check-out/no-show states, track optional physical-room readiness, auto-assign ready rooms at check-in, mark assigned rooms dirty at checkout, and process eligible refund requests.
 
 A property cannot be verified for public sale until it has at least one active room type, one active rate plan and future sellable inventory. Changing a verified property's identity or physical location returns it to verification.
 
