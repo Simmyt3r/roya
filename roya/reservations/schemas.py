@@ -70,6 +70,9 @@ class PartnerReservationCancel(BaseModel):
 
 
 class PartnerReservationAmend(BaseModel):
+    room_type_id: UUID
+    rate_plan_id: UUID
+    quantity: int = Field(default=1,ge=1,le=10)
     check_in: date
     check_out: date
     adults: int = Field(ge=1,le=20)
