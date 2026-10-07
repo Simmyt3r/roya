@@ -1711,3 +1711,52 @@ html{-webkit-text-size-adjust:100%}body{min-width:0;overflow-x:hidden}button,a,i
   .booking-submit-panel .button{width:100%}
   .booking-summary,.booking-guest-form{padding:18px}
 }
+
+
+/* Public hotel selection */
+.property-public-head{align-items:flex-end}
+.property-public-layout{align-items:start}
+.property-about h2{margin:.2rem 0 .5rem}
+.property-booking-card{
+  display:grid;
+  gap:14px;
+  padding:20px;
+  position:sticky;
+  top:82px
+}
+.property-booking-card h3{margin:.2rem 0}
+.property-booking-card form{display:grid;gap:12px}
+.property-stay-fields{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.property-stay-fields label:last-child{grid-column:1/-1}
+.property-booking-card .button{width:100%}
+.property-room-section{padding-bottom:34px}
+.public-room-card{align-items:stretch}
+.public-room-main{display:grid;align-content:start;gap:5px;flex:1}
+.public-room-main h3{margin:.1rem 0}
+.public-room-main p{margin:.2rem 0 .45rem}
+.room-term-list{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.room-term-list span{
+  padding:6px 8px;
+  border-radius:999px;
+  background:#f3f7f6;
+  color:#536866;
+  font-size:.67rem;
+  font-weight:750
+}
+.public-room-action{
+  min-width:150px;
+  justify-content:center
+}
+.public-room-action small{font-size:.68rem}
+.property-room-empty{margin-top:8px}
+@media(max-width:820px){
+  .property-booking-card{position:static}
+}
+@media(max-width:620px){
+  .property-public-head{align-items:flex-start}
+  .property-stay-fields{grid-template-columns:1fr}
+  .property-stay-fields label:last-child{grid-column:auto}
+  .public-room-card{display:grid}
+  .public-room-action{min-width:0;align-items:flex-start}
+  .public-room-action .button{width:100%}
+}
