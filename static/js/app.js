@@ -1963,3 +1963,61 @@ document.querySelectorAll('[data-front-desk-amendment]').forEach(function(form){
     }
   });
 });
+
+
+(function initGuestConfirmation(){
+  const textArea=document.querySelector('[data-confirmation-text]');
+  if(!textArea)return;
+
+  const message=document.querySelector('[data-confirmation-message]');
+  const text=function(){return (textArea.value||'').trim();};
+
+  async function copySummary(){
+    const value=text();
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      await navigator.clipboard.writeText(value);
+      return;
+    }
+    textArea.removeAttribute('aria-hidden');
+    textArea.style.position='fixed';
+    textArea.style.opacity='0';
+    textArea.select();
+    document.execCommand('copy');
+    textArea.setAttribute('aria-hidden','true');
+  }
+
+  document.querySelectorAll('[data-copy-confirmation]').forEach(function(button){
+    button.addEventListener('click',async function(){
+      try{
+        await copySummary();
+        if(message)message.textContent='Booking summary copied.';
+      }catch(_error){
+        if(message)message.textContent='Could not copy automatically. Use Print instead.';
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-share-confirmation]').forEach(function(button){
+    if(!navigator.share){
+      button.textContent='Copy summary';
+    }
+    button.addEventListener('click',async function(){
+      try{
+        if(navigator.share){
+          await navigator.share({title:'iRoya booking confirmation',text:text()});
+          if(message)message.textContent='Booking confirmation shared.';
+        }else{
+          await copySummary();
+          if(message)message.textContent='Booking summary copied.';
+        }
+      }catch(error){
+        if(error&&error.name==='AbortError')return;
+        if(message)message.textContent='Could not share automatically. The summary is still available to copy or print.';
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-print-confirmation]').forEach(function(button){
+    button.addEventListener('click',function(){window.print();});
+  });
+})();
