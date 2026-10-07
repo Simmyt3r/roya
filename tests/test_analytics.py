@@ -76,6 +76,12 @@ def _snapshot():
         }],
         "guarantee_mix":[{"guarantee_type":"deposit","booking_count":10,"booking_value_minor":25000000}],
         "status_mix":[{"status":"confirmed","booking_count":20}],
+        "source_mix":[{
+            "source_channel":"direct_booking",
+            "booking_count":12,
+            "booking_value_minor":30000000,
+            "cancelled_count":1,
+        }],
         "organizations":[{"id":org_id,"name":"Example Group","role":"owner"}],
         "properties":[{"id":property_id,"name":"Example Hotel","organization_id":org_id}],
         "selected_organization_id":"",
@@ -96,6 +102,7 @@ def test_partner_analytics_page_renders(monkeypatch):
     assert b"50.0%" in response.data
     assert b"RevPAR" in response.data
     assert b"Example Hotel" in response.data
+    assert b"Direct Booking" in response.data
 
 
 def test_partner_analytics_export_returns_daily_csv(monkeypatch):
