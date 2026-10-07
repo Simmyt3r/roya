@@ -245,6 +245,9 @@
         {% endif %}
 
         {% if r.source_channel == "front_desk" %}
+          <div class="front-desk-change-stay">
+            <a class="button button-small button-secondary" href="/partner/reservations/{{ r.id }}/edit">Change stay</a>
+          </div>
           <div class="front-desk-cancel-panel">
             {% if net_paid_minor > 0 %}
               <strong>Cancellation locked</strong>
