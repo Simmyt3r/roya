@@ -2,21 +2,62 @@ import json
 
 from roya.common.db import db_connection
 from roya.common.errors import RoyaError
+from roya.common.domains import property_subdomain_from_host
 from roya.notifications.service import NotificationService
 from .policy import cancellation_policy_view
 
 
+RESERVATION_SOURCE_CHANNELS={"direct_booking","roya_marketplace"}
+
+
 class ReservationService:
-    def create(self,user_id,payload,idempotency_key):
+    def source_channel_for_request(self,property_id,host):
+        mini_domain=property_subdomain_from_host(host)
+        if not mini_domain:
+            return "roya_marketplace"
+        with db_connection() as conn:
+            matched=conn.execute(
+                """select 1
+                   from properties
+                   where id=%s
+                     and lower(mini_domain)=lower(%s)
+                     and status='active'
+                     and verification_status='verified'
+                   limit 1""",
+                (property_id,mini_domain),
+            ).fetchone()
+        if not matched:
+            raise RoyaError(
+                "PROPERTY_HOST_MISMATCH",
+                "This hotel address cannot create a reservation for another property.",
+                409,
+            )
+        return "direct_booking"
+
+    def create(self,user_id,payload,idempotency_key,source_channel="roya_marketplace"):
         if not idempotency_key or len(idempotency_key)>160:
             raise RoyaError("IDEMPOTENCY_KEY_REQUIRED","A valid Idempotency-Key header is required.",400)
+        if source_channel not in RESERVATION_SOURCE_CHANNELS:
+            raise RoyaError("VALIDATION_ERROR","Unsupported reservation source channel.",422)
         params=(user_id,str(payload.property_id),str(payload.room_type_id),str(payload.rate_plan_id),payload.check_in,payload.check_out,payload.quantity,payload.adults,payload.children,payload.guest_name,str(payload.guest_email),payload.guest_phone,payload.guarantee_type,idempotency_key)
         try:
             with db_connection() as conn:
-                row=conn.execute(
-                    """select * from create_reservation(%s::uuid,%s::uuid,%s::uuid,%s::uuid,%s::date,%s::date,%s::integer,%s::integer,%s::integer,%s::text,%s::text,%s::text,%s::text,%s::text)""",
-                    params,
-                ).fetchone(); conn.commit()
+                with conn.transaction():
+                    row=conn.execute(
+                        """select * from create_reservation(%s::uuid,%s::uuid,%s::uuid,%s::uuid,%s::date,%s::date,%s::integer,%s::integer,%s::integer,%s::text,%s::text,%s::text,%s::text,%s::text)""",
+                        params,
+                    ).fetchone()
+                    if row and not row.get("idempotent"):
+                        conn.execute(
+                            """update reservations
+                               set source_channel=%s,updated_at=now()
+                               where id=%s""",
+                            (source_channel,row["reservation_id"]),
+                        )
+                    source_row=conn.execute(
+                        "select source_channel from reservations where id=%s",
+                        (row["reservation_id"],),
+                    ).fetchone() if row else None
         except Exception as exc:
             message=str(exc)
             if "PAST_CHECK_IN" in message:
@@ -28,9 +69,12 @@ class ReservationService:
             if "CAPACITY_EXCEEDED" in message:
                 raise RoyaError("VALIDATION_ERROR","Guest count exceeds the room capacity.",422) from exc
             raise
-        if row and not row.get("idempotent"):
-            NotificationService().notify_reservation_created(str(row["reservation_id"]))
-        return row
+        result=dict(row) if row else row
+        if result:
+            result["source_channel"]=(source_row["source_channel"] if source_row else source_channel)
+        if result and not result.get("idempotent"):
+            NotificationService().notify_reservation_created(str(result["reservation_id"]))
+        return result
 
     def get_for_user(self,reservation_id,user_id):
         with db_connection() as conn:
@@ -91,7 +135,7 @@ class ReservationService:
             rows=list(conn.execute(
                 f"""select r.id,r.reference,r.property_id,p.name property_name,r.guest_name,r.guest_email,
                            r.check_in,r.check_out,r.nights,r.total_price_minor,r.amount_paid_minor,r.currency,r.status,
-                           r.payment_status,r.guarantee_type,r.expires_at,r.created_at
+                           r.payment_status,r.guarantee_type,r.source_channel,r.expires_at,r.created_at
                     from reservations r
                     join properties p on p.id=r.property_id
                     join organization_members om on om.organization_id=r.organization_id
