@@ -74,6 +74,25 @@
     </div>
   </article>
 
+  {% set has_guest_requests = namespace(value=false) %}
+  {% for note in workspace.get("notes", []) %}
+    {% if note.kind == "guest_request" and note.status == "open" %}
+      {% set has_guest_requests.value = true %}
+    {% endif %}
+  {% endfor %}
+  {% if has_guest_requests.value %}
+  <article class="confirmation-block confirmation-requests">
+    <div class="eyebrow">Guest requests</div>
+    <div class="confirmation-request-list">
+      {% for note in workspace.get("notes", []) %}
+        {% if note.kind == "guest_request" and note.status == "open" %}
+          <p>{{ note.body }}</p>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </article>
+  {% endif %}
+
   <article class="confirmation-block confirmation-money">
     <div class="eyebrow">Payment summary</div>
     <div class="confirmation-money-grid">
@@ -102,7 +121,8 @@ Stay: {{ r.check_in }} to {{ r.check_out }} ({{ r.nights }} night{% if r.nights 
 Net collected: {{ r.currency }} {{ '%.2f'|format(net_paid_minor/100) }}
 Balance: {{ r.currency }} {{ '%.2f'|format(balance_minor/100) }}
 Status: {{ r.status|replace("_"," ")|title }}
-{% if r.property_phone %}Hotel phone: {{ r.property_phone }}
+{% for note in workspace.get("notes", []) %}{% if note.kind == "guest_request" and note.status == "open" %}Guest request: {{ note.body }}
+{% endif %}{% endfor %}{% if r.property_phone %}Hotel phone: {{ r.property_phone }}
 {% endif %}{% if r.property_email %}Hotel email: {{ r.property_email }}
 {% endif %}iRoya · {{ r.reference }}</textarea>
 {% endblock %}
