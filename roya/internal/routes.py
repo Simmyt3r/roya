@@ -9,6 +9,7 @@ from roya.common.security import require_cron_secret, require_vault_bearer_secre
 from roya.notifications.service import NotificationService
 from roya.notifications.smtp import SmtpNotificationAdapter
 from roya.payments.service import PaymentService
+from roya.distribution.service import sync_due_builtin_channels
 
 bp = Blueprint("internal", __name__)
 
@@ -132,3 +133,9 @@ def send_reminders():
             "queued_delivery":queued_delivery,
         }
     )
+
+
+@bp.get("/api/internal/cron/channel-sync")
+@require_cron_secret
+def channel_sync():
+    return ok(sync_due_builtin_channels(limit=50))
