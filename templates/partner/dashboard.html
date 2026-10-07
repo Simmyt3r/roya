@@ -167,38 +167,6 @@
     </article>
   {% endif %}
 
-  <details class="hotel-secondary-details hotel-secondary-operations">
-    <summary><span><strong>More operations</strong><small>Inventory pressure and booking sources</small></span><span class="muted">Show details</span></summary>
-    <div class="hotel-ops-layout hotel-secondary-body">
-    <article class="card" id="operations-inventory">
-      <div class="hotel-ops-card-head"><div><div class="eyebrow">Inventory pressure</div><h3>Low inventory</h3></div><span class="muted">Next {{ hotel_operations.horizon_days }} days</span></div>
-      <div class="hotel-ops-stay-list">
-        {% for item in hotel_operations.low_inventory %}
-          <div class="hotel-ops-stay-row">
-            <span><strong>{{ item.room_type_name }}</strong><small>{{ item.property_name }} · {{ item.date }}</small></span>
-            <span><strong>{{ item.available }} left</strong><small>{{ item.sold_inventory }} sold · {{ item.held_inventory }} held</small></span>
-          </div>
-        {% else %}
-          <p class="muted">No room/date combination is at two sellable rooms or fewer.</p>
-        {% endfor %}
-      </div>
-    </article>
-
-    <article class="card">
-      <div class="hotel-ops-card-head"><div><div class="eyebrow">Last 30 days</div><h3>Booking source</h3></div></div>
-      <div class="hotel-ops-source-list">
-        {% for source in hotel_operations.source_mix %}
-          <div>
-            <span><strong>{{ 'Direct Booking' if source.source_channel == 'direct_booking' else ('Roya Marketplace' if source.source_channel == 'roya_marketplace' else source.source_channel|replace('_',' ')|title) }}</strong><small>{{ source.cancelled_count }} cancelled</small></span>
-            <span><strong>{{ source.booking_count }} bookings</strong><small>₦{{ '%.2f'|format(source.booking_value_minor/100) }}</small></span>
-          </div>
-        {% else %}
-          <p class="muted">No bookings have been created in the last 30 days.</p>
-        {% endfor %}
-      </div>
-    </article>
-    </div>
-  </details>
 </section>
 
 {% endblock %}
