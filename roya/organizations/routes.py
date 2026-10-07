@@ -386,6 +386,86 @@ def partner_dashboard():
     )
 
 
+@bp.get("/partner/settings")
+@login_required
+def partner_settings():
+    user=current_identity(required=True)
+    account_type=account_type_for_user(user.user_id)
+    session["account_type"]=account_type
+    session["user_email"]=user.email
+    if account_type!="hotel":
+        return redirect("/partner/start")
+
+    with db_connection() as conn:
+        organizations=list(conn.execute(
+            """select o.id,o.name,o.slug,om.role
+               from organizations o
+               join organization_members om on om.organization_id=o.id
+               where om.user_id=%s and om.status='active'
+               order by o.name""",
+            (user.user_id,),
+        ).fetchall())
+        if not organizations:
+            return redirect("/partner/start")
+
+        properties=list(conn.execute(
+            """select p.id,p.name,p.city,o.name organization_name
+               from properties p
+               join organizations o on o.id=p.organization_id
+               join organization_members om on om.organization_id=o.id
+               where om.user_id=%s and om.status='active'
+               order by p.created_at desc""",
+            (user.user_id,),
+        ).fetchall())
+
+        team_members=list(conn.execute(
+            """select o.id organization_id,o.name organization_name,om.user_id,om.role,om.status,
+                      coalesce(p.name,'') name,u.email,actor_om.role actor_role
+               from organization_members om
+               join organizations o on o.id=om.organization_id
+               join organization_members actor_om
+                 on actor_om.organization_id=o.id
+                and actor_om.user_id=%s
+                and actor_om.status='active'
+               join auth.users u on u.id=om.user_id
+               left join profiles p on p.id=om.user_id
+               order by o.name,
+                 case om.role when 'owner' then 0 when 'manager' then 1 else 2 end,
+                 coalesce(p.name,u.email)""",
+            (user.user_id,),
+        ).fetchall())
+
+        pending_invites=list(conn.execute(
+            """select oi.id,oi.organization_id,o.name organization_name,oi.email,oi.role,
+                      oi.expires_at,actor_om.role actor_role
+               from organization_invites oi
+               join organizations o on o.id=oi.organization_id
+               join organization_members actor_om
+                 on actor_om.organization_id=o.id
+                and actor_om.user_id=%s
+                and actor_om.status='active'
+               where oi.status='pending' and oi.expires_at>now()
+               order by oi.created_at desc""",
+            (user.user_id,),
+        ).fetchall())
+
+    session["can_view_hotel_reports"]=any(
+        organization["role"] in {"owner","manager","finance"}
+        for organization in organizations
+    )
+    return render_template(
+        "partner/settings.html",
+        organizations=organizations,
+        properties=properties,
+        team_members=team_members,
+        pending_invites=pending_invites,
+        manageable_organizations=[
+            organization for organization in organizations
+            if organization["role"] in {"owner","manager"}
+        ],
+    )
+
+
 @bp.get("/api/v1/partner/operations/summary")
 @login_required
 def partner_operations_summary():
