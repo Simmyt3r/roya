@@ -117,26 +117,29 @@
       </div>
     </article>
 
-    <article class="card hotel-ops-forecast">
-      <div class="hotel-ops-card-head">
-        <div><div class="eyebrow">Forward look</div><h3>{{ hotel_operations.horizon_days }}-day occupancy</h3></div>
-        <span class="muted">Sold / total rooms</span>
-      </div>
-      <div class="hotel-ops-forecast-list">
-        {% for day in hotel_operations.forecast %}
-          <div class="hotel-ops-forecast-row">
-            <time>{{ day.date }}</time>
-            <div class="hotel-ops-bar" aria-label="{{ day.occupancy_percent }}% occupancy">
-              <span style="width: {{ [day.occupancy_percent, 100]|min }}%"></span>
+    <details class="card hotel-ops-forecast hotel-secondary-details">
+      <summary><span><strong>Occupancy outlook</strong><small>{{ hotel_operations.horizon_days }}-day forward view</small></span><span class="muted">Show</span></summary>
+      <div class="hotel-secondary-body">
+        <div class="hotel-ops-card-head">
+          <div><div class="eyebrow">Forward look</div><h3>{{ hotel_operations.horizon_days }}-day occupancy</h3></div>
+          <span class="muted">Sold / total rooms</span>
+        </div>
+        <div class="hotel-ops-forecast-list">
+          {% for day in hotel_operations.forecast %}
+            <div class="hotel-ops-forecast-row">
+              <time>{{ day.date }}</time>
+              <div class="hotel-ops-bar" aria-label="{{ day.occupancy_percent }}% occupancy">
+                <span style="width: {{ [day.occupancy_percent, 100]|min }}%"></span>
+              </div>
+              <strong>{{ day.occupancy_percent }}%</strong>
+              <small>{{ day.sellable_inventory }} sellable</small>
             </div>
-            <strong>{{ day.occupancy_percent }}%</strong>
-            <small>{{ day.sellable_inventory }} sellable</small>
-          </div>
-        {% else %}
-          <div class="operations-empty"><strong>No future inventory loaded.</strong><span>Add room inventory to unlock the occupancy outlook.</span></div>
-        {% endfor %}
+          {% else %}
+            <div class="operations-empty"><strong>No future inventory loaded.</strong><span>Add room inventory to unlock the occupancy outlook.</span></div>
+          {% endfor %}
+        </div>
       </div>
-    </article>
+    </details>
   </div>
 
   <div class="hotel-ops-stay-grid">
@@ -183,7 +186,9 @@
     </article>
   {% endif %}
 
-  <div class="hotel-ops-layout">
+  <details class="hotel-secondary-details hotel-secondary-operations">
+    <summary><span><strong>More operations</strong><small>Inventory pressure and booking sources</small></span><span class="muted">Show details</span></summary>
+    <div class="hotel-ops-layout hotel-secondary-body">
     <article class="card" id="operations-inventory">
       <div class="hotel-ops-card-head"><div><div class="eyebrow">Inventory pressure</div><h3>Low inventory</h3></div><span class="muted">Next {{ hotel_operations.horizon_days }} days</span></div>
       <div class="hotel-ops-stay-list">
@@ -212,7 +217,9 @@
       </div>
     </article>
   </div>
-</section>
+
+    </div>
+  </details></section>
 
 <section class="shell partner-section front-desk-search" id="front-desk-search">
   <div class="section-heading">
