@@ -59,7 +59,7 @@ These are built-in channels and do not require external provider credentials.
 
 Opening the Distribution Manager is read-only. A channel connection is created or updated only after an explicit sync request. The database enforces one property/channel connection with a unique partial index.
 
-After initialization, an active built-in connection is eligible for scheduled synchronization every six hours. Owners/managers may pause a connection by moving it to `disconnected`; disconnected connections are ignored by scheduled sync. Manual sync resumes a disconnected built-in channel.
+After initialization, an active built-in connection is eligible for scheduled synchronization once per day. Owners/managers may pause a connection by moving it to `disconnected`; disconnected connections are ignored by scheduled sync. Manual sync resumes a disconnected built-in channel.
 
 A manual or scheduled sync currently performs:
 
