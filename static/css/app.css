@@ -2102,3 +2102,38 @@ html{-webkit-text-size-adjust:100%}body{min-width:0;overflow-x:hidden}button,a,i
   .physical-room-row [data-physical-room-delete]{width:100%}
   .room-readiness-details>summary{align-items:flex-start;flex-direction:column}
 }
+
+
+/* Stay room readiness */
+.stay-readiness{font-weight:850}
+.stay-readiness.is-ready{color:#28624f}
+.stay-readiness.is-warning{color:#9a5d1f}
+.reservation-assigned-rooms{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  align-items:center;
+  margin-top:14px;
+  padding-top:13px;
+  border-top:1px solid #edf1f0
+}
+.reservation-assigned-rooms>.eyebrow{width:100%}
+.reservation-assigned-rooms>span{
+  display:grid;
+  gap:2px;
+  min-width:140px;
+  padding:9px 11px;
+  border-radius:11px;
+  background:#f3f8f6
+}
+.reservation-assigned-rooms small{color:var(--muted);font-size:.68rem}
+.reservation-readiness-note{
+  display:grid;
+  gap:3px;
+  margin-top:14px;
+  padding:11px 12px;
+  border-radius:11px
+}
+.reservation-readiness-note.is-ready{background:#edf8f3;color:#28624f}
+.reservation-readiness-note.is-warning{background:#fff5e8;color:#8b5a20}
+.reservation-readiness-note span{font-size:.74rem;line-height:1.45}
