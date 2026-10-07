@@ -40,7 +40,7 @@
           <a href="/partner#recent-reservations">Reservations</a>
           <a href="/partner#properties">Rooms</a>
           <a href="/partner#front-desk-search">Guests</a>
-          <a href="/partner/analytics">Reports</a>
+          {% if session.get("can_view_hotel_reports") %}<a href="/partner/analytics">Reports</a>{% endif %}
           <a href="/partner#team">Settings</a>
           <span class="account-role account-role-hotel">Hotel</span>
         {% else %}
