@@ -35,6 +35,7 @@ def _snapshot():
             "overdue_departures":0,
             "active_next_24h":5,
             "refund_attention":0,
+            "open_guest_requests":0,
         },
         "arrivals":[],
         "departures":[],
@@ -43,6 +44,7 @@ def _snapshot():
         "low_inventory":[],
         "source_mix":[],
         "channel_errors":[],
+        "guest_requests":[],
         "tasks":[],
         "horizon_days":7,
     }
@@ -57,6 +59,7 @@ def test_daily_actions_prioritize_operational_exceptions():
             "arrivals_today":3,
             "departures_today":2,
             "refund_attention":1,
+            "open_guest_requests":2,
         },
         [{"room_type_name":"Suite"}],
         [{"channel":"direct_booking"}],
@@ -69,6 +72,7 @@ def test_daily_actions_prioritize_operational_exceptions():
     assert any(task["href"]=="/partner/rooms?focus=inventory" for task in tasks)
     assert any(task["href"]=="/partner/finance?focus=refunds" for task in tasks)
     assert any(task["href"]=="/partner/distribution" for task in tasks)
+    assert any(task["href"]=="/partner#guest-requests" for task in tasks)
 
 
 def test_daily_actions_empty_when_nothing_needs_attention():
@@ -201,6 +205,7 @@ def test_scope_action_links_preserves_selected_property_and_external_routes():
         {"href":"/partner/rooms?focus=inventory","title":"Inventory"},
         {"href":"/partner/finance?focus=refunds","title":"Refunds"},
         {"href":"/partner/distribution","title":"Distribution"},
+        {"href":"/partner#guest-requests","title":"Guest requests"},
     ]
     scoped=scope_action_links(tasks,property_id,14)
     assert scoped[0]["href"]==f"/partner?property_id={property_id}&days=14#operations-overdue"
@@ -208,10 +213,45 @@ def test_scope_action_links_preserves_selected_property_and_external_routes():
     assert scoped[2]["href"]==f"/partner/rooms?focus=inventory&property_id={property_id}"
     assert scoped[3]["href"]==f"/partner/finance?focus=refunds&property_id={property_id}"
     assert scoped[4]["href"]=="/partner/distribution"
+    assert scoped[5]["href"]==f"/partner?property_id={property_id}&days=14#guest-requests"
     assert tasks[0]["href"]=="/partner#operations-overdue"
     assert tasks[1]["href"]=="/partner/reservations?tab=pending"
     assert tasks[2]["href"]=="/partner/rooms?focus=inventory"
     assert tasks[3]["href"]=="/partner/finance?focus=refunds"
+
+
+def test_partner_dashboard_surfaces_open_guest_requests():
+    snapshot=_snapshot()
+    snapshot["summary"]["open_guest_requests"]=1
+    snapshot["guest_requests"]=[{
+        "note_id":str(uuid4()),
+        "reservation_id":str(uuid4()),
+        "reference":"RYA-REQUEST",
+        "guest_name":"Ada Guest",
+        "property_name":"Example Hotel",
+        "check_in":"2026-10-08",
+        "check_out":"2026-10-10",
+        "body":"Guest needs airport pickup at 9 PM",
+        "created_by_name":"Front Desk",
+        "created_at":"2026-10-07 20:00",
+    }]
+    snapshot["tasks"]=build_daily_actions(snapshot["summary"],[],[])
+
+    app=create_app({"TESTING":True,"WTF_CSRF_ENABLED":False,"DATABASE_URL":""})
+    with app.test_request_context("/partner"):
+        html=render_template(
+            "partner/dashboard.html",
+            organizations=[{"id":str(uuid4()),"name":"Example Group","role":"owner"}],
+            properties=[],pending_reservations=[],partner_reservations=[],partner_refunds=[],
+            team_members=[],pending_invites=[],manageable_organizations=[],
+            finance_organizations=[{"id":str(uuid4()),"name":"Example Group","role":"owner"}],
+            hotel_operations=snapshot,
+        )
+
+    assert "Open guest requests" in html
+    assert "Guest needs airport pickup at 9 PM" in html
+    assert "RYA-REQUEST" in html
+    assert "#guest-requests" in html
 
 
 def test_partner_dashboard_front_desk_actions_render():
