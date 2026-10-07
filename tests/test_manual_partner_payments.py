@@ -248,7 +248,7 @@ def test_manual_payment_form_visible_for_authorized_front_desk_booking(role):
         )
     assert "Record hotel payment" in html
     assert "This does not charge a card." in html
-    assert "NGN 25000.00 due" in html
+    assert "NGN 25000.00 recordable balance" in html
     assert 'data-partner-payment' in html
 
 
