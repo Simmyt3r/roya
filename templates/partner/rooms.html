@@ -5,7 +5,7 @@
   <div>
     <div class="eyebrow">Hotel workspace</div>
     <h1>Rooms</h1>
-    <p>See what can be sold, what needs setup, and open the hotel only when you need to change details.</p>
+    <p>Availability, pricing and room readiness in one place.</p>
   </div>
   <a class="button button-secondary" href="/partner/properties/new">Add hotel</a>
 </section>
@@ -53,7 +53,8 @@
 
         <div class="rooms-workspace-list">
           {% for room in property_rooms %}
-            <div class="rooms-workspace-row">
+            {% set physical_rooms = workspace.physical_rooms_by_type.get(room.id|string, []) %}
+            <article class="rooms-workspace-row">
               {% if room.cover_image %}
                 <img src="{{ room.cover_image }}" alt="{{ room.cover_alt or room.name }}">
               {% else %}
@@ -91,12 +92,74 @@
                     {% endif %}
                   </span>
                 </div>
+
+                <details class="room-readiness-details" {% if request.args.get("focus") == "readiness" %}open{% endif %}>
+                  <summary>
+                    <span>
+                      <strong>Room readiness</strong>
+                      {% if room.physical_room_count %}
+                        <small>{{ room.ready_room_count }} ready · {{ room.cleaning_room_count }} cleaning · {{ room.dirty_room_count }} dirty{% if room.occupied_room_count %} · {{ room.occupied_room_count }} occupied{% endif %}{% if room.out_of_service_room_count %} · {{ room.out_of_service_room_count }} out of service{% endif %}</small>
+                      {% else %}
+                        <small>Optional · add room numbers to track housekeeping</small>
+                      {% endif %}
+                    </span>
+                    <span class="status-pill {% if room.physical_room_count and room.ready_room_count == 0 %}status-error{% else %}status-muted{% endif %}">
+                      {% if room.physical_room_count %}{{ room.ready_room_count }} ready{% else %}Not enabled{% endif %}
+                    </span>
+                  </summary>
+
+                  <div class="room-readiness-body">
+                    {% if physical_rooms %}
+                      <div class="physical-room-list">
+                        {% for unit in physical_rooms %}
+                          {% set occupied = unit.current_reservation_id is not none %}
+                          {% set display_status = "occupied" if occupied else ("out_of_service" if unit.status == "out_of_service" else unit.housekeeping_status) %}
+                          <div class="physical-room-row" data-physical-room="{{ unit.id }}">
+                            <div class="physical-room-name">
+                              <strong>Room {{ unit.room_number }}</strong>
+                              <small>{% if unit.floor %}Floor {{ unit.floor }} · {% endif %}{% if occupied %}{{ unit.current_reservation_reference or "Occupied" }}{% else %}{{ display_status|replace("_"," ")|title }}{% endif %}</small>
+                            </div>
+                            <span class="room-readiness-chip is-{{ display_status|replace("_","-") }}">{{ display_status|replace("_"," ")|title }}</span>
+                            {% if room.member_role in ["owner","manager","reservations"] and not occupied %}
+                              <select data-room-readiness-select aria-label="Readiness for room {{ unit.room_number }}">
+                                <option value="ready" {% if display_status == "ready" %}selected{% endif %}>Ready</option>
+                                <option value="cleaning" {% if display_status == "cleaning" %}selected{% endif %}>Cleaning</option>
+                                <option value="dirty" {% if display_status == "dirty" %}selected{% endif %}>Dirty</option>
+                                <option value="out_of_service" {% if display_status == "out_of_service" %}selected{% endif %}>Out of service</option>
+                              </select>
+                              <button class="button button-small button-secondary" type="button" data-physical-room-delete>Remove</button>
+                            {% endif %}
+                            <p class="form-message"></p>
+                          </div>
+                        {% endfor %}
+                      </div>
+                    {% else %}
+                      <div class="room-readiness-empty">
+                        <strong>Housekeeping tracking is off for this room type.</strong>
+                        <span>Bookings and check-in still work normally. Add physical room numbers only if this hotel wants room-by-room readiness.</span>
+                      </div>
+                    {% endif %}
+
+                    {% if room.member_role in ["owner","manager","reservations"] and room.physical_room_count < room.total_inventory %}
+                      <form class="physical-room-form" data-physical-room-form data-room="{{ room.id }}">
+                        <label>Room numbers
+                          <textarea name="room_numbers" rows="2" placeholder="101, 102, 103" required></textarea>
+                        </label>
+                        <label>Floor <span class="muted">(optional)</span>
+                          <input name="floor" maxlength="40" placeholder="e.g. 1">
+                        </label>
+                        <button class="button button-small" type="submit">Add room numbers</button>
+                        <p class="form-message"></p>
+                      </form>
+                    {% endif %}
+                  </div>
+                </details>
               </div>
 
               <div class="rooms-workspace-actions">
                 <a class="button button-small button-secondary" href="/partner/properties/{{ property.id }}#rooms">{{ "Manage room" if room.member_role in ["owner","manager","reservations"] else "View room" }}</a>
               </div>
-            </div>
+            </article>
           {% else %}
             <div class="rooms-workspace-empty">
               <strong>No room types yet.</strong>
