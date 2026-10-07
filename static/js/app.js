@@ -1785,3 +1785,52 @@ document.querySelectorAll('[data-partner-payment]').forEach(function(form){
     }
   });
 });
+
+
+document.querySelectorAll('[data-partner-refund]').forEach(function(form){
+  const submit=form.querySelector('button[type="submit"]');
+  const message=form.querySelector('.form-message');
+  form.addEventListener('submit',async function(event){
+    event.preventDefault();
+    if(!form.reportValidity())return;
+    const data=Object.fromEntries(new FormData(form).entries());
+    const amount=Number(data.amount);
+    const amountMinor=Math.round(amount*100);
+    if(!Number.isFinite(amount)||amountMinor<=0){
+      message.textContent='Enter a valid refund amount.';
+      return;
+    }
+    if(!form.dataset.idempotencyKey){
+      form.dataset.idempotencyKey=requestKey('hotel-refund');
+    }
+    submit.disabled=true;
+    message.textContent='Recording refund…';
+    try{
+      const response=await fetch(
+        '/api/v1/partner/reservations/'+form.dataset.reservationId+'/refunds',
+        {
+          method:'POST',
+          headers:{
+            'Content-Type':'application/json',
+            'Idempotency-Key':form.dataset.idempotencyKey
+          },
+          body:JSON.stringify({
+            amount_minor:amountMinor,
+            method:data.method,
+            reason:(data.reason||'').trim()||null
+          })
+        }
+      );
+      const body=await response.json().catch(function(){return {};});
+      if(!response.ok){
+        message.textContent=(body.error&&body.error.message)||'Refund could not be recorded.';
+        return;
+      }
+      window.location.reload();
+    }catch(_error){
+      message.textContent='Refund could not be recorded. You can retry safely.';
+    }finally{
+      submit.disabled=false;
+    }
+  });
+});
