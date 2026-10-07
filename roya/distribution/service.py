@@ -414,7 +414,7 @@ def sync_due_builtin_channels(limit=50):
                  and status in ('active','error')
                  and (
                    last_synced_at is null
-                   or last_synced_at<now()-interval '6 hours'
+                   or last_synced_at<now()-interval '20 hours'
                    or status='error'
                  )
                order by case when status='error' then 0 else 1 end,last_synced_at nulls first,updated_at asc
