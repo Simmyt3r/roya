@@ -723,6 +723,82 @@ class ReservationService:
         }
 
 
+    def partner_amend(self,reservation_id,user_id,payload,idempotency_key):
+        if not idempotency_key or len(idempotency_key)<8 or len(idempotency_key)>160:
+            raise RoyaError("IDEMPOTENCY_KEY_REQUIRED","A valid Idempotency-Key header is required.",400)
+        try:
+            with db_connection() as conn:
+                with conn.transaction():
+                    row=conn.execute(
+                        """select * from private.amend_partner_reservation(
+                             %s::uuid,%s::uuid,%s::date,%s::date,%s::integer,%s::integer,
+                             %s::text,%s::text,%s::text,%s::text
+                           )""",
+                        (
+                            user_id,reservation_id,payload.check_in,payload.check_out,
+                            payload.adults,payload.children,payload.guest_name,
+                            str(payload.guest_email) if payload.guest_email else "",
+                            payload.guest_phone,idempotency_key,
+                        ),
+                    ).fetchone()
+        except RoyaError:
+            raise
+        except Exception as exc:
+            message=str(exc)
+            if "PARTNER_AMEND_SOURCE_UNSUPPORTED" in message:
+                raise RoyaError(
+                    "PARTNER_AMEND_SOURCE_UNSUPPORTED",
+                    "Hotel-side stay changes are currently available only for front-desk reservations.",
+                    409,
+                ) from exc
+            if "RESERVATION_NOT_AMENDABLE" in message:
+                raise RoyaError(
+                    "RESERVATION_NOT_AMENDABLE",
+                    "Only a confirmed front-desk reservation can be changed.",
+                    409,
+                ) from exc
+            if "MULTI_ITEM_AMEND_UNSUPPORTED" in message:
+                raise RoyaError(
+                    "MULTI_ITEM_AMEND_UNSUPPORTED",
+                    "This reservation contains multiple room items and cannot use the simple change-stay workflow.",
+                    409,
+                ) from exc
+            if "REFUND_REQUIRED" in message:
+                raise RoyaError(
+                    "REFUND_REQUIRED",
+                    "The amended stay costs less than the guest's net payment. Record the required refund first.",
+                    409,
+                ) from exc
+            if "BOOKING_CONFLICT" in message:
+                raise RoyaError(
+                    "BOOKING_CONFLICT",
+                    "The current room type is not available for all of the new dates.",
+                    409,
+                ) from exc
+            if "RATE_NOT_AVAILABLE" in message:
+                raise RoyaError(
+                    "RATE_NOT_FOUND",
+                    "The current rate cannot be used for the amended dates.",
+                    409,
+                ) from exc
+            if "CAPACITY_EXCEEDED" in message:
+                raise RoyaError("VALIDATION_ERROR","Guest count exceeds this room's capacity.",422) from exc
+            if "PAST_CHECK_IN" in message or "VALIDATION_ERROR" in message:
+                raise RoyaError("VALIDATION_ERROR","The amended stay dates are invalid.",422) from exc
+            if "CURRENCY_CHANGE_UNSUPPORTED" in message:
+                raise RoyaError(
+                    "CURRENCY_CHANGE_UNSUPPORTED",
+                    "The amended rate currency must match the original reservation.",
+                    409,
+                ) from exc
+            if "IDEMPOTENCY_KEY_REQUIRED" in message:
+                raise RoyaError("IDEMPOTENCY_KEY_REQUIRED","A valid Idempotency-Key header is required.",400) from exc
+            if "FORBIDDEN" in message:
+                raise RoyaError("FORBIDDEN","Your hotel role cannot change this reservation.",403) from exc
+            raise
+        return dict(row) if row else None
+
+
     def partner_cancel(self,reservation_id,user_id,reason,idempotency_key):
         reason=(reason or "").strip()
         if len(reason)>1000:
