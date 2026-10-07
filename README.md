@@ -84,7 +84,7 @@ The locking design was race-tested on the earlier project. The replacement Supab
 
 Paystack payment initialization is idempotency-key protected. Signed webhooks and server-side verification drive successful online payment state.
 
-For hotel-created `front_desk` reservations, authorized hotel staff can record money already received by cash, POS/card, bank transfer or another offline method. Owners, managers and finance staff can also record money the hotel has already returned to the guest. These payment and refund entries are idempotent, audited and share the canonical reservation/payment/refund ledger. They do not invoke Paystack; iRoya records the real-world movement after it happens.
+For hotel-created `front_desk` reservations, authorized hotel staff can record money already received by cash, POS/card, bank transfer or another offline method. Owners, managers and finance staff can also record money the hotel has already returned to the guest. A confirmed front-desk reservation can be cancelled by hotel operations only after its net hotel-collected balance is zero; cancellation then releases sold inventory atomically. These payment, refund and cancellation actions are idempotent, audited and share the canonical reservation/payment/refund ledger. They do not invoke Paystack; iRoya records the real-world movement after it happens.
 
 Paid cancellation does not immediately cancel inventory. It creates refund review records. Authorized hotel roles initiate Paystack refunds; iRoya waits for refund processing/webhooks and only releases a still-active reservation after the captured amount has been fully refunded. Cancellation-policy enforcement still needs its final policy engine before public launch.
 
