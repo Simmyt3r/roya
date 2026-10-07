@@ -1,4 +1,16 @@
 {% extends "base.html" %}
+{% macro reservation_actions(reservation) -%}
+  {% if reservation.status == "confirmed" %}
+    <div class="approval-actions front-desk-actions">
+      <button class="button button-small" type="button" data-reservation-status="checked_in" data-reservation-id="{{ reservation.id }}">Check in</button>
+      <button class="button button-small button-secondary" type="button" data-reservation-status="no_show" data-reservation-id="{{ reservation.id }}">No-show</button>
+    </div>
+  {% elif reservation.status == "checked_in" %}
+    <div class="approval-actions front-desk-actions">
+      <button class="button button-small" type="button" data-reservation-status="checked_out" data-reservation-id="{{ reservation.id }}">Check out</button>
+    </div>
+  {% endif %}
+{%- endmacro %}
 {% block title %}Hotel dashboard · iRoya{% endblock %}
 {% block content %}
 <section class="shell page-head partner-page-head">
@@ -138,7 +150,7 @@
         {% for stay in hotel_operations.arrivals %}
           <div class="hotel-ops-stay-row">
             <span><strong>{{ stay.guest_name }}</strong><small>{{ stay.reference }} · {{ stay.property_name }}</small></span>
-            <span><strong>{{ stay.payment_status|replace('_',' ')|title }}</strong><small>{{ 'Direct Booking' if stay.source_channel == 'direct_booking' else 'Roya Marketplace' }}</small></span>
+            <span class="hotel-ops-stay-status"><strong>{{ stay.payment_status|replace('_',' ')|title }}</strong><small>{{ 'Direct Booking' if stay.source_channel == 'direct_booking' else 'Roya Marketplace' }}</small>{{ reservation_actions(stay) }}</span>
           </div>
         {% else %}
           <p class="muted">No confirmed arrivals are due today.</p>
@@ -152,7 +164,7 @@
         {% for stay in hotel_operations.departures %}
           <div class="hotel-ops-stay-row">
             <span><strong>{{ stay.guest_name }}</strong><small>{{ stay.reference }} · {{ stay.property_name }}</small></span>
-            <span><strong>{{ stay.payment_status|replace('_',' ')|title }}</strong><small>Check-out {{ stay.check_out }}</small></span>
+            <span class="hotel-ops-stay-status"><strong>{{ stay.payment_status|replace('_',' ')|title }}</strong><small>Check-out {{ stay.check_out }}</small>{{ reservation_actions(stay) }}</span>
           </div>
         {% else %}
           <p class="muted">No checked-in guests are due to leave today.</p>
@@ -168,7 +180,7 @@
         {% for stay in hotel_operations.overdue %}
           <div class="hotel-ops-stay-row">
             <span><strong>{{ stay.reference }} · {{ stay.guest_name }}</strong><small>{{ stay.property_name }}</small></span>
-            <span><strong>{{ 'Arrival overdue' if stay.overdue_type == 'arrival' else 'Departure overdue' }}</strong><small>{{ stay.check_in }} → {{ stay.check_out }}</small></span>
+            <span class="hotel-ops-stay-status"><strong>{{ 'Arrival overdue' if stay.overdue_type == 'arrival' else 'Departure overdue' }}</strong><small>{{ stay.check_in }} → {{ stay.check_out }}</small>{{ reservation_actions(stay) }}</span>
           </div>
         {% endfor %}
       </div>
@@ -346,7 +358,7 @@
   </div></div>
 </section>
 
-<section class="shell partner-section" id="recent-reservations"><div class="section-heading"><div><div class="eyebrow">Booking activity</div><h2>Recent reservations</h2></div></div><div class="card reservation-table-wrap"><div class="reservation-table responsive-data-table"><div class="reservation-table-row reservation-table-head"><span>Reference</span><span>Guest</span><span>Stay</span><span>Status</span><span>Payment</span><span>Total</span></div>{% for r in partner_reservations %}<div class="reservation-table-row"><strong data-label="Reference">{{ r.reference }}</strong><span data-label="Guest">{{ r.guest_name }}<small>{{ r.property_name }}</small></span><span data-label="Stay">{{ r.check_in }}<small>to {{ r.check_out }}</small></span><span data-label="Status"><span class="status-pill">{{ r.status|replace("_"," ")|title }}</span>{% if r.status == "confirmed" %}<div class="approval-actions"><button class="button button-small" type="button" data-reservation-status="checked_in" data-reservation-id="{{ r.id }}">Check in</button><button class="button button-small button-secondary" type="button" data-reservation-status="no_show" data-reservation-id="{{ r.id }}">No-show</button></div>{% elif r.status == "checked_in" %}<div class="approval-actions"><button class="button button-small" type="button" data-reservation-status="checked_out" data-reservation-id="{{ r.id }}">Check out</button></div>{% endif %}</span><span data-label="Payment">{{ r.payment_status|replace("_"," ")|title }}</span><strong data-label="Total">{{ r.currency }} {{ '%.2f'|format(r.total_price_minor / 100) }}</strong></div>{% else %}<div class="empty"><p>No reservations yet.</p></div>{% endfor %}</div></div></section>
+<section class="shell partner-section" id="recent-reservations"><div class="section-heading"><div><div class="eyebrow">Booking activity</div><h2>Recent reservations</h2></div></div><div class="card reservation-table-wrap"><div class="reservation-table responsive-data-table"><div class="reservation-table-row reservation-table-head"><span>Reference</span><span>Guest</span><span>Stay</span><span>Status</span><span>Payment</span><span>Total</span></div>{% for r in partner_reservations %}<div class="reservation-table-row"><strong data-label="Reference">{{ r.reference }}</strong><span data-label="Guest">{{ r.guest_name }}<small>{{ r.property_name }}</small></span><span data-label="Stay">{{ r.check_in }}<small>to {{ r.check_out }}</small></span><span data-label="Status"><span class="status-pill">{{ r.status|replace("_"," ")|title }}</span>{{ reservation_actions(r) }}</span><span data-label="Payment">{{ r.payment_status|replace("_"," ")|title }}</span><strong data-label="Total">{{ r.currency }} {{ '%.2f'|format(r.total_price_minor / 100) }}</strong></div>{% else %}<div class="empty"><p>No reservations yet.</p></div>{% endfor %}</div></div></section>
 <section class="shell partner-section partner-approvals" id="reservations">
   <article class="card">
     <div class="approval-head">
