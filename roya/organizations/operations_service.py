@@ -53,6 +53,7 @@ def empty_operations_snapshot(horizon_days):
         "low_inventory":[],
         "source_mix":[],
         "channel_errors":[],
+        "guest_requests":[],
         "tasks":[],
         "horizon_days":horizon_days,
     }
@@ -96,6 +97,14 @@ def build_daily_actions(summary,low_inventory,channel_errors,not_ready_arrivals=
             f"{pending} reservation approval{'s' if pending != 1 else ''} waiting",
             "Review hotel-approval bookings before their inventory holds expire.",
             "/partner/reservations?tab=pending",
+        ))
+    open_guest_requests=int(summary.get("open_guest_requests") or 0)
+    if open_guest_requests:
+        tasks.append(_task(
+            "warning",
+            f"{open_guest_requests} open guest request{'s' if open_guest_requests != 1 else ''}",
+            "Review guest requests that still need hotel attention.",
+            "/partner#guest-requests",
         ))
     if not_ready_arrivals:
         tasks.append(_task(
@@ -188,11 +197,21 @@ def hotel_operations_snapshot(user_id,horizon_days=DEFAULT_HORIZON_DAYS,property
                     join reservations rr on rr.id=rf.reservation_id
                     where rr.organization_id=any(%s::uuid[])
                       and (%s::uuid is null or rr.property_id=%s::uuid)
-                      and rf.status in ('requested','processing'))::bigint refund_attention
+                      and rf.status in ('requested','processing'))::bigint refund_attention,
+                 (select count(*)
+                    from private.reservation_notes rn
+                    join reservations rrn on rrn.id=rn.reservation_id
+                    where rrn.organization_id=any(%s::uuid[])
+                      and (%s::uuid is null or rrn.property_id=%s::uuid)
+                      and rn.kind='guest_request'
+                      and rn.status='open'
+                      and rrn.status in ('held','pending_confirmation','confirmed','checked_in')
+                 )::bigint open_guest_requests
                from reservations r
                where r.organization_id=any(%s::uuid[])
                  and (%s::uuid is null or r.property_id=%s::uuid)""",
             (
+                organization_ids,selected_property_id,selected_property_id,
                 organization_ids,selected_property_id,selected_property_id,
                 organization_ids,selected_property_id,selected_property_id,
             ),
@@ -326,9 +345,33 @@ def hotel_operations_snapshot(user_id,horizon_days=DEFAULT_HORIZON_DAYS,property
             (organization_ids,selected_property_id,selected_property_id),
         ).fetchall()]
 
+
+        guest_requests=[dict(row) for row in conn.execute(
+            """select
+                 rn.id note_id,rn.body,rn.created_at,
+                 r.id reservation_id,r.organization_id,r.reference,r.guest_name,
+                 r.check_in,r.check_out,r.status reservation_status,
+                 p.name property_name,
+                 coalesce(nullif(trim(pr.name),''),u.email,'Hotel teammate') created_by_name
+               from private.reservation_notes rn
+               join reservations r on r.id=rn.reservation_id
+               join properties p on p.id=r.property_id
+               left join profiles pr on pr.id=rn.created_by
+               left join auth.users u on u.id=rn.created_by
+               where r.organization_id=any(%s::uuid[])
+                 and (%s::uuid is null or r.property_id=%s::uuid)
+                 and rn.kind='guest_request'
+                 and rn.status='open'
+                 and r.status in ('held','pending_confirmation','confirmed','checked_in')
+               order by r.check_in asc,r.created_at asc,rn.created_at asc
+               limit 20""",
+            (organization_ids,selected_property_id,selected_property_id),
+        ).fetchall()]
+
     for key in (
         "arrivals_today","departures_today","in_house","pending_approvals",
         "overdue_arrivals","overdue_departures","active_next_24h","refund_attention",
+        "open_guest_requests",
     ):
         summary[key]=int(summary.get(key) or 0)
 
@@ -358,6 +401,7 @@ def hotel_operations_snapshot(user_id,horizon_days=DEFAULT_HORIZON_DAYS,property
         "low_inventory":low_inventory,
         "source_mix":source_mix,
         "channel_errors":channel_errors,
+        "guest_requests":guest_requests,
         "tasks":tasks,
         "horizon_days":horizon_days,
     }
