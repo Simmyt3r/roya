@@ -345,14 +345,23 @@ def partner_dashboard():
     if not organizations:
         return redirect("/partner/start")
 
-    partner_reservations = ReservationService().list_for_partner(user.user_id, limit=50)
-    pending_reservations = [r for r in partner_reservations if r["status"] == "pending_confirmation"][:20]
-    from roya.payments.service import PaymentService
-    partner_refunds = PaymentService().list_for_partner(user.user_id, limit=50)
     hotel_operations = hotel_operations_snapshot(
         user.user_id,
         horizon_days=request.args.get("days",7),
         property_id=request.args.get("property_id"),
+    )
+    selected_property_id=hotel_operations.get("selected_property_id")
+    partner_reservations = ReservationService().list_for_partner(
+        user.user_id,
+        property_id=selected_property_id,
+        limit=50,
+    )
+    pending_reservations = [r for r in partner_reservations if r["status"] == "pending_confirmation"][:20]
+    from roya.payments.service import PaymentService
+    partner_refunds = PaymentService().list_for_partner(
+        user.user_id,
+        property_id=selected_property_id,
+        limit=50,
     )
 
     return render_template(
