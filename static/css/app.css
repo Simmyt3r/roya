@@ -2338,3 +2338,48 @@ html{-webkit-text-size-adjust:100%}body{min-width:0;overflow-x:hidden}button,a,i
 @media(max-width:560px){
   .front-desk-cancel-panel .button{width:100%}
 }
+
+
+/* Focused front-desk stay amendment */
+.front-desk-amend-head{padding-bottom:14px}
+.front-desk-amend-head h1{margin:.15rem 0;font-size:clamp(2rem,5vw,3.7rem);letter-spacing:-.05em}
+.front-desk-amend-head p{margin:0;color:var(--muted)}
+.front-desk-amend-layout{
+  display:grid;
+  grid-template-columns:minmax(260px,.72fr) minmax(0,1.28fr);
+  gap:16px;
+  align-items:start;
+  padding-bottom:28px
+}
+.front-desk-amend-summary,.front-desk-amend-form{padding:18px}
+.front-desk-amend-summary h2,.front-desk-amend-form h2{margin:.2rem 0 .7rem}
+.front-desk-amend-note{margin:14px 0 0;line-height:1.55}
+.front-desk-amend-form{display:grid;gap:14px}
+.front-desk-amend-form>div:first-child p{margin:0;line-height:1.5}
+.front-desk-amend-dates,.front-desk-amend-guests{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px
+}
+.front-desk-amend-form label{display:grid;gap:5px}
+.front-desk-amend-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:9px;
+  padding-top:4px
+}
+.front-desk-amend-form .form-message{margin:0}
+.front-desk-change-stay{
+  display:flex;
+  margin-top:14px;
+  padding-top:13px;
+  border-top:1px solid var(--line)
+}
+@media(max-width:820px){
+  .front-desk-amend-layout{grid-template-columns:1fr}
+}
+@media(max-width:560px){
+  .front-desk-amend-dates,.front-desk-amend-guests{grid-template-columns:1fr}
+  .front-desk-amend-actions{display:grid}
+  .front-desk-amend-actions .button,.front-desk-change-stay .button{width:100%}
+}
