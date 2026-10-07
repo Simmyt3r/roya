@@ -26,7 +26,7 @@
       <h2>Contact</h2>
       <div class="reservation-detail-grid">
         <div><span>Name</span><strong>{{ r.guest_name }}</strong></div>
-        <div><span>Email</span><a href="mailto:{{ r.guest_email }}">{{ r.guest_email }}</a></div>
+        <div><span>Email</span>{% if r.guest_email %}<a href="mailto:{{ r.guest_email }}">{{ r.guest_email }}</a>{% else %}<strong>Not provided</strong>{% endif %}</div>
         <div><span>Phone</span>{% if r.guest_phone %}<a href="tel:{{ r.guest_phone }}">{{ r.guest_phone }}</a>{% else %}<strong>Not provided</strong>{% endif %}</div>
         <div><span>Guests</span><strong>{{ r.adults }} adult{% if r.adults != 1 %}s{% endif %}{% if r.children %}, {{ r.children }} child{% if r.children != 1 %}ren{% endif %}{% endif %}</strong></div>
       </div>
@@ -72,7 +72,7 @@
         <div><span>Total</span><strong>{{ r.currency }} {{ '%.2f'|format(r.total_price_minor/100) }}</strong></div>
         <div><span>Paid</span><strong>{{ r.currency }} {{ '%.2f'|format(r.amount_paid_minor/100) }}</strong></div>
         <div><span>Outstanding</span><strong>{{ r.currency }} {{ '%.2f'|format(((r.total_price_minor or 0)-(r.amount_paid_minor or 0))/100) }}</strong></div>
-        <div><span>Booked through</span><strong>{{ "Direct booking" if r.source_channel == "direct_booking" else "iRoya marketplace" }}</strong></div>
+        <div><span>Booked through</span><strong>{{ "Direct booking" if r.source_channel == "direct_booking" else ("Front desk" if r.source_channel == "front_desk" else "iRoya marketplace") }}</strong></div>
       </div>
       {% if workspace.transactions %}
       <details class="reservation-history">
@@ -162,7 +162,7 @@
 
     <article class="card reservation-quick-contact">
       <div class="eyebrow">Quick contact</div>
-      <a href="mailto:{{ r.guest_email }}">Email guest</a>
+      {% if r.guest_email %}<a href="mailto:{{ r.guest_email }}">Email guest</a>{% endif %}
       {% if r.guest_phone %}<a href="tel:{{ r.guest_phone }}">Call guest</a>{% endif %}
     </article>
   </aside>
