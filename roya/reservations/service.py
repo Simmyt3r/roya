@@ -209,6 +209,109 @@ class ReservationService:
         return rows
 
 
+    def guest_workspace_for_partner(self,user_id,property_id=None,query=None,limit=50):
+        query=(query or "").strip()
+        if len(query)>120:
+            raise RoyaError("VALIDATION_ERROR","Guest search is too long.",422)
+        try:
+            limit=max(1,min(int(limit or 50),100))
+        except (TypeError,ValueError) as exc:
+            raise RoyaError("VALIDATION_ERROR","Guest result limit is invalid.",422) from exc
+
+        with db_connection() as conn:
+            membership=conn.execute(
+                """select 1
+                   from organization_members
+                   where user_id=%s and status='active'
+                   limit 1""",
+                (user_id,),
+            ).fetchone()
+            if not membership:
+                raise RoyaError("FORBIDDEN","Hotel workspace access requires an active hotel membership.",403)
+
+            properties=[
+                dict(row) for row in conn.execute(
+                    """select distinct p.id,p.name,p.city
+                       from properties p
+                       join organization_members om on om.organization_id=p.organization_id
+                       where om.user_id=%s and om.status='active'
+                       order by p.name""",
+                    (user_id,),
+                ).fetchall()
+            ]
+
+            requested_property=str(property_id or "").strip()
+            selected_property=next(
+                (row for row in properties if str(row["id"])==requested_property),
+                None,
+            ) if requested_property else None
+            if requested_property and not selected_property:
+                raise RoyaError("NOT_FOUND","Property not found.",404)
+            selected_property_id=str(selected_property["id"]) if selected_property else None
+
+            base_where=["om.user_id=%s","om.status='active'"]
+            base_params=[user_id]
+            if selected_property_id:
+                base_where.append("r.property_id=%s")
+                base_params.append(selected_property_id)
+
+            active_rows=[
+                dict(row) for row in conn.execute(
+                    f"""select
+                          r.id,r.reference,r.property_id,r.guest_name,r.guest_email,r.guest_phone,
+                          r.check_in,r.check_out,r.status,r.payment_status,r.currency,r.total_price_minor,
+                          p.name property_name,om.role member_role,
+                          coalesce((
+                            select string_agg(distinct rt.name, ', ' order by rt.name)
+                            from reservation_items ri
+                            join room_types rt on rt.id=ri.room_type_id
+                            where ri.reservation_id=r.id
+                          ),'') room_type_names
+                       from reservations r
+                       join properties p on p.id=r.property_id
+                       join organization_members om on om.organization_id=r.organization_id
+                       where {' and '.join(base_where)}
+                         and (
+                           r.status='checked_in'
+                           or (r.status='confirmed' and r.check_in=current_date)
+                         )
+                       order by
+                         case when r.status='checked_in' then 0 else 1 end,
+                         r.check_out,r.guest_name
+                       limit %s""",
+                    tuple(base_params+[limit]),
+                ).fetchall()
+            ]
+
+        in_house=[row for row in active_rows if row["status"]=="checked_in"]
+        arrivals=[row for row in active_rows if row["status"]=="confirmed"]
+        results=[]
+        query_too_short=False
+        if query:
+            if len(query)<2:
+                query_too_short=True
+            else:
+                results=[
+                    dict(row) for row in self.search_for_partner(
+                        user_id,
+                        query,
+                        property_id=selected_property_id,
+                        limit=limit,
+                    )
+                ]
+
+        return {
+            "query":query,
+            "query_too_short":query_too_short,
+            "properties":properties,
+            "selected_property_id":selected_property_id,
+            "selected_property":selected_property,
+            "in_house":in_house,
+            "arrivals":arrivals,
+            "results":results,
+        }
+
+
     def workspace_for_partner(self,user_id,tab="today",property_id=None,query=None,limit=100):
         tabs={"today","upcoming","pending","in_house","completed"}
         tab=(tab or "today").strip().lower()
