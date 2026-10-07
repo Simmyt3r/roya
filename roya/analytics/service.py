@@ -268,6 +268,20 @@ def _performance_snapshot(start_date,end_date,organization_ids,property_id=None)
             (start_date,end_date,ids,property_id,property_id),
         ).fetchall()]
 
+        source_mix=[dict(row) for row in conn.execute(
+            """select source_channel,
+                      count(*)::bigint booking_count,
+                      coalesce(sum(total_price_minor),0)::bigint booking_value_minor,
+                      count(*) filter(where status='cancelled')::bigint cancelled_count
+               from reservations
+               where created_at::date between %s and %s
+                 and organization_id=any(%s::uuid[])
+                 and (%s::uuid is null or property_id=%s)
+               group by source_channel
+               order by booking_count desc,source_channel""",
+            (start_date,end_date,ids,property_id,property_id),
+        ).fetchall()]
+
     metrics=dict(metrics or {})
     for key in (
         "capacity_room_nights","sold_room_nights","held_room_nights","remaining_room_nights",
@@ -290,6 +304,7 @@ def _performance_snapshot(start_date,end_date,organization_ids,property_id=None)
         "property_performance":properties,
         "guarantee_mix":guarantee_mix,
         "status_mix":status_mix,
+        "source_mix":source_mix,
     }
 
 
