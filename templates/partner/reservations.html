@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% from "partner/_reservation_actions.html" import reservation_actions %}
+{% set tab_labels = {
+  "today":"Today",
+  "upcoming":"Upcoming",
+  "pending":"Pending",
+  "in_house":"In-house",
+  "completed":"Completed"
+} %}
+{% block title %}Reservations · Hotel · iRoya{% endblock %}
+{% block content %}
+<section class="shell reservation-list-head">
+  <div>
+    <div class="eyebrow">Hotel workspace</div>
+    <h1>Reservations</h1>
+    <p>Find the stay you need, see its state, and take the next action.</p>
+  </div>
+  <a class="button button-secondary" href="/partner">Back to today</a>
+</section>
+
+<section class="shell reservation-workspace-toolbar">
+  <nav class="reservation-tabs" aria-label="Reservation views">
+    {% for key,label in tab_labels.items() %}
+      <a class="{% if workspace.tab == key %}is-active{% endif %}" href="/partner/reservations?tab={{ key }}{% if workspace.selected_property_id %}&property_id={{ workspace.selected_property_id }}{% endif %}">
+        <span>{{ label }}</span>
+        <strong>{{ workspace.counts[key] }}</strong>
+      </a>
+    {% endfor %}
+  </nav>
+
+  <div class="reservation-filter-row">
+    <form method="get" action="/partner/reservations" class="reservation-property-filter">
+      <input type="hidden" name="tab" value="{{ workspace.tab }}">
+      {% if workspace.query %}<input type="hidden" name="q" value="{{ workspace.query }}">{% endif %}
+      <label for="reservation-property">Property
+        <select id="reservation-property" name="property_id" onchange="this.form.submit()">
+          <option value="">All properties</option>
+          {% for property in workspace.properties %}
+            <option value="{{ property.id }}" {% if workspace.selected_property_id == property.id|string %}selected{% endif %}>{{ property.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </form>
+
+    <form method="get" action="/partner/reservations" class="reservation-search-form" role="search">
+      <input type="hidden" name="tab" value="{{ workspace.tab }}">
+      {% if workspace.selected_property_id %}<input type="hidden" name="property_id" value="{{ workspace.selected_property_id }}">{% endif %}
+      <label for="reservation-query">Search reservations
+        <input id="reservation-query" name="q" type="search" maxlength="120" value="{{ workspace.query }}" placeholder="Reference, guest, phone, email or room">
+      </label>
+      <button class="button" type="submit">Search</button>
+      {% if workspace.query %}
+        <a class="button button-secondary" href="/partner/reservations?tab={{ workspace.tab }}{% if workspace.selected_property_id %}&property_id={{ workspace.selected_property_id }}{% endif %}">Clear</a>
+      {% endif %}
+    </form>
+  </div>
+</section>
+
+<section class="shell reservation-list-section">
+  <div class="reservation-list-summary">
+    <div>
+      <div class="eyebrow">{{ tab_labels[workspace.tab] }}</div>
+      <h2>
+        {% if workspace.selected_property %}{{ workspace.selected_property.name }}{% else %}All properties{% endif %}
+      </h2>
+    </div>
+    <span class="muted">{{ workspace.reservations|length }} shown{% if workspace.query %} for “{{ workspace.query }}”{% endif %}</span>
+  </div>
+
+  <div class="reservation-workspace-list">
+    {% for r in workspace.reservations %}
+      <article class="card reservation-workspace-row">
+        <a class="reservation-row-main" href="/partner/reservations/{{ r.id }}">
+          <div class="reservation-row-guest">
+            <div class="eyebrow">{{ r.reference }}</div>
+            <h3>{{ r.guest_name }}</h3>
+            <p>{{ r.guest_email }}{% if r.guest_phone %} · {{ r.guest_phone }}{% endif %}</p>
+          </div>
+          <div class="reservation-row-stay">
+            <span>Stay</span>
+            <strong>{{ r.check_in }} → {{ r.check_out }}</strong>
+            <small>{{ r.nights }} night{% if r.nights != 1 %}s{% endif %} · {{ r.room_type_names or "Room" }}</small>
+          </div>
+          <div class="reservation-row-property">
+            <span>Property</span>
+            <strong>{{ r.property_name }}</strong>
+            <small>{{ "Direct booking" if r.source_channel == "direct_booking" else "iRoya marketplace" }}</small>
+          </div>
+          <div class="reservation-row-money">
+            <span>Total</span>
+            <strong>{{ r.currency }} {{ '%.2f'|format(r.total_price_minor/100) }}</strong>
+            <small>{{ r.payment_status|replace("_"," ")|title }}</small>
+          </div>
+          <div class="reservation-row-state">
+            <span class="status-pill">{{ r.status|replace("_"," ")|title }}</span>
+            <small>Open →</small>
+          </div>
+        </a>
+        <div class="reservation-row-actions">
+          {{ reservation_actions(r) }}
+          {% if r.member_role not in ["owner","manager","reservations"] %}
+            <span class="muted">View only</span>
+          {% elif r.status not in ["pending_confirmation","confirmed","checked_in"] %}
+            <span class="muted">No action needed</span>
+          {% endif %}
+        </div>
+      </article>
+    {% else %}
+      <div class="card reservation-list-empty">
+        {% if workspace.query %}
+          <strong>No matching reservation.</strong>
+          <span>Try the guest name, booking reference, phone, email, property or room type.</span>
+        {% elif workspace.tab == "today" %}
+          <strong>No active stays for today.</strong>
+          <span>Today's arrivals and in-house stays will appear here.</span>
+        {% elif workspace.tab == "upcoming" %}
+          <strong>No upcoming confirmed stays.</strong>
+          <span>Future confirmed reservations will appear here.</span>
+        {% elif workspace.tab == "pending" %}
+          <strong>No approvals waiting.</strong>
+          <span>Hotel-approval bookings that need a decision will appear here.</span>
+        {% elif workspace.tab == "in_house" %}
+          <strong>No guests currently in-house.</strong>
+          <span>Checked-in reservations will appear here.</span>
+        {% else %}
+          <strong>No completed reservations yet.</strong>
+          <span>Checked-out, cancelled and no-show reservations will appear here.</span>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
