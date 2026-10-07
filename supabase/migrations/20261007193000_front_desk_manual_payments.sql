@@ -46,16 +46,24 @@ begin
     raise exception 'IDEMPOTENCY_KEY_REQUIRED';
   end if;
 
-  select r,om.role
-  into v_r,v_role
+  select r.*
+  into v_r
   from public.reservations r
-  join public.organization_members om on om.organization_id=r.organization_id
   where r.id=p_reservation_id
-    and om.user_id=p_actor_user_id
-    and om.status='active'
-  for update of r;
+  for update;
 
-  if not found or v_role not in ('owner','manager','reservations','finance') then
+  if not found then
+    raise exception 'FORBIDDEN';
+  end if;
+
+  select om.role
+  into v_role
+  from public.organization_members om
+  where om.organization_id=v_r.organization_id
+    and om.user_id=p_actor_user_id
+    and om.status='active';
+
+  if v_role is null or v_role not in ('owner','manager','reservations','finance') then
     raise exception 'FORBIDDEN';
   end if;
 
