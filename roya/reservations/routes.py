@@ -22,7 +22,16 @@ def create_reservation_route():
     except ValidationError as exc:
         raise RoyaError("VALIDATION_ERROR","Invalid reservation details.",422,{"errors":exc.errors()}) from exc
     identity=current_identity(required=True)
-    return ok(service.create(identity.user_id,payload,request.headers.get("Idempotency-Key","")),201)
+    source_channel=service.source_channel_for_request(str(payload.property_id),request.host)
+    return ok(
+        service.create(
+            identity.user_id,
+            payload,
+            request.headers.get("Idempotency-Key",""),
+            source_channel=source_channel,
+        ),
+        201,
+    )
 
 
 @bp.get("/api/v1/reservations/<uuid:reservation_id>")
@@ -119,6 +128,8 @@ def booking_page():
             ).fetchone()
     if not row:
         raise RoyaError("RATE_NOT_FOUND","Selected room/rate is unavailable.",404)
+
+    service.source_channel_for_request(str(row["property_id"]),request.host)
 
     nights=(check_out-check_in).days
     if nights<int(row["rate_min_stay"] or 1) or not availability or int(availability["total_nights"] or 0)!=nights or int(availability["sellable_nights"] or 0)!=nights:
