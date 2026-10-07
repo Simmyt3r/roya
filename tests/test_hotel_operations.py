@@ -65,7 +65,7 @@ def test_daily_actions_prioritize_operational_exceptions():
     assert "overdue arrival" in tasks[0]["title"]
     assert tasks[1]["priority"]=="critical"
     assert "overdue departure" in tasks[1]["title"]
-    assert any(task["href"]=="/partner#reservations" for task in tasks)
+    assert any(task["href"]=="/partner/reservations?tab=pending" for task in tasks)
     assert any(task["href"]=="/partner/distribution" for task in tasks)
 
 
@@ -133,6 +133,8 @@ def test_partner_dashboard_operations_section_renders():
     assert "7-day occupancy" in html
     assert "Arrivals today" in html
     assert "Booking source" in html
+    assert "Recent bookings" not in html
+    assert "Pending approvals" not in html
 
 
 def test_operations_horizon_invalid_value_falls_back_to_seven(monkeypatch):
@@ -190,13 +192,16 @@ def test_operations_scope_helpers_normalize_and_validate_property():
 def test_scope_action_links_preserves_selected_property_and_external_routes():
     property_id=str(uuid4())
     tasks=[
-        {"href":"/partner#recent-reservations","title":"Stay"},
+        {"href":"/partner#operations-overdue","title":"Stay"},
+        {"href":"/partner/reservations?tab=pending","title":"Pending"},
         {"href":"/partner/distribution","title":"Distribution"},
     ]
     scoped=scope_action_links(tasks,property_id,14)
-    assert scoped[0]["href"]==f"/partner?property_id={property_id}&days=14#recent-reservations"
-    assert scoped[1]["href"]=="/partner/distribution"
-    assert tasks[0]["href"]=="/partner#recent-reservations"
+    assert scoped[0]["href"]==f"/partner?property_id={property_id}&days=14#operations-overdue"
+    assert scoped[1]["href"]==f"/partner/reservations?tab=pending&property_id={property_id}"
+    assert scoped[2]["href"]=="/partner/distribution"
+    assert tasks[0]["href"]=="/partner#operations-overdue"
+    assert tasks[1]["href"]=="/partner/reservations?tab=pending"
 
 
 def test_partner_dashboard_front_desk_actions_render():
