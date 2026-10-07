@@ -1877,6 +1877,43 @@ document.querySelectorAll('[data-partner-reservation-cancel]').forEach(function(
 document.querySelectorAll('[data-front-desk-amendment]').forEach(function(form){
   const submit=form.querySelector('button[type="submit"]');
   const message=form.querySelector('.form-message');
+  const option=form.querySelector('[data-amend-stay-option]');
+  const roomInput=form.querySelector('[name="room_type_id"]');
+  const rateInput=form.querySelector('[name="rate_plan_id"]');
+  const quantity=form.querySelector('[name="quantity"]');
+  const adults=form.querySelector('[name="adults"]');
+  const children=form.querySelector('[name="children"]');
+  const summary=form.querySelector('[data-amend-rate-summary]');
+
+  function syncAmendOption(){
+    if(!option||!option.options.length)return;
+    const selected=option.options[option.selectedIndex];
+    roomInput.value=selected.dataset.room||'';
+    rateInput.value=selected.dataset.rate||'';
+
+    const inventory=Math.max(1,Number(selected.dataset.inventory||1));
+    const roomMax=Math.min(10,inventory);
+    quantity.max=String(roomMax);
+    if(Number(quantity.value)>roomMax)quantity.value=String(roomMax);
+
+    const rooms=Math.max(1,Number(quantity.value||1));
+    const adultMax=Math.max(1,Number(selected.dataset.adults||1)*rooms);
+    const childMax=Math.max(0,Number(selected.dataset.children||0)*rooms);
+    adults.max=String(adultMax);
+    children.max=String(childMax);
+    if(Number(adults.value)>adultMax)adults.value=String(adultMax);
+    if(Number(children.value)>childMax)children.value=String(childMax);
+
+    const base=(Number(selected.dataset.price||0)*rooms)/100;
+    if(summary){
+      summary.textContent='Base nightly estimate: '+(selected.dataset.currency||'NGN')+' '+base.toFixed(2)+
+        '. Final total uses daily pricing and availability when you save.';
+    }
+  }
+
+  if(option)option.addEventListener('change',syncAmendOption);
+  if(quantity)quantity.addEventListener('input',syncAmendOption);
+  syncAmendOption();
 
   form.addEventListener('submit',async function(event){
     event.preventDefault();
@@ -1899,6 +1936,9 @@ document.querySelectorAll('[data-front-desk-amendment]').forEach(function(form){
             'Idempotency-Key':form.dataset.idempotencyKey
           },
           body:JSON.stringify({
+            room_type_id:data.room_type_id,
+            rate_plan_id:data.rate_plan_id,
+            quantity:Number(data.quantity),
             check_in:data.check_in,
             check_out:data.check_out,
             adults:Number(data.adults),
