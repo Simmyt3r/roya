@@ -94,7 +94,7 @@
               </div>
 
               <div class="rooms-workspace-actions">
-                <a class="button button-small button-secondary" href="/partner/properties/{{ property.id }}#rooms">Manage room</a>
+                <a class="button button-small button-secondary" href="/partner/properties/{{ property.id }}#rooms">{{ "Manage room" if room.member_role in ["owner","manager","reservations"] else "View room" }}</a>
               </div>
             </div>
           {% else %}
