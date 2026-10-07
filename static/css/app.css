@@ -2391,3 +2391,105 @@ html{-webkit-text-size-adjust:100%}body{min-width:0;overflow-x:hidden}button,a,i
   .front-desk-amend-actions{display:grid}
   .front-desk-amend-actions .button,.front-desk-change-stay .button{width:100%}
 }
+
+
+/* Guest booking confirmation */
+.confirmation-toolbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  padding:28px 0 14px
+}
+.confirmation-toolbar-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.confirmation-toolbar .form-message{width:100%;margin:0}
+.confirmation-sheet{
+  max-width:900px;
+  margin-bottom:72px;
+  padding:30px;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:18px;
+  box-shadow:0 18px 50px rgba(18,40,35,.08)
+}
+.confirmation-brand{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:18px;
+  padding-bottom:20px;
+  border-bottom:1px solid var(--line)
+}
+.confirmation-brand-lockup{display:flex;gap:12px;align-items:center}
+.confirmation-brand-lockup img{width:52px;height:52px}
+.confirmation-brand h1{margin:.1rem 0;font-size:1.8rem}
+.confirmation-reference{display:grid;justify-items:end;gap:2px;text-align:right}
+.confirmation-reference span,.confirmation-reference small{color:var(--muted);font-size:.7rem}
+.confirmation-reference strong{font-size:1.05rem;letter-spacing:.03em}
+.confirmation-property{display:flex;gap:8px 16px;flex-wrap:wrap;padding:12px 0;color:var(--muted);font-size:.75rem}
+.confirmation-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px}
+.confirmation-block{
+  padding:16px;
+  border:1px solid #e6eeec;
+  border-radius:14px;
+  background:#fbfdfc
+}
+.confirmation-block h2{margin:.25rem 0 12px;font-size:1.2rem}
+.confirmation-lines{display:grid;gap:7px}
+.confirmation-lines span{display:flex;justify-content:space-between;gap:12px;font-size:.78rem}
+.confirmation-lines b{color:var(--muted);font-size:.67rem;text-transform:uppercase;letter-spacing:.04em}
+.confirmation-rooms,.confirmation-money{margin-top:12px}
+.confirmation-room-list{display:grid;margin-top:8px}
+.confirmation-room-list>div{
+  display:flex;
+  justify-content:space-between;
+  gap:14px;
+  padding:10px 0;
+  border-top:1px solid #e8efed
+}
+.confirmation-room-list>div:first-child{border-top:0}
+.confirmation-room-list>div>div{display:grid;gap:2px}
+.confirmation-room-list span{color:var(--muted);font-size:.72rem}
+.confirmation-money-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}
+.confirmation-money-grid>div{display:grid;gap:3px;padding:10px;border-radius:10px;background:#fff}
+.confirmation-money-grid span{font-size:.65rem;text-transform:uppercase;color:var(--muted);font-weight:800}
+.confirmation-payment-state{margin:10px 0 0;font-size:.75rem}
+.confirmation-footer{display:grid;gap:3px;margin-top:22px;padding-top:16px;border-top:1px solid var(--line);font-size:.75rem}
+.confirmation-footer span,.confirmation-footer small{color:var(--muted)}
+.confirmation-share-text{
+  position:fixed;
+  left:-9999px;
+  width:1px;
+  height:1px;
+  opacity:0;
+  pointer-events:none
+}
+@media(max-width:700px){
+  .confirmation-toolbar{align-items:flex-start;flex-direction:column}
+  .confirmation-toolbar-actions{width:100%;display:grid;grid-template-columns:1fr}
+  .confirmation-toolbar-actions .button{width:100%}
+  .confirmation-sheet{padding:18px;margin-bottom:48px}
+  .confirmation-brand{flex-direction:column}
+  .confirmation-reference{justify-items:start;text-align:left}
+  .confirmation-grid{grid-template-columns:1fr}
+  .confirmation-money-grid{grid-template-columns:1fr 1fr}
+}
+@media(max-width:420px){
+  .confirmation-money-grid{grid-template-columns:1fr}
+}
+@media print{
+  @page{margin:14mm}
+  .topbar,.footer,.no-print{display:none!important}
+  body{background:#fff}
+  main{padding:0}
+  .confirmation-sheet{
+    max-width:none;
+    margin:0;
+    padding:0;
+    border:0;
+    border-radius:0;
+    box-shadow:none
+  }
+  .confirmation-block{break-inside:avoid;background:#fff}
+  .confirmation-brand-lockup img{print-color-adjust:exact;-webkit-print-color-adjust:exact}
+}
