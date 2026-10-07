@@ -90,3 +90,8 @@ class PartnerReservationAmend(BaseModel):
         if (self.check_out-self.check_in).days>90:
             raise ValueError("a reservation cannot exceed 90 nights")
         return self
+
+
+class PartnerReservationNoteCreate(BaseModel):
+    kind: Literal["guest_request","staff_note"]
+    body: str = Field(min_length=1,max_length=2000)
