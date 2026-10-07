@@ -78,7 +78,7 @@ def build_daily_actions(summary,low_inventory,channel_errors):
     return tasks[:8]
 
 
-def hotel_operations_snapshot(user_id,horizon_days=7):
+def hotel_operations_snapshot(user_id,horizon_days=7,property_id=None):
     try:
         horizon_days=int(horizon_days or 7)
     except (TypeError,ValueError):
@@ -99,6 +99,9 @@ def hotel_operations_snapshot(user_id,horizon_days=7):
         if not memberships:
             return {
                 "organizations":[],
+                "properties":[],
+                "selected_property_id":None,
+                "selected_property":None,
                 "summary":{},
                 "arrivals":[],
                 "departures":[],
@@ -112,6 +115,21 @@ def hotel_operations_snapshot(user_id,horizon_days=7):
             }
 
         organization_ids=[str(row["id"]) for row in memberships]
+        properties=[
+            dict(row) for row in conn.execute(
+                """select p.id,p.name,p.organization_id
+                   from properties p
+                   where p.organization_id=any(%s::uuid[])
+                   order by p.name""",
+                (organization_ids,),
+            ).fetchall()
+        ]
+        requested_property_id=str(property_id or "").strip()
+        selected_property=next(
+            (row for row in properties if str(row["id"])==requested_property_id),
+            None,
+        )
+        selected_property_id=str(selected_property["id"]) if selected_property else None
 
         summary=dict(conn.execute(
             """select
@@ -129,10 +147,15 @@ def hotel_operations_snapshot(user_id,horizon_days=7):
                  (select count(*) from refunds rf
                     join reservations rr on rr.id=rf.reservation_id
                     where rr.organization_id=any(%s::uuid[])
+                      and (%s::uuid is null or rr.property_id=%s::uuid)
                       and rf.status in ('requested','processing'))::bigint refund_attention
-               from reservations
-               where organization_id=any(%s::uuid[])""",
-            (organization_ids,organization_ids),
+               from reservations r
+               where r.organization_id=any(%s::uuid[])
+                 and (%s::uuid is null or r.property_id=%s::uuid)""",
+            (
+                organization_ids,selected_property_id,selected_property_id,
+                organization_ids,selected_property_id,selected_property_id,
+            ),
         ).fetchone() or {})
 
         arrivals=[dict(row) for row in conn.execute(
@@ -141,11 +164,12 @@ def hotel_operations_snapshot(user_id,horizon_days=7):
                from reservations r
                join properties p on p.id=r.property_id
                where r.organization_id=any(%s::uuid[])
+                 and (%s::uuid is null or r.property_id=%s::uuid)
                  and r.status='confirmed'
                  and r.check_in=current_date
                order by p.name,r.created_at
                limit 20""",
-            (organization_ids,),
+            (organization_ids,selected_property_id,selected_property_id),
         ).fetchall()]
 
         departures=[dict(row) for row in conn.execute(
@@ -154,11 +178,12 @@ def hotel_operations_snapshot(user_id,horizon_days=7):
                from reservations r
                join properties p on p.id=r.property_id
                where r.organization_id=any(%s::uuid[])
+                 and (%s::uuid is null or r.property_id=%s::uuid)
                  and r.status='checked_in'
                  and r.check_out=current_date
                order by p.name,r.checked_in_at nulls last,r.created_at
                limit 20""",
-            (organization_ids,),
+            (organization_ids,selected_property_id,selected_property_id),
         ).fetchall()]
 
         overdue=[dict(row) for row in conn.execute(
@@ -171,13 +196,14 @@ def hotel_operations_snapshot(user_id,horizon_days=7):
                from reservations r
                join properties p on p.id=r.property_id
                where r.organization_id=any(%s::uuid[])
+                 and (%s::uuid is null or r.property_id=%s::uuid)
                  and (
                    (r.status='confirmed' and r.check_in<current_date)
                    or (r.status='checked_in' and r.check_out<current_date)
                  )
                order by least(r.check_in,r.check_out),p.name
                limit 20""",
-            (organization_ids,),
+            (organization_ids,selected_property_id,selected_property_id),
         ).fetchall()]
 
         forecast=[dict(row) for row in conn.execute(
@@ -201,11 +227,12 @@ def hotel_operations_snapshot(user_id,horizon_days=7):
                join room_types rt on rt.id=i.room_type_id
                join properties p on p.id=rt.property_id
                where p.organization_id=any(%s::uuid[])
+                 and (%s::uuid is null or p.id=%s::uuid)
                  and rt.status='active'
                  and i.date between current_date and current_date+(%s::int-1)
                group by i.date
                order by i.date""",
-            (organization_ids,horizon_days),
+            (organization_ids,selected_property_id,selected_property_id,horizon_days),
         ).fetchall()]
 
         low_inventory=[dict(row) for row in conn.execute(
@@ -216,13 +243,14 @@ def hotel_operations_snapshot(user_id,horizon_days=7):
                join room_types rt on rt.id=i.room_type_id
                join properties p on p.id=rt.property_id
                where p.organization_id=any(%s::uuid[])
+                 and (%s::uuid is null or p.id=%s::uuid)
                  and rt.status='active'
                  and i.stop_sell=false
                  and i.date between current_date and current_date+(%s::int-1)
                  and greatest(i.total_inventory-i.sold_inventory-i.held_inventory,0)<=2
                order by available asc,i.date,p.name,rt.name
                limit 30""",
-            (organization_ids,horizon_days),
+            (organization_ids,selected_property_id,selected_property_id,horizon_days),
         ).fetchall()]
 
         source_mix=[dict(row) for row in conn.execute(
@@ -230,12 +258,13 @@ def hotel_operations_snapshot(user_id,horizon_days=7):
                       count(*)::bigint booking_count,
                       coalesce(sum(total_price_minor),0)::bigint booking_value_minor,
                       count(*) filter(where status='cancelled')::bigint cancelled_count
-               from reservations
-               where organization_id=any(%s::uuid[])
-                 and created_at>=now()-interval '30 days'
+               from reservations r
+               where r.organization_id=any(%s::uuid[])
+                 and (%s::uuid is null or r.property_id=%s::uuid)
+                 and r.created_at>=now()-interval '30 days'
                group by source_channel
                order by booking_count desc,source_channel""",
-            (organization_ids,),
+            (organization_ids,selected_property_id,selected_property_id),
         ).fetchall()]
 
         channel_errors=[dict(row) for row in conn.execute(
@@ -243,10 +272,11 @@ def hotel_operations_snapshot(user_id,horizon_days=7):
                from channel_connections c
                join properties p on p.id=c.property_id
                where c.organization_id=any(%s::uuid[])
+                 and (%s::uuid is null or c.property_id=%s::uuid)
                  and c.status='error'
                order by c.updated_at desc
                limit 20""",
-            (organization_ids,),
+            (organization_ids,selected_property_id,selected_property_id),
         ).fetchall()]
 
     for key in (
@@ -258,6 +288,9 @@ def hotel_operations_snapshot(user_id,horizon_days=7):
     tasks=build_daily_actions(summary,low_inventory,channel_errors)
     return {
         "organizations":memberships,
+        "properties":properties,
+        "selected_property_id":selected_property_id,
+        "selected_property":selected_property,
         "summary":summary,
         "arrivals":arrivals,
         "departures":departures,
