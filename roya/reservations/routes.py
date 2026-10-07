@@ -131,7 +131,7 @@ def booking_page():
         raise RoyaError("VALIDATION_ERROR","Check-out must be after check-in.",422)
     with db_connection() as conn:
         row=conn.execute(
-            """select rt.*,p.name property_name,p.id property_id,rp.id rate_id,rp.name rate_name,
+            """select rt.*,p.name property_name,p.id property_id,p.slug property_slug,rp.id rate_id,rp.name rate_name,
                       rp.base_price_minor,rp.currency,rp.guarantee_type,rp.refundable,rp.cancellation_policy,
                       rp.deposit_percent,rp.min_stay rate_min_stay
                from room_types rt
@@ -192,7 +192,7 @@ def booking_page():
     else:
         amount_due_minor=0
 
-    prop={"id":row["property_id"],"name":row["property_name"]}
+    prop={"id":row["property_id"],"name":row["property_name"],"slug":row["property_slug"]}
     room={
         "id":row["id"],
         "name":row["name"],
