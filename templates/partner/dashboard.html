@@ -130,7 +130,15 @@
         {% for stay in hotel_operations.arrivals %}
           <div class="hotel-ops-stay-row">
             <span><strong>{{ stay.guest_name }}</strong><small><a class="reservation-reference-link" href="/partner/reservations/{{ stay.id }}">{{ stay.reference }}</a> · {{ stay.property_name }}</small></span>
-            <span class="hotel-ops-stay-status"><strong>{{ stay.payment_status|replace('_',' ')|title }}</strong><small>{{ 'Direct Booking' if stay.source_channel == 'direct_booking' else 'Roya Marketplace' }}</small>{{ reservation_actions(stay) }}</span>
+            <span class="hotel-ops-stay-status">
+              <strong>{{ stay.payment_status|replace('_',' ')|title }}</strong>
+              {% if stay.room_readiness_tracked %}
+                <small class="stay-readiness {{ 'is-ready' if stay.rooms_ready else 'is-warning' }}">{{ "Room ready" if stay.rooms_ready else "Needs cleaning" }}</small>
+              {% else %}
+                <small>Readiness not tracked</small>
+              {% endif %}
+              {{ reservation_actions(stay) }}
+            </span>
           </div>
         {% else %}
           <p class="muted">No confirmed arrivals are due today.</p>
