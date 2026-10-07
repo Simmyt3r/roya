@@ -99,24 +99,8 @@ def test_partner_search_api_forwards_query_and_property(monkeypatch):
     assert captured["limit"]=="12"
 
 
-def test_front_desk_search_renders_actionable_results():
+def test_guest_workspace_renders_actionable_search_results():
     property_id=str(uuid4())
-    snapshot={
-        "organizations":[{"id":str(uuid4()),"name":"Example Group","role":"owner"}],
-        "properties":[{"id":property_id,"name":"Example Hotel","organization_id":str(uuid4())}],
-        "selected_property_id":property_id,
-        "selected_property":{"id":property_id,"name":"Example Hotel"},
-        "summary":{},
-        "arrivals":[],
-        "departures":[],
-        "overdue":[],
-        "forecast":[],
-        "low_inventory":[],
-        "source_mix":[],
-        "channel_errors":[],
-        "tasks":[],
-        "horizon_days":7,
-    }
     results=[
         {
             "id":str(uuid4()),
@@ -151,26 +135,22 @@ def test_front_desk_search_renders_actionable_results():
             "member_role":"owner",
         },
     ]
+    workspace={
+        "query":"Ada",
+        "query_too_short":False,
+        "properties":[{"id":property_id,"name":"Example Hotel","city":"Makurdi"}],
+        "selected_property_id":property_id,
+        "selected_property":{"id":property_id,"name":"Example Hotel","city":"Makurdi"},
+        "in_house":[],
+        "arrivals":[],
+        "results":results,
+    }
 
     app=create_app({"TESTING":True,"WTF_CSRF_ENABLED":False,"DATABASE_URL":""})
-    with app.test_request_context("/partner?front_desk_q=Ada"):
-        html=render_template(
-            "partner/dashboard.html",
-            organizations=[{"id":str(uuid4()),"name":"Example Group","role":"owner"}],
-            properties=[],
-            pending_reservations=[],
-            partner_reservations=[],
-            partner_refunds=[],
-            front_desk_query="Ada",
-            front_desk_results=results,
-            team_members=[],
-            pending_invites=[],
-            manageable_organizations=[],
-            finance_organizations=[{"id":str(uuid4()),"name":"Example Group","role":"owner"}],
-            hotel_operations=snapshot,
-        )
+    with app.test_request_context("/partner/guests?q=Ada"):
+        html=render_template("partner/guests.html",workspace=workspace)
 
-    assert "Find a guest or reservation" in html
+    assert "Find guest or reservation" in html
     assert "RYA-PENDING" in html
     assert "08012345678" in html
     assert "Deluxe Room" in html
