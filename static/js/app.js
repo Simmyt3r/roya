@@ -1649,3 +1649,90 @@ document.querySelectorAll('[data-handover-note]').forEach(function(row){
     }
   });
 });
+
+
+document.querySelectorAll('[data-front-desk-reservation-form]').forEach(function(form){
+  const radios=[...form.querySelectorAll('[name="stay_option"]')];
+  const quantity=form.querySelector('[name="quantity"]');
+  const adults=form.querySelector('[name="adults"]');
+  const children=form.querySelector('[name="children"]');
+  const roomInput=form.querySelector('[name="room_type_id"]');
+  const rateInput=form.querySelector('[name="rate_plan_id"]');
+  const total=form.querySelector('[data-front-desk-total]');
+  const message=form.querySelector('.form-message');
+  const submit=form.querySelector('button[type="submit"]');
+
+  function selectedOption(){
+    return radios.find(function(radio){return radio.checked;})||radios[0];
+  }
+
+  function sync(){
+    const option=selectedOption();
+    if(!option)return;
+    roomInput.value=option.dataset.room;
+    rateInput.value=option.dataset.rate;
+    const maxRooms=Math.max(1,Math.min(Number(option.dataset.available||1),10));
+    quantity.max=String(maxRooms);
+    if(Number(quantity.value)>maxRooms)quantity.value=String(maxRooms);
+    const rooms=Math.max(1,Number(quantity.value||1));
+    const adultMax=Math.max(1,Number(option.dataset.adults||1)*rooms);
+    const childMax=Math.max(0,Number(option.dataset.children||0)*rooms);
+    adults.max=String(adultMax);
+    children.max=String(childMax);
+    if(Number(adults.value)>adultMax)adults.value=String(adultMax);
+    if(Number(children.value)>childMax)children.value=String(childMax);
+    const stayTotal=(Number(option.dataset.price||0)*rooms)/100;
+    total.textContent=(option.dataset.currency||'NGN')+' '+stayTotal.toFixed(2);
+  }
+
+  radios.forEach(function(radio){radio.addEventListener('change',sync);});
+  quantity.addEventListener('input',sync);
+  sync();
+
+  form.addEventListener('submit',async function(event){
+    event.preventDefault();
+    sync();
+    if(!form.reportValidity())return;
+    if(!form.dataset.idempotencyKey){
+      form.dataset.idempotencyKey='frontdesk-'+(
+        window.crypto&&crypto.randomUUID ? crypto.randomUUID() : Date.now()+'-'+Math.random().toString(16).slice(2)
+      );
+    }
+    const data=Object.fromEntries(new FormData(form).entries());
+    submit.disabled=true;
+    message.textContent='Confirming reservation…';
+    try{
+      const response=await fetch('/api/v1/partner/reservations',{
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'Idempotency-Key':form.dataset.idempotencyKey
+        },
+        body:JSON.stringify({
+          property_id:data.property_id,
+          room_type_id:data.room_type_id,
+          rate_plan_id:data.rate_plan_id,
+          check_in:data.check_in,
+          check_out:data.check_out,
+          quantity:Number(data.quantity),
+          adults:Number(data.adults),
+          children:Number(data.children),
+          guest_name:(data.guest_name||'').trim(),
+          guest_phone:(data.guest_phone||'').trim(),
+          guest_email:(data.guest_email||'').trim()||null
+        })
+      });
+      const body=await response.json().catch(function(){return {};});
+      if(!response.ok){
+        message.textContent=(body.error&&body.error.message)||'Reservation could not be created.';
+        return;
+      }
+      const result=body.data||{};
+      window.location.href=result.redirect_to||('/partner/reservations/'+result.reservation_id);
+    }catch(_error){
+      message.textContent='Reservation could not be created. You can retry safely.';
+    }finally{
+      submit.disabled=false;
+    }
+  });
+});
