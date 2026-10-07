@@ -29,6 +29,9 @@ class _Result:
     def fetchone(self):
         return self.row
 
+    def fetchall(self):
+        return self.row if isinstance(self.row,list) else []
+
 
 class _AmendConnection:
     def __init__(self,row=None,error=None):
@@ -69,6 +72,9 @@ def _db(connection):
 def _payload():
     check_in=date.today()+timedelta(days=3)
     return PartnerReservationAmend(
+        room_type_id="30000000-0000-4000-8000-000000000002",
+        rate_plan_id="40000000-0000-4000-8000-000000000002",
+        quantity=2,
         check_in=check_in,
         check_out=check_in+timedelta(days=2),
         adults=2,
@@ -77,6 +83,28 @@ def _payload():
         guest_email="ada@example.com",
         guest_phone="08012345678",
     )
+
+
+def test_amendment_options_are_property_and_writer_scoped(monkeypatch):
+    class _OptionsConnection:
+        def execute(self,sql,params):
+            assert "om.role in ('owner','manager','reservations')" in sql
+            assert params==(
+                "10000000-0000-4000-8000-000000000001",
+                "60000000-0000-4000-8000-000000000001",
+            )
+            return _Result(_amend_options())
+
+    monkeypatch.setattr(
+        reservation_service,
+        "db_connection",
+        lambda:_db(_OptionsConnection())(),
+    )
+    options=ReservationService().amendment_options_for_partner(
+        "60000000-0000-4000-8000-000000000001",
+        "10000000-0000-4000-8000-000000000001",
+    )
+    assert [row["room_type_name"] for row in options]==["Deluxe","Executive"]
 
 
 def test_partner_amend_calls_private_atomic_function(monkeypatch):
@@ -92,12 +120,15 @@ def test_partner_amend_calls_private_atomic_function(monkeypatch):
 
     assert result["recordable_balance_minor"]==4000000
     sql,params=connection.calls[0]
-    assert "private.amend_partner_reservation" in sql
+    assert "private.amend_partner_reservation_v2" in sql
     assert params[0]=="60000000-0000-4000-8000-000000000001"
     assert params[1]=="50000000-0000-4000-8000-000000000001"
-    assert params[6]=="Ada Updated"
-    assert params[7]=="ada@example.com"
-    assert params[9]=="frontdesk-amend-request-1"
+    assert params[2]=="30000000-0000-4000-8000-000000000002"
+    assert params[3]=="40000000-0000-4000-8000-000000000002"
+    assert params[4]==2
+    assert params[9]=="Ada Updated"
+    assert params[10]=="ada@example.com"
+    assert params[12]=="frontdesk-amend-request-1"
 
 
 @pytest.mark.parametrize(
@@ -110,6 +141,7 @@ def test_partner_amend_calls_private_atomic_function(monkeypatch):
         ("REFUND_REQUIRED","REFUND_REQUIRED",409),
         ("BOOKING_CONFLICT","BOOKING_CONFLICT",409),
         ("RATE_NOT_AVAILABLE","RATE_NOT_FOUND",409),
+        ("ROOM_NOT_AVAILABLE","ROOM_NOT_FOUND",409),
         ("CAPACITY_EXCEEDED","VALIDATION_ERROR",422),
         ("PAST_CHECK_IN","VALIDATION_ERROR",422),
         ("CURRENCY_CHANGE_UNSUPPORTED","CURRENCY_CHANGE_UNSUPPORTED",409),
@@ -178,6 +210,9 @@ def test_partner_amend_api_forwards_payload_and_idempotency(monkeypatch):
         "/api/v1/partner/reservations/50000000-0000-4000-8000-000000000001/amend",
         headers={"Idempotency-Key":"frontdesk-amend-api-1"},
         json={
+            "room_type_id":"30000000-0000-4000-8000-000000000002",
+            "rate_plan_id":"40000000-0000-4000-8000-000000000002",
+            "quantity":2,
             "check_in":check_in.isoformat(),
             "check_out":(check_in+timedelta(days=2)).isoformat(),
             "adults":2,
@@ -191,6 +226,9 @@ def test_partner_amend_api_forwards_payload_and_idempotency(monkeypatch):
     assert response.status_code==200
     assert captured["user_id"]==identity.user_id
     assert captured["payload"].guest_name=="Ada Updated"
+    assert str(captured["payload"].room_type_id)=="30000000-0000-4000-8000-000000000002"
+    assert str(captured["payload"].rate_plan_id)=="40000000-0000-4000-8000-000000000002"
+    assert captured["payload"].quantity==2
     assert captured["key"]=="frontdesk-amend-api-1"
     assert response.get_json()["data"]["redirect_to"]=="/partner/reservations/50000000-0000-4000-8000-000000000001"
 
@@ -225,6 +263,8 @@ def _workspace(role="reservations",source="front_desk",status="confirmed",items=
     }
     room_items=[{
         "id":"80000000-0000-4000-8000-000000000001",
+        "room_type_id":"30000000-0000-4000-8000-000000000001",
+        "rate_plan_id":"40000000-0000-4000-8000-000000000001",
         "quantity":1,
         "unit_price_minor":2500000,
         "total_price_minor":5000000,
@@ -235,6 +275,8 @@ def _workspace(role="reservations",source="front_desk",status="confirmed",items=
     if items>1:
         room_items.append({
             "id":"80000000-0000-4000-8000-000000000002",
+            "room_type_id":"30000000-0000-4000-8000-000000000002",
+            "rate_plan_id":"40000000-0000-4000-8000-000000000002",
             "quantity":1,
             "unit_price_minor":2000000,
             "total_price_minor":4000000,
@@ -253,6 +295,41 @@ def _workspace(role="reservations",source="front_desk",status="confirmed",items=
     }
 
 
+def _amend_options():
+    return [
+        {
+            "room_type_id":"30000000-0000-4000-8000-000000000001",
+            "room_type_name":"Deluxe",
+            "capacity_adults":2,
+            "capacity_children":1,
+            "total_inventory":5,
+            "rate_plan_id":"40000000-0000-4000-8000-000000000001",
+            "rate_plan_name":"Standard",
+            "currency":"NGN",
+            "base_price_minor":2500000,
+            "min_stay":1,
+            "meal_plan":"room_only",
+            "refundable":True,
+            "guarantee_type":"pay_at_property",
+        },
+        {
+            "room_type_id":"30000000-0000-4000-8000-000000000002",
+            "room_type_name":"Executive",
+            "capacity_adults":3,
+            "capacity_children":2,
+            "total_inventory":3,
+            "rate_plan_id":"40000000-0000-4000-8000-000000000002",
+            "rate_plan_name":"Flexible",
+            "currency":"NGN",
+            "base_price_minor":3500000,
+            "min_stay":1,
+            "meal_plan":"breakfast",
+            "refundable":True,
+            "guarantee_type":"pay_at_property",
+        },
+    ]
+
+
 def _patch_identity(monkeypatch,identity):
     monkeypatch.setattr(auth_service,"current_identity",lambda required=False:identity)
     monkeypatch.setattr(reservation_routes,"current_identity",lambda required=False:identity)
@@ -262,6 +339,7 @@ def test_edit_page_renders_current_front_desk_stay(monkeypatch):
     identity=SimpleNamespace(user_id="60000000-0000-4000-8000-000000000001",email="desk@example.com")
     _patch_identity(monkeypatch,identity)
     monkeypatch.setattr(reservation_routes.service,"get_for_partner",lambda *_args,**_kwargs:_workspace())
+    monkeypatch.setattr(reservation_routes.service,"amendment_options_for_partner",lambda *_args,**_kwargs:_amend_options())
 
     app=create_app({"TESTING":True,"WTF_CSRF_ENABLED":False,"DATABASE_URL":""})
     response=app.test_client().get(
@@ -273,6 +351,9 @@ def test_edit_page_renders_current_front_desk_stay(monkeypatch):
     assert "Change stay" in html
     assert "Deluxe" in html
     assert "Standard" in html
+    assert "Executive" in html
+    assert "Flexible" in html
+    assert "Room &amp; rate" in html or "Room & rate" in html
     assert "Ada Guest" in html
     assert "Saving is atomic" in html
     assert 'data-front-desk-amendment' in html
@@ -296,6 +377,7 @@ def test_edit_page_enforces_amendment_scope(monkeypatch,role,source,status,items
         "get_for_partner",
         lambda *_args,**_kwargs:_workspace(role=role,source=source,status=status,items=items),
     )
+    monkeypatch.setattr(reservation_routes.service,"amendment_options_for_partner",lambda *_args,**_kwargs:_amend_options())
 
     app=create_app({"TESTING":True,"WTF_CSRF_ENABLED":False,"DATABASE_URL":""})
     response=app.test_client().get(
