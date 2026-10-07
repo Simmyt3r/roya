@@ -146,6 +146,65 @@ class ReservationService:
             ).fetchall())
         return rows
 
+    def search_for_partner(self,user_id,query,property_id=None,limit=20):
+        query=(query or "").strip()
+        if len(query)<2:
+            return []
+        if len(query)>120:
+            raise RoyaError("VALIDATION_ERROR","Reservation search is too long.",422)
+        limit=max(1,min(int(limit or 20),50))
+        needle=f"%{query}%"
+        params=[user_id]
+        where=["om.user_id=%s","om.status='active'"]
+        if property_id:
+            where.append("r.property_id::text=%s")
+            params.append(str(property_id))
+        params.extend([needle,needle,needle,needle,needle,needle,limit])
+
+        with db_connection() as conn:
+            rows=list(conn.execute(
+                f"""select
+                           r.id,r.reference,r.property_id,r.guest_name,r.guest_email,r.guest_phone,
+                           r.check_in,r.check_out,r.nights,r.total_price_minor,r.amount_paid_minor,r.currency,
+                           r.status,r.payment_status,r.guarantee_type,r.source_channel,r.expires_at,r.created_at,
+                           p.name property_name,om.role member_role,
+                           coalesce((
+                             select string_agg(distinct rt.name, ', ' order by rt.name)
+                             from reservation_items ri
+                             join room_types rt on rt.id=ri.room_type_id
+                             where ri.reservation_id=r.id
+                           ),'') room_type_names
+                    from reservations r
+                    join properties p on p.id=r.property_id
+                    join organization_members om on om.organization_id=r.organization_id
+                    where {' and '.join(where)}
+                      and (
+                        r.reference ilike %s
+                        or r.guest_name ilike %s
+                        or r.guest_email ilike %s
+                        or coalesce(r.guest_phone,'') ilike %s
+                        or p.name ilike %s
+                        or exists(
+                          select 1
+                          from reservation_items sri
+                          join room_types srt on srt.id=sri.room_type_id
+                          where sri.reservation_id=r.id
+                            and srt.name ilike %s
+                        )
+                      )
+                    order by
+                      case
+                        when r.status in ('confirmed','checked_in','pending_confirmation') then 0
+                        else 1
+                      end,
+                      r.check_in desc,
+                      r.created_at desc
+                    limit %s""",
+                tuple(params),
+            ).fetchall())
+        return rows
+
+
     def partner_decide(self,reservation_id,user_id,decision,reason=None):
         approve=decision=="approve"
         try:
