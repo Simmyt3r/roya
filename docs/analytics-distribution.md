@@ -36,7 +36,7 @@ Guest rating uses visible reviews created in the selected period.
 
 ### Booking source attribution
 
-Every reservation stores a `source_channel`. Main-domain iRoya bookings are attributed to `roya_marketplace`; reservations created from a matching verified hotel mini-domain are attributed to `direct_booking`. A hotel mini-domain cannot create a reservation for another property.
+Every reservation stores a `source_channel`. Main-domain iRoya bookings are attributed to `roya_marketplace`; reservations created from a matching verified hotel mini-domain are attributed to `direct_booking`; hotel-created phone, WhatsApp and walk-in reservations are attributed to `front_desk`. A hotel mini-domain cannot create a reservation for another property.
 
 Idempotent reservation replays preserve the original source rather than overwriting it. Analytics groups reservation count, booking value and cancellations by source channel.
 
