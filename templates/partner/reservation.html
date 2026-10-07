@@ -40,7 +40,7 @@
         <div><span>Check-out</span><strong>{{ r.check_out_time or "Property time" }}</strong></div>
       </div>
       <div class="reservation-room-list">
-        {% for item in workspace.items %}
+        {% for item in workspace["items"] %}
           <div>
             <span><strong>{{ item.room_type_name }}</strong><small>{{ item.rate_plan_name }} · {{ item.quantity }} room{% if item.quantity != 1 %}s{% endif %}</small></span>
             <strong>{{ r.currency }} {{ '%.2f'|format(item.total_price_minor/100) }}</strong>
