@@ -1254,3 +1254,32 @@ html{-webkit-text-size-adjust:100%}body{min-width:0;overflow-x:hidden}button,a,i
   .reservation-workspace-head{padding-top:24px}
   .reservation-workspace-grid{padding-bottom:48px}
 }
+
+
+/* Progressive disclosure for secondary hotel operations */
+.hotel-secondary-details{border:1px solid var(--line);border-radius:16px;background:#fff}
+.hotel-secondary-details>summary{
+  list-style:none;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  min-height:58px;
+  padding:14px 16px;
+  cursor:pointer
+}
+.hotel-secondary-details>summary::-webkit-details-marker{display:none}
+.hotel-secondary-details>summary>span:first-child{display:grid;gap:2px}
+.hotel-secondary-details>summary small{display:block;color:var(--muted);font-size:.7rem;font-weight:650}
+.hotel-secondary-details[open]>summary{border-bottom:1px solid #edf1f0}
+.hotel-secondary-details[open]>summary>.muted{color:var(--brand)}
+.hotel-secondary-body{padding-top:14px}
+.hotel-ops-forecast.hotel-secondary-details{padding:0}
+.hotel-ops-forecast.hotel-secondary-details .hotel-secondary-body{padding:14px 16px 16px}
+.hotel-secondary-operations{margin-top:14px}
+.hotel-secondary-operations>.hotel-secondary-body{padding:14px;margin-bottom:0}
+.hotel-secondary-operations .hotel-ops-layout{margin-bottom:0}
+@media(max-width:700px){
+  .hotel-secondary-details>summary{align-items:flex-start}
+  .hotel-secondary-operations>.hotel-secondary-body{padding:10px}
+}
