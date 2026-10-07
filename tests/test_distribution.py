@@ -39,6 +39,10 @@ def _dashboard():
                     "connection_id":"",
                     "status":"not_initialized",
                     "last_synced_at":None,
+                    "last_attempted_at":None,
+                    "last_trigger":None,
+                    "health":{},
+                    "auto_sync":False,
                 },
                 {
                     "key":"roya_marketplace",
@@ -112,3 +116,46 @@ def test_future_channel_cannot_be_synced():
         sync_builtin_channel(str(uuid4()),str(uuid4()),"booking_com")
     assert raised.value.code=="CHANNEL_NOT_AVAILABLE"
     assert raised.value.status_code==422
+
+
+def test_distribution_connection_status_endpoint(monkeypatch):
+    identity=_identity()
+    connection_id=uuid4()
+    captured={}
+    monkeypatch.setattr(auth_service,"current_identity",lambda required=False:identity)
+    monkeypatch.setattr(distribution_routes,"current_identity",lambda required=False:identity)
+
+    def fake_status(user_id,connection_id,target_status):
+        captured.update({
+            "user_id":user_id,
+            "connection_id":connection_id,
+            "target_status":target_status,
+        })
+        return {
+            "id":connection_id,
+            "status":target_status,
+            "channel":"direct_booking",
+        }
+
+    monkeypatch.setattr(distribution_routes,"set_builtin_connection_status",fake_status)
+    app=create_app({"TESTING":True,"WTF_CSRF_ENABLED":False,"DATABASE_URL":""})
+    response=app.test_client().post(
+        f"/api/v1/distribution/connections/{connection_id}/status",
+        json={"status":"disconnected"},
+    )
+    assert response.status_code==200
+    assert response.json["data"]["status"]=="disconnected"
+    assert captured["connection_id"]==str(connection_id)
+    assert captured["target_status"]=="disconnected"
+
+
+def test_distribution_page_explains_automatic_sync(monkeypatch):
+    identity=_identity()
+    monkeypatch.setattr(auth_service,"current_identity",lambda required=False:identity)
+    monkeypatch.setattr(distribution_routes,"current_identity",lambda required=False:identity)
+    monkeypatch.setattr(distribution_routes,"distribution_dashboard",lambda *args,**kwargs:_dashboard())
+
+    app=create_app({"TESTING":True,"WTF_CSRF_ENABLED":False,"DATABASE_URL":""})
+    response=app.test_client().get("/partner/distribution")
+    assert response.status_code==200
+    assert b"every six hours" in response.data
