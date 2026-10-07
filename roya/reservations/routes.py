@@ -57,6 +57,20 @@ def partner_reservations():
     return ok(service.list_for_partner(identity.user_id,property_id=property_id))
 
 
+@bp.get("/api/v1/partner/reservations/search")
+@login_required
+def partner_reservation_search():
+    identity=current_identity(required=True)
+    query=(request.args.get("q") or "").strip()
+    property_id=(request.args.get("property_id") or "").strip() or None
+    return ok(service.search_for_partner(
+        identity.user_id,
+        query,
+        property_id=property_id,
+        limit=request.args.get("limit",20),
+    ))
+
+
 @bp.post("/api/v1/partner/reservations/<uuid:reservation_id>/decision")
 @login_required
 def partner_reservation_decision(reservation_id):
