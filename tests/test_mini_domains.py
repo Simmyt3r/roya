@@ -8,6 +8,8 @@ from roya.common.domains import (
 )
 from roya.common.errors import RoyaError
 from roya.properties import routes as property_routes
+from roya.reservations import service as reservation_service
+from roya.reservations.service import ReservationService
 
 
 def test_normalize_mini_domain_makes_dns_safe_label():
@@ -88,3 +90,59 @@ def test_unknown_hotel_subdomain_returns_not_found(monkeypatch):
     response=app.test_client().get("/",base_url="https://missing-hotel.iroya.ng")
     assert response.status_code==404
     assert response.get_json()["error"]["code"]=="PROPERTY_NOT_FOUND"
+
+
+class _SourceLookup:
+    def __init__(self,matched):
+        self.matched=matched
+
+    def execute(self,*_args,**_kwargs):
+        return self
+
+    def fetchone(self):
+        return {"ok":1} if self.matched else None
+
+
+@contextmanager
+def _source_lookup(matched):
+    yield _SourceLookup(matched)
+
+
+def test_main_iroya_host_is_marketplace_booking_source():
+    app=create_app({"TESTING":True,"HOTEL_DOMAIN_BASE":"iroya.ng","DATABASE_URL":""})
+    with app.app_context():
+        assert ReservationService().source_channel_for_request(
+            "20000000-0000-4000-8000-000000000001",
+            "iroya.ng",
+        )=="roya_marketplace"
+
+
+def test_matching_hotel_subdomain_is_direct_booking_source(monkeypatch):
+    monkeypatch.setattr(
+        reservation_service,
+        "db_connection",
+        lambda:_source_lookup(True),
+    )
+    app=create_app({"TESTING":True,"HOTEL_DOMAIN_BASE":"iroya.ng","DATABASE_URL":""})
+    with app.app_context():
+        assert ReservationService().source_channel_for_request(
+            "20000000-0000-4000-8000-000000000001",
+            "royal-palm.iroya.ng",
+        )=="direct_booking"
+
+
+def test_hotel_subdomain_cannot_book_another_property(monkeypatch):
+    monkeypatch.setattr(
+        reservation_service,
+        "db_connection",
+        lambda:_source_lookup(False),
+    )
+    app=create_app({"TESTING":True,"HOTEL_DOMAIN_BASE":"iroya.ng","DATABASE_URL":""})
+    with app.app_context():
+        with pytest.raises(RoyaError) as raised:
+            ReservationService().source_channel_for_request(
+                "20000000-0000-4000-8000-000000000001",
+                "wrong-hotel.iroya.ng",
+            )
+        assert raised.value.code=="PROPERTY_HOST_MISMATCH"
+        assert raised.value.status_code==409
