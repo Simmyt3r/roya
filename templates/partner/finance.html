@@ -7,11 +7,15 @@
     <h1>Finance center</h1>
     <p>Revenue, collections, refunds and outstanding balances from iRoya reservations.</p>
   </div>
-  <a class="button button-secondary" href="/partner">Back to dashboard</a>
+  <div class="partner-head-actions">
+    <a class="button button-secondary" href="/partner/analytics">Reports</a>
+    <a class="button button-secondary" href="/partner">Back to home</a>
+  </div>
 </section>
 
 <section class="shell finance-shell">
   <form class="card finance-filter-card" method="get" action="/partner/finance">
+    {% if focus %}<input type="hidden" name="focus" value="{{ focus }}">{% endif %}
     <label>From<input type="date" name="start" value="{{ start }}" required></label>
     <label>To<input type="date" name="end" value="{{ end }}" required></label>
     <label>Organization
@@ -32,10 +36,55 @@
     </label>
     <div class="finance-filter-actions">
       <button class="button" type="submit">Apply</button>
-      <a class="button button-secondary" href="/partner/finance">This month</a>
+      <a class="button button-secondary" href="/partner/finance{% if focus %}?focus={{ focus }}{% endif %}">This month</a>
       <a class="button button-secondary" href="/partner/finance/export.csv?start={{ start }}&end={{ end }}{% if finance.selected_organization_id %}&organization_id={{ finance.selected_organization_id }}{% endif %}{% if finance.selected_property_id %}&property_id={{ finance.selected_property_id }}{% endif %}">Export CSV</a>
     </div>
   </form>
+
+  <section class="finance-refund-queue {% if focus == 'refunds' %}is-focused{% endif %}" id="refunds">
+    <div class="section-heading">
+      <div>
+        <div class="eyebrow">Needs attention</div>
+        <h2>Refunds</h2>
+        <p class="muted">Open refund requests for the selected hotel scope live here, separate from front-desk work.</p>
+      </div>
+      <span class="status-pill {% if finance.refund_queue %}status-error{% else %}status-muted{% endif %}">{{ finance.refund_queue|length }} open</span>
+    </div>
+
+    <div class="card finance-refund-list">
+      {% for rf in finance.refund_queue %}
+        <div class="finance-refund-row">
+          <div>
+            <div class="eyebrow"><a class="reservation-reference-link" href="/partner/reservations/{{ rf.reservation_id }}">{{ rf.reservation_reference }}</a></div>
+            <strong>{{ rf.guest_name }}</strong>
+            <small>{{ rf.property_name }} · {{ rf.organization_name }}</small>
+          </div>
+          <div>
+            <span>Status</span>
+            <strong>{{ rf.status|replace("_"," ")|title }}</strong>
+            <small>{{ rf.reason or "Refund requested" }}</small>
+          </div>
+          <div>
+            <span>Amount</span>
+            <strong>{{ rf.currency }} {{ '%.2f'|format(rf.amount_minor/100) }}</strong>
+            <small>{{ rf.created_at }}</small>
+          </div>
+          <div class="finance-refund-actions">
+            {% if rf.status == "requested" %}
+              <button class="button button-small" type="button" data-refund-process="{{ rf.id }}">Process refund</button>
+            {% else %}
+              <span class="muted">Processing</span>
+            {% endif %}
+          </div>
+        </div>
+      {% else %}
+        <div class="operations-empty">
+          <strong>No refund requests need attention.</strong>
+          <span>New or processing refund requests will appear here automatically.</span>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
 
   {% set m=finance.metrics %}
   <div class="finance-metrics">
