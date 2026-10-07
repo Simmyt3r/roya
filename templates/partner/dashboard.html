@@ -1,24 +1,5 @@
 {% extends "base.html" %}
-{% macro reservation_actions(reservation) -%}
-  {% if reservation.member_role in ["owner","manager","reservations"] and reservation.status == "pending_confirmation" %}
-    <div class="front-desk-decision" data-reservation-approval="{{ reservation.id }}">
-      <div class="approval-actions front-desk-actions">
-        <button class="button button-small" type="button" data-reservation-decision="approve">Approve</button>
-        <button class="button button-small button-secondary" type="button" data-reservation-decision="reject">Reject</button>
-      </div>
-      <p class="form-message"></p>
-    </div>
-  {% elif reservation.member_role in ["owner","manager","reservations"] and reservation.status == "confirmed" %}
-    <div class="approval-actions front-desk-actions">
-      <button class="button button-small" type="button" data-reservation-status="checked_in" data-reservation-id="{{ reservation.id }}">Check in</button>
-      <button class="button button-small button-secondary" type="button" data-reservation-status="no_show" data-reservation-id="{{ reservation.id }}">No-show</button>
-    </div>
-  {% elif reservation.member_role in ["owner","manager","reservations"] and reservation.status == "checked_in" %}
-    <div class="approval-actions front-desk-actions">
-      <button class="button button-small" type="button" data-reservation-status="checked_out" data-reservation-id="{{ reservation.id }}">Check out</button>
-    </div>
-  {% endif %}
-{%- endmacro %}
+{% from "partner/_reservation_actions.html" import reservation_actions %}
 {% block title %}Hotel dashboard · iRoya{% endblock %}
 {% block content %}
 <section class="shell page-head partner-page-head hotel-home-head">
