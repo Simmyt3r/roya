@@ -209,6 +209,69 @@ class ReservationService:
         return rows
 
 
+    def get_for_partner(self,reservation_id,user_id):
+        with db_connection() as conn:
+            reservation=conn.execute(
+                """select r.*,p.name property_name,p.city property_city,p.state property_state,
+                          p.check_in_time,p.check_out_time,o.name organization_name,om.role member_role
+                   from reservations r
+                   join properties p on p.id=r.property_id
+                   join organizations o on o.id=r.organization_id
+                   join organization_members om on om.organization_id=r.organization_id
+                   where r.id=%s and om.user_id=%s and om.status='active'
+                   limit 1""",
+                (reservation_id,user_id),
+            ).fetchone()
+            if not reservation:
+                raise RoyaError("NOT_FOUND","Reservation not found.",404)
+
+            items=list(conn.execute(
+                """select ri.id,ri.quantity,ri.unit_price_minor,ri.total_price_minor,
+                          rt.name room_type_name,rp.name rate_plan_name,rp.guarantee_type
+                   from reservation_items ri
+                   join room_types rt on rt.id=ri.room_type_id
+                   join rate_plans rp on rp.id=ri.rate_plan_id
+                   where ri.reservation_id=%s
+                   order by ri.created_at""",
+                (reservation_id,),
+            ).fetchall())
+
+            transactions=list(conn.execute(
+                """select provider,provider_reference,amount_minor,currency,status,paid_at,created_at
+                   from payment_transactions
+                   where reservation_id=%s
+                   order by created_at desc
+                   limit 20""",
+                (reservation_id,),
+            ).fetchall())
+
+            refunds=list(conn.execute(
+                """select amount_minor,currency,status,reason,created_at,updated_at
+                   from refunds
+                   where reservation_id=%s
+                   order by created_at desc
+                   limit 20""",
+                (reservation_id,),
+            ).fetchall())
+
+            audit=list(conn.execute(
+                """select action,created_at
+                   from audit_logs
+                   where entity_type='reservation' and entity_id=%s
+                   order by created_at desc
+                   limit 30""",
+                (reservation_id,),
+            ).fetchall())
+
+        return {
+            "reservation":dict(reservation),
+            "items":[dict(row) for row in items],
+            "transactions":[dict(row) for row in transactions],
+            "refunds":[dict(row) for row in refunds],
+            "audit":[dict(row) for row in audit],
+        }
+
+
     def partner_decide(self,reservation_id,user_id,decision,reason=None):
         approve=decision=="approve"
         try:
