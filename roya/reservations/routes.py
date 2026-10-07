@@ -5,7 +5,7 @@ from pydantic import ValidationError
 from roya.auth.service import current_identity, login_required
 from roya.common.errors import RoyaError
 from roya.common.response import ok
-from .schemas import PartnerReservationCancel, PartnerReservationCreate, PartnerReservationDecision, PartnerReservationStatusChange, ReservationCreate
+from .schemas import PartnerReservationAmend, PartnerReservationCancel, PartnerReservationCreate, PartnerReservationDecision, PartnerReservationStatusChange, ReservationCreate
 from .service import ReservationService
 from roya.reviews.service import ReviewService
 
@@ -122,6 +122,59 @@ def partner_reservation_page(reservation_id):
     identity=current_identity(required=True)
     workspace=service.get_for_partner(str(reservation_id),identity.user_id)
     return render_template("partner/reservation.html",workspace=workspace)
+
+
+@bp.get("/partner/reservations/<uuid:reservation_id>/edit")
+@login_required
+def partner_reservation_edit(reservation_id):
+    identity=current_identity(required=True)
+    workspace=service.get_for_partner(str(reservation_id),identity.user_id)
+    reservation=workspace["reservation"]
+    if reservation["member_role"] not in {"owner","manager","reservations"}:
+        raise RoyaError("FORBIDDEN","Your hotel role cannot change this reservation.",403)
+    if reservation["source_channel"]!="front_desk":
+        raise RoyaError(
+            "PARTNER_AMEND_SOURCE_UNSUPPORTED",
+            "Hotel-side stay changes are currently available only for front-desk reservations.",
+            409,
+        )
+    if reservation["status"]!="confirmed":
+        raise RoyaError(
+            "RESERVATION_NOT_AMENDABLE",
+            "Only a confirmed front-desk reservation can be changed.",
+            409,
+        )
+    if len(workspace["items"])!=1:
+        raise RoyaError(
+            "MULTI_ITEM_AMEND_UNSUPPORTED",
+            "This reservation contains multiple room items and cannot use the simple change-stay workflow.",
+            409,
+        )
+    return render_template("partner/reservation_edit.html",workspace=workspace)
+
+
+@bp.post("/api/v1/partner/reservations/<uuid:reservation_id>/amend")
+@login_required
+def amend_partner_reservation(reservation_id):
+    try:
+        payload=PartnerReservationAmend.model_validate(request.get_json(silent=True) or {})
+    except ValidationError as exc:
+        raise RoyaError(
+            "VALIDATION_ERROR",
+            "Invalid reservation changes.",
+            422,
+            {"errors":exc.errors()},
+        ) from exc
+    identity=current_identity(required=True)
+    result=service.partner_amend(
+        str(reservation_id),
+        identity.user_id,
+        payload,
+        request.headers.get("Idempotency-Key",""),
+    )
+    if result:
+        result["redirect_to"]=f"/partner/reservations/{reservation_id}"
+    return ok(result)
 
 
 @bp.get("/api/v1/partner/reservations")
