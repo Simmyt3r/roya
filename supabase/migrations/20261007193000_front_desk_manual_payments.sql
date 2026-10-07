@@ -46,7 +46,7 @@ begin
     raise exception 'IDEMPOTENCY_KEY_REQUIRED';
   end if;
 
-  select r.*,om.role
+  select r,om.role
   into v_r,v_role
   from public.reservations r
   join public.organization_members om on om.organization_id=r.organization_id
