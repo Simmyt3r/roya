@@ -286,19 +286,7 @@ def hotel_operations_snapshot(user_id,horizon_days=DEFAULT_HORIZON_DAYS,property
             (organization_ids,selected_property_id,selected_property_id,horizon_days),
         ).fetchall()]
 
-        source_mix=[dict(row) for row in conn.execute(
-            """select source_channel,
-                      count(*)::bigint booking_count,
-                      coalesce(sum(total_price_minor),0)::bigint booking_value_minor,
-                      count(*) filter(where status='cancelled')::bigint cancelled_count
-               from reservations r
-               where r.organization_id=any(%s::uuid[])
-                 and (%s::uuid is null or r.property_id=%s::uuid)
-                 and r.created_at>=now()-interval '30 days'
-               group by source_channel
-               order by booking_count desc,source_channel""",
-            (organization_ids,selected_property_id,selected_property_id),
-        ).fetchall()]
+        source_mix=[]
 
         channel_errors=[dict(row) for row in conn.execute(
             """select c.id,c.channel,c.status,c.last_synced_at,p.name property_name
