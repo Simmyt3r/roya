@@ -6,7 +6,7 @@ from flask import render_template
 from roya import create_app
 from roya.auth import service as auth_service
 from roya.organizations import routes as organization_routes
-from roya.organizations.operations_service import build_daily_actions
+from roya.organizations.operations_service import build_daily_actions, hotel_operations_snapshot
 
 
 def _identity():
@@ -83,16 +83,16 @@ def test_partner_operations_summary_api(monkeypatch):
     monkeypatch.setattr(
         organization_routes,
         "hotel_operations_snapshot",
-        lambda user_id:snapshot,
+        lambda user_id,horizon_days=7:{**snapshot,"horizon_days":int(horizon_days)},
     )
 
     app=create_app({"TESTING":True,"WTF_CSRF_ENABLED":False,"DATABASE_URL":""})
-    response=app.test_client().get("/api/v1/partner/operations/summary")
+    response=app.test_client().get("/api/v1/partner/operations/summary?days=14")
     assert response.status_code==200
     data=response.get_json()["data"]
     assert data["summary"]["arrivals_today"]==2
     assert data["summary"]["in_house"]==4
-    assert data["horizon_days"]==7
+    assert data["horizon_days"]==14
 
 
 def test_partner_dashboard_operations_section_renders():
@@ -116,3 +116,33 @@ def test_partner_dashboard_operations_section_renders():
     assert "7-day occupancy" in html
     assert "Arrivals today" in html
     assert "Booking source" in html
+
+
+def test_operations_horizon_invalid_value_falls_back_to_seven(monkeypatch):
+    class _Conn:
+        def __enter__(self): return self
+        def __exit__(self,*args): return False
+        def execute(self,*args,**kwargs):
+            class _Result:
+                def fetchall(self): return []
+            return _Result()
+    monkeypatch.setattr("roya.organizations.operations_service.db_connection",lambda:_Conn())
+    snapshot=hotel_operations_snapshot(str(uuid4()),horizon_days="nonsense")
+    assert snapshot["horizon_days"]==7
+
+
+def test_partner_dashboard_operations_horizon_selector_renders():
+    snapshot=_snapshot()
+    snapshot["horizon_days"]=14
+    app=create_app({"TESTING":True,"WTF_CSRF_ENABLED":False,"DATABASE_URL":""})
+    with app.test_request_context("/partner?days=14"):
+        html=render_template(
+            "partner/dashboard.html",
+            organizations=[{"id":str(uuid4()),"name":"Example Group","role":"owner"}],
+            properties=[],pending_reservations=[],partner_reservations=[],partner_refunds=[],
+            team_members=[],pending_invites=[],manageable_organizations=[],
+            finance_organizations=[{"id":str(uuid4()),"name":"Example Group","role":"owner"}],
+            hotel_operations=snapshot,
+        )
+    assert 'name="days"' in html
+    assert '>14 days</option>' in html
