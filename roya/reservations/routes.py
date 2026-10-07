@@ -124,6 +124,14 @@ def partner_reservation_page(reservation_id):
     return render_template("partner/reservation.html",workspace=workspace)
 
 
+@bp.get("/partner/reservations/<uuid:reservation_id>/confirmation")
+@login_required
+def partner_reservation_confirmation(reservation_id):
+    identity=current_identity(required=True)
+    workspace=service.get_for_partner(str(reservation_id),identity.user_id)
+    return render_template("partner/reservation_confirmation.html",workspace=workspace)
+
+
 @bp.get("/partner/reservations/<uuid:reservation_id>/edit")
 @login_required
 def partner_reservation_edit(reservation_id):
