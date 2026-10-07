@@ -89,7 +89,7 @@ def test_booking_page_shows_exact_stay_total_and_deposit_due(monkeypatch):
     assert "NGN 30000.00 due now" in html
     assert "Pay a 50% deposit now." in html
     assert "Continue to payment" in html
-    assert f"/hotels/example-hotel?check_in={check_in.isoformat()}&amp;check_out={check_out.isoformat()}" in html
+    assert f"/hotels/example-hotel?check_in={check_in.isoformat()}&check_out={check_out.isoformat()}" in html
 
     availability_sql=next(sql for sql,_ in captured if "from inventory_days i" in sql)
     assert "left join daily_rates dr" in availability_sql
