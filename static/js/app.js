@@ -1498,3 +1498,93 @@ document.querySelectorAll('[data-reservation-approval]').forEach(function(row){
     });
   });
 })();
+
+
+document.querySelectorAll('[data-physical-room-form]').forEach(function(form){
+  form.addEventListener('submit',async function(event){
+    event.preventDefault();
+    const message=form.querySelector('.form-message');
+    const submit=form.querySelector('button[type="submit"]');
+    const raw=form.querySelector('[name="room_numbers"]').value||'';
+    const roomNumbers=[...new Set(raw.split(/[\n,]+/).map(function(value){return value.trim();}).filter(Boolean))];
+    if(!roomNumbers.length){message.textContent='Add at least one room number.';return;}
+    submit.disabled=true;
+    message.textContent='Adding room numbers…';
+    try{
+      const response=await fetch('/api/v1/room-types/'+form.dataset.room+'/physical-rooms',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          room_numbers:roomNumbers,
+          floor:(form.querySelector('[name="floor"]').value||'').trim()||null
+        })
+      });
+      const data=await response.json().catch(function(){return {};});
+      if(!response.ok){
+        message.textContent=(data.error&&data.error.message)||'Room numbers could not be added.';
+        return;
+      }
+      window.location.reload();
+    }catch(_error){
+      message.textContent='Room numbers could not be added.';
+    }finally{
+      submit.disabled=false;
+    }
+  });
+});
+
+document.querySelectorAll('[data-physical-room]').forEach(function(row){
+  const select=row.querySelector('[data-room-readiness-select]');
+  const remove=row.querySelector('[data-physical-room-delete]');
+  const message=row.querySelector('.form-message');
+
+  if(select){
+    select.dataset.current=select.value;
+    select.addEventListener('change',async function(){
+      const previous=select.dataset.current;
+      select.disabled=true;
+      if(message)message.textContent='Updating room…';
+      try{
+        const response=await fetch('/api/v1/physical-rooms/'+row.dataset.physicalRoom+'/readiness',{
+          method:'PUT',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({status:select.value})
+        });
+        const data=await response.json().catch(function(){return {};});
+        if(!response.ok){
+          select.value=previous;
+          if(message)message.textContent=(data.error&&data.error.message)||'Room readiness could not be updated.';
+          return;
+        }
+        select.dataset.current=select.value;
+        window.location.reload();
+      }catch(_error){
+        select.value=previous;
+        if(message)message.textContent='Room readiness could not be updated.';
+      }finally{
+        select.disabled=false;
+      }
+    });
+  }
+
+  if(remove){
+    remove.addEventListener('click',async function(){
+      if(!window.confirm('Remove this physical room number?'))return;
+      remove.disabled=true;
+      if(message)message.textContent='Removing room…';
+      try{
+        const response=await fetch('/api/v1/physical-rooms/'+row.dataset.physicalRoom,{method:'DELETE'});
+        const data=await response.json().catch(function(){return {};});
+        if(!response.ok){
+          if(message)message.textContent=(data.error&&data.error.message)||'Room could not be removed.';
+          remove.disabled=false;
+          return;
+        }
+        row.remove();
+      }catch(_error){
+        if(message)message.textContent='Room could not be removed.';
+        remove.disabled=false;
+      }
+    });
+  }
+});
