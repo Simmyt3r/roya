@@ -1,4 +1,5 @@
 import json
+from datetime import datetime,timezone
 
 from roya.common.db import db_connection
 from roya.common.errors import RoyaError
@@ -9,7 +10,7 @@ DISTRIBUTION_ROLES={"owner","manager"}
 BUILT_IN_CHANNELS={
     "direct_booking":{
         "label":"Direct Booking",
-        "description":"Bookings made on iRoya and hotel mini-domains using canonical inventory.",
+        "description":"Bookings made on iRoya hotel mini-domains using canonical inventory.",
         "adapter":DirectBookingChannel,
     },
     "roya_marketplace":{
@@ -109,7 +110,8 @@ def distribution_dashboard(user_id,organization_id=None,property_id=None):
         if property_ids:
             connections=[
                 dict(row) for row in conn.execute(
-                    """select id,organization_id,property_id,channel,status,last_synced_at,created_at,updated_at
+                    """select id,organization_id,property_id,channel,status,settings,
+                              last_synced_at,created_at,updated_at
                        from channel_connections
                        where property_id=any(%s::uuid[])
                          and channel=any(%s::text[])
@@ -148,6 +150,7 @@ def distribution_dashboard(user_id,organization_id=None,property_id=None):
         channels=[]
         for key,meta in BUILT_IN_CHANNELS.items():
             connection=connection_map.get((str(prop["id"]),key))
+            settings=(connection.get("settings") or {}) if connection else {}
             channels.append({
                 "key":key,
                 "label":meta["label"],
@@ -155,6 +158,10 @@ def distribution_dashboard(user_id,organization_id=None,property_id=None):
                 "connection_id":str(connection["id"]) if connection else "",
                 "status":connection["status"] if connection else "not_initialized",
                 "last_synced_at":connection["last_synced_at"] if connection else None,
+                "last_attempted_at":settings.get("last_attempted_at"),
+                "last_trigger":settings.get("last_trigger"),
+                "health":settings.get("health") or {},
+                "auto_sync":bool(connection and connection["status"]!="disconnected"),
             })
         prop["channels"]=channels
         property_cards.append(prop)
@@ -167,6 +174,129 @@ def distribution_dashboard(user_id,organization_id=None,property_id=None):
         "selected_organization_id":str(organization_id) if organization_id else "",
         "selected_property_id":str(property_id) if property_id else "",
     }
+
+
+def _sync_existing_connection(connection,actor_user_id=None,trigger="manual"):
+    connection=dict(connection)
+    channel=connection["channel"]
+    property_id=str(connection["property_id"])
+    if channel not in BUILT_IN_CHANNELS:
+        raise RoyaError("CHANNEL_NOT_AVAILABLE","That distribution channel is not operational in iRoya yet.",422)
+
+    adapter=BUILT_IN_CHANNELS[channel]["adapter"]()
+    operations=(
+        ("push","property",lambda:adapter.push_property(property_id)),
+        ("push","rates",lambda:adapter.push_rates(property_id)),
+        ("push","inventory",lambda:adapter.push_inventory(property_id)),
+        ("pull","reservations",lambda:adapter.pull_reservations(property_id)),
+    )
+
+    results=[]
+    failed=False
+    attempted_at=datetime.now(timezone.utc).isoformat()
+    try:
+        health=adapter.health_check()
+        if health.get("status")!="ok":
+            failed=True
+    except Exception as exc:
+        health={"status":"error","message":str(exc)[:240]}
+        failed=True
+
+    for direction,resource_type,operation in operations:
+        try:
+            raw_detail=operation()
+            status="success"
+        except Exception as exc:
+            raw_detail={"error":str(exc)[:240]}
+            status="failed"
+            failed=True
+        if isinstance(raw_detail,dict):
+            detail={**raw_detail,"trigger":trigger}
+        else:
+            detail={"result":raw_detail,"trigger":trigger}
+        results.append({
+            "direction":direction,
+            "resource_type":resource_type,
+            "status":status,
+            "detail":detail,
+        })
+
+    final_status="error" if failed else "active"
+    with db_connection() as conn:
+        with conn.transaction():
+            current=conn.execute(
+                """select id,organization_id,property_id,channel,status
+                   from channel_connections
+                   where id=%s
+                   for update""",
+                (connection["id"],),
+            ).fetchone()
+            if not current:
+                raise RoyaError("CHANNEL_CONNECTION_NOT_FOUND","Channel connection no longer exists.",404)
+            if current["status"]=="disconnected" and trigger!="manual":
+                return {
+                    "id":str(current["id"]),
+                    "property_id":str(current["property_id"]),
+                    "channel":current["channel"],
+                    "status":"disconnected",
+                    "skipped":True,
+                    "reason":"disconnected",
+                }
+
+            for item in results:
+                conn.execute(
+                    """insert into channel_sync_logs(
+                         connection_id,direction,resource_type,status,detail
+                       ) values(%s,%s,%s,%s,%s::jsonb)""",
+                    (
+                        current["id"],item["direction"],item["resource_type"],
+                        item["status"],json.dumps(item["detail"]),
+                    ),
+                )
+
+            settings={
+                "health":health,
+                "last_trigger":trigger,
+                "last_attempted_at":attempted_at,
+                "last_sync_status":final_status,
+            }
+            row=conn.execute(
+                """update channel_connections
+                   set status=%s,
+                       last_synced_at=case when %s='active' then now() else last_synced_at end,
+                       settings=settings||%s::jsonb,
+                       updated_at=now()
+                   where id=%s
+                   returning id,organization_id,property_id,channel,status,last_synced_at,settings""",
+                (final_status,final_status,json.dumps(settings),current["id"]),
+            ).fetchone()
+            conn.execute(
+                """insert into audit_logs(
+                     actor_user_id,organization_id,property_id,action,entity_type,entity_id,after_json
+                   ) values(%s,%s,%s,'distribution.channel_synced','channel_connection',%s,%s::jsonb)""",
+                (
+                    actor_user_id,current["organization_id"],current["property_id"],str(current["id"]),
+                    json.dumps({
+                        "channel":channel,
+                        "status":final_status,
+                        "trigger":trigger,
+                        "resources":[
+                            {
+                                "direction":item["direction"],
+                                "resource_type":item["resource_type"],
+                                "status":item["status"],
+                            }
+                            for item in results
+                        ],
+                    }),
+                ),
+            )
+
+    result=dict(row)
+    result["health"]=health
+    result["operations"]=results
+    result["trigger"]=trigger
+    return result
 
 
 def sync_builtin_channel(user_id,property_id,channel):
@@ -199,7 +329,6 @@ def sync_builtin_channel(user_id,property_id,channel):
                 """select *
                    from channel_connections
                    where property_id=%s and channel=%s
-                   order by created_at asc
                    limit 1
                    for update""",
                 (property_id,channel),
@@ -212,100 +341,112 @@ def sync_builtin_channel(user_id,property_id,channel):
                        returning *""",
                     (
                         access["organization_id"],property_id,channel,
-                        json.dumps({"built_in":True,"managed_by":"iroya"}),
+                        json.dumps({"built_in":True,"managed_by":"iroya","auto_sync":True}),
                     ),
                 ).fetchone()
-            else:
+            elif connection["status"]=="disconnected":
                 connection=conn.execute(
                     """update channel_connections
-                       set status='active',updated_at=now()
+                       set status='active',
+                           settings=settings||'{"auto_sync":true}'::jsonb,
+                           updated_at=now()
                        where id=%s
                        returning *""",
                     (connection["id"],),
                 ).fetchone()
 
-    adapter=BUILT_IN_CHANNELS[channel]["adapter"]()
-    operations=(
-        ("push","property",lambda:adapter.push_property(str(property_id))),
-        ("push","rates",lambda:adapter.push_rates(str(property_id))),
-        ("push","inventory",lambda:adapter.push_inventory(str(property_id))),
-        ("pull","reservations",lambda:adapter.pull_reservations(str(property_id))),
-    )
+    return _sync_existing_connection(connection,actor_user_id=user_id,trigger="manual")
 
-    results=[]
-    failed=False
-    try:
-        health=adapter.health_check()
-        if health.get("status")!="ok":
-            failed=True
-    except Exception as exc:
-        health={"status":"error","message":str(exc)[:240]}
-        failed=True
 
-    for direction,resource_type,operation in operations:
-        try:
-            detail=operation()
-            status="success"
-        except Exception as exc:
-            detail={"error":str(exc)[:240]}
-            status="failed"
-            failed=True
-        results.append({
-            "direction":direction,
-            "resource_type":resource_type,
-            "status":status,
-            "detail":detail,
-        })
-
-    final_status="error" if failed else "active"
+def set_builtin_connection_status(user_id,connection_id,target_status):
+    if target_status not in {"active","disconnected"}:
+        raise RoyaError("VALIDATION_ERROR","Channel status must be active or disconnected.",422)
     with db_connection() as conn:
         with conn.transaction():
-            for item in results:
-                conn.execute(
-                    """insert into channel_sync_logs(
-                         connection_id,direction,resource_type,status,detail
-                       ) values(%s,%s,%s,%s,%s::jsonb)""",
-                    (
-                        connection["id"],item["direction"],item["resource_type"],
-                        item["status"],json.dumps(item["detail"]),
-                    ),
-                )
             row=conn.execute(
+                """select c.id,c.organization_id,c.property_id,c.channel,c.status,om.role
+                   from channel_connections c
+                   join organization_members om on om.organization_id=c.organization_id
+                   where c.id=%s
+                     and om.user_id=%s
+                     and om.status='active'
+                   for update of c""",
+                (connection_id,user_id),
+            ).fetchone()
+            if not row or row["role"] not in DISTRIBUTION_ROLES:
+                raise RoyaError("FORBIDDEN","You cannot manage this channel connection.",403)
+            if row["channel"] not in BUILT_IN_CHANNELS:
+                raise RoyaError("CHANNEL_NOT_AVAILABLE","That channel is not managed by this workspace.",422)
+            updated=conn.execute(
                 """update channel_connections
                    set status=%s,
-                       last_synced_at=case when %s='active' then now() else last_synced_at end,
                        settings=settings||%s::jsonb,
                        updated_at=now()
                    where id=%s
-                   returning id,organization_id,property_id,channel,status,last_synced_at""",
+                   returning id,organization_id,property_id,channel,status,last_synced_at,settings""",
                 (
-                    final_status,final_status,
-                    json.dumps({"health":health}),
-                    connection["id"],
+                    target_status,
+                    json.dumps({"auto_sync":target_status=="active"}),
+                    connection_id,
                 ),
             ).fetchone()
             conn.execute(
                 """insert into audit_logs(
-                     actor_user_id,organization_id,property_id,action,entity_type,entity_id,after_json
-                   ) values(%s,%s,%s,'distribution.channel_synced','channel_connection',%s,%s::jsonb)""",
+                     actor_user_id,organization_id,property_id,action,entity_type,entity_id,before_json,after_json
+                   ) values(%s,%s,%s,'distribution.channel_status_changed','channel_connection',%s,%s::jsonb,%s::jsonb)""",
                 (
-                    user_id,access["organization_id"],property_id,str(connection["id"]),
-                    json.dumps({
-                        "channel":channel,
-                        "status":final_status,
-                        "resources":[
-                            {
-                                "direction":item["direction"],
-                                "resource_type":item["resource_type"],
-                                "status":item["status"],
-                            }
-                            for item in results
-                        ],
-                    }),
+                    user_id,row["organization_id"],row["property_id"],str(row["id"]),
+                    json.dumps({"status":row["status"]}),
+                    json.dumps({"status":target_status,"auto_sync":target_status=="active"}),
                 ),
             )
+    return dict(updated)
 
-    result=dict(row)
-    result["health"]=health
-    result["operations"]=results
-    return result
+
+def sync_due_builtin_channels(limit=50):
+    limit=max(1,min(int(limit or 50),100))
+    with db_connection() as conn:
+        connections=[dict(row) for row in conn.execute(
+            """select id,organization_id,property_id,channel,status,settings,last_synced_at
+               from channel_connections
+               where property_id is not null
+                 and channel=any(%s::text[])
+                 and status in ('active','error')
+                 and (
+                   last_synced_at is null
+                   or last_synced_at<now()-interval '6 hours'
+                   or status='error'
+                 )
+               order by case when status='error' then 0 else 1 end,last_synced_at nulls first,updated_at asc
+               limit %s""",
+            (list(BUILT_IN_CHANNELS),limit),
+        ).fetchall()]
+
+    results=[]
+    for connection in connections:
+        try:
+            result=_sync_existing_connection(connection,actor_user_id=None,trigger="scheduled")
+            results.append({
+                "connection_id":str(connection["id"]),
+                "property_id":str(connection["property_id"]),
+                "channel":connection["channel"],
+                "status":result.get("status"),
+                "skipped":bool(result.get("skipped")),
+            })
+        except Exception as exc:
+            results.append({
+                "connection_id":str(connection["id"]),
+                "property_id":str(connection["property_id"]),
+                "channel":connection["channel"],
+                "status":"failed",
+                "error":str(exc)[:240],
+            })
+
+    return {
+        "candidates":len(connections),
+        "processed":len(results),
+        "active":sum(1 for item in results if item.get("status")=="active"),
+        "failed":sum(1 for item in results if item.get("status") in {"error","failed"}),
+        "skipped":sum(1 for item in results if item.get("skipped")),
+        "results":results,
+    }
