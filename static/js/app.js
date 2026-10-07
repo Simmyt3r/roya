@@ -1872,3 +1872,54 @@ document.querySelectorAll('[data-partner-reservation-cancel]').forEach(function(
     }
   });
 });
+
+
+document.querySelectorAll('[data-front-desk-amendment]').forEach(function(form){
+  const submit=form.querySelector('button[type="submit"]');
+  const message=form.querySelector('.form-message');
+
+  form.addEventListener('submit',async function(event){
+    event.preventDefault();
+    if(!form.reportValidity())return;
+
+    const data=Object.fromEntries(new FormData(form).entries());
+    if(!form.dataset.idempotencyKey){
+      form.dataset.idempotencyKey=requestKey('frontdesk-amend');
+    }
+
+    submit.disabled=true;
+    message.textContent='Checking inventory and saving changes…';
+    try{
+      const response=await fetch(
+        '/api/v1/partner/reservations/'+form.dataset.reservationId+'/amend',
+        {
+          method:'POST',
+          headers:{
+            'Content-Type':'application/json',
+            'Idempotency-Key':form.dataset.idempotencyKey
+          },
+          body:JSON.stringify({
+            check_in:data.check_in,
+            check_out:data.check_out,
+            adults:Number(data.adults),
+            children:Number(data.children),
+            guest_name:(data.guest_name||'').trim(),
+            guest_email:(data.guest_email||'').trim()||null,
+            guest_phone:(data.guest_phone||'').trim()
+          })
+        }
+      );
+      const body=await response.json().catch(function(){return {};});
+      if(!response.ok){
+        message.textContent=(body.error&&body.error.message)||'Reservation changes could not be saved.';
+        return;
+      }
+      const target=body.data&&body.data.redirect_to;
+      window.location.assign(target||('/partner/reservations/'+form.dataset.reservationId));
+    }catch(_error){
+      message.textContent='Reservation changes could not be saved. You can retry safely.';
+    }finally{
+      submit.disabled=false;
+    }
+  });
+});
