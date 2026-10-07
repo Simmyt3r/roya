@@ -1,4 +1,5 @@
 import json
+from datetime import date
 
 from roya.common.db import db_connection
 from roya.common.errors import RoyaError
@@ -96,15 +97,17 @@ class ReservationService:
             selected=next(
                 (item for item in properties if str(item["id"])==requested),
                 None,
-            ) if requested else None
+            ) if requested else (properties[0] if len(properties)==1 else None)
             if requested and not selected:
                 raise RoyaError("NOT_FOUND","Property not found.",404)
+            if not properties:
+                raise RoyaError("FORBIDDEN","Your hotel role cannot create front-desk reservations.",403)
 
             options=[]
             nights=None
             if selected and check_in and check_out:
                 nights=(check_out-check_in).days
-                if check_in < __import__("datetime").date.today():
+                if check_in < date.today():
                     raise RoyaError("VALIDATION_ERROR","Check-in cannot be in the past.",422)
                 if nights<1 or nights>90:
                     raise RoyaError("VALIDATION_ERROR","Stay must be between 1 and 90 nights.",422)
@@ -359,7 +362,7 @@ class ReservationService:
 
             properties=[
                 dict(row) for row in conn.execute(
-                    """select distinct p.id,p.name,p.city
+                    """select distinct p.id,p.name,p.city,om.role
                        from properties p
                        join organization_members om on om.organization_id=p.organization_id
                        where om.user_id=%s and om.status='active'
@@ -604,6 +607,10 @@ class ReservationService:
             "selected_property":selected_property,
             "counts":counts,
             "reservations":reservations,
+            "can_create":any(
+                property.get("role") in {"owner","manager","reservations"}
+                for property in properties
+            ),
         }
 
 
