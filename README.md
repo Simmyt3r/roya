@@ -26,7 +26,7 @@ A hotel team member can still use the same account to make personal bookings. Or
 
 ## Hotel workflow
 
-A hotel account can create an organization, add properties, maintain guest-facing details and amenities, upload property photos, create and edit room types and rate plans, load inventory ranges, inspect a 30-day inventory view, add hotel team members, create atomic front-desk reservations for phone/WhatsApp/walk-in guests, approve hotel-approval reservations, operate check-in/check-out/no-show states, track optional physical-room readiness, auto-assign ready rooms at check-in, mark assigned rooms dirty at checkout, leave property-scoped shift handover notes, and process eligible refund requests.
+A hotel account can create an organization, add properties, maintain guest-facing details and amenities, upload property photos, create and edit room types and rate plans, load inventory ranges, inspect a 30-day inventory view, add hotel team members, create atomic front-desk reservations for phone/WhatsApp/walk-in guests, record cash/POS/bank-transfer payments received by the hotel on those front-desk reservations, approve hotel-approval reservations, operate check-in/check-out/no-show states, track optional physical-room readiness, auto-assign ready rooms at check-in, mark assigned rooms dirty at checkout, leave property-scoped shift handover notes, and process eligible Paystack refund requests.
 
 A property cannot be verified for public sale until it has at least one active room type, one active rate plan and future sellable inventory. Changing a verified property's identity or physical location returns it to verification.
 
@@ -82,7 +82,9 @@ The locking design was race-tested on the earlier project. The replacement Supab
 
 ## Payments and refunds
 
-Paystack payment initialization is idempotency-key protected. Signed webhooks and server-side verification drive successful payment state.
+Paystack payment initialization is idempotency-key protected. Signed webhooks and server-side verification drive successful online payment state.
+
+For hotel-created `front_desk` reservations, authorized hotel staff can record money already received by cash, POS/card, bank transfer or another offline method. These entries are idempotent, audited and share the canonical reservation/payment ledger. They do not invoke Paystack and do not currently enter the automated Paystack refund path.
 
 Paid cancellation does not immediately cancel inventory. It creates refund review records. Authorized hotel roles initiate Paystack refunds; iRoya waits for refund processing/webhooks and only releases a still-active reservation after the captured amount has been fully refunded. Cancellation-policy enforcement still needs its final policy engine before public launch.
 
