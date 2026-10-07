@@ -349,7 +349,11 @@ def partner_dashboard():
     pending_reservations = [r for r in partner_reservations if r["status"] == "pending_confirmation"][:20]
     from roya.payments.service import PaymentService
     partner_refunds = PaymentService().list_for_partner(user.user_id, limit=50)
-    hotel_operations = hotel_operations_snapshot(user.user_id,horizon_days=request.args.get("days",7))
+    hotel_operations = hotel_operations_snapshot(
+        user.user_id,
+        horizon_days=request.args.get("days",7),
+        property_id=request.args.get("property_id"),
+    )
 
     return render_template(
         "partner/dashboard.html",
@@ -370,4 +374,8 @@ def partner_dashboard():
 @login_required
 def partner_operations_summary():
     user=current_identity(required=True)
-    return ok(hotel_operations_snapshot(user.user_id,horizon_days=request.args.get("days",7)))
+    return ok(hotel_operations_snapshot(
+        user.user_id,
+        horizon_days=request.args.get("days",7),
+        property_id=request.args.get("property_id"),
+    ))
