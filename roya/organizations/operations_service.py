@@ -186,7 +186,7 @@ def hotel_operations_snapshot(user_id,horizon_days=DEFAULT_HORIZON_DAYS,property
         ).fetchone() or {})
 
         arrivals=[dict(row) for row in conn.execute(
-            """select r.id,r.reference,r.guest_name,r.guest_email,r.check_in,r.check_out,
+            """select r.id,r.reference,r.guest_name,r.guest_email,r.check_in,r.check_out,r.status,
                       r.payment_status,r.guarantee_type,r.source_channel,p.name property_name
                from reservations r
                join properties p on p.id=r.property_id
@@ -200,7 +200,7 @@ def hotel_operations_snapshot(user_id,horizon_days=DEFAULT_HORIZON_DAYS,property
         ).fetchall()]
 
         departures=[dict(row) for row in conn.execute(
-            """select r.id,r.reference,r.guest_name,r.guest_email,r.check_in,r.check_out,
+            """select r.id,r.reference,r.guest_name,r.guest_email,r.check_in,r.check_out,r.status,
                       r.payment_status,r.source_channel,p.name property_name
                from reservations r
                join properties p on p.id=r.property_id
