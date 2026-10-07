@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% from "partner/_reservation_actions.html" import reservation_actions %}
+{% block title %}Guests · Hotel · iRoya{% endblock %}
+{% block content %}
+<section class="shell page-head guests-workspace-head">
+  <div>
+    <div class="eyebrow">Front desk</div>
+    <h1>Guests</h1>
+    <p>Find a guest quickly, then open the reservation for the full stay record and allowed actions.</p>
+  </div>
+  <a class="button button-secondary" href="/partner/reservations">Reservations</a>
+</section>
+
+<section class="shell guests-workspace-toolbar">
+  <form method="get" action="/partner/guests" class="guests-property-filter">
+    {% if workspace.query %}<input type="hidden" name="q" value="{{ workspace.query }}">{% endif %}
+    <label for="guests-property">Property
+      <select id="guests-property" name="property_id" onchange="this.form.submit()">
+        <option value="">All properties</option>
+        {% for property in workspace.properties %}
+          <option value="{{ property.id }}" {% if workspace.selected_property_id == property.id|string %}selected{% endif %}>{{ property.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+  </form>
+
+  <form method="get" action="/partner/guests" class="guests-search-form" role="search">
+    {% if workspace.selected_property_id %}<input type="hidden" name="property_id" value="{{ workspace.selected_property_id }}">{% endif %}
+    <label for="guest-query">Find guest or reservation
+      <input id="guest-query" type="search" name="q" minlength="2" maxlength="120" value="{{ workspace.query }}" placeholder="Name, phone, email or RYA reference" autocomplete="off">
+    </label>
+    <button class="button" type="submit">Search</button>
+    {% if workspace.query %}
+      <a class="button button-secondary" href="/partner/guests{% if workspace.selected_property_id %}?property_id={{ workspace.selected_property_id }}{% endif %}">Clear</a>
+    {% endif %}
+  </form>
+</section>
+
+{% if workspace.query %}
+<section class="shell partner-section guest-search-results">
+  <div class="section-heading">
+    <div>
+      <div class="eyebrow">Search</div>
+      <h2>Results</h2>
+      <p class="muted">{% if workspace.selected_property %}{{ workspace.selected_property.name }} · {% endif %}“{{ workspace.query }}”</p>
+    </div>
+    {% if not workspace.query_too_short %}<span class="status-pill">{{ workspace.results|length }} found</span>{% endif %}
+  </div>
+
+  {% if workspace.query_too_short %}
+    <div class="card operations-empty">
+      <strong>Type at least 2 characters.</strong>
+      <span>A phone fragment, surname, email or reservation reference works.</span>
+    </div>
+  {% else %}
+    <div class="guest-result-list">
+      {% for guest in workspace.results %}
+        <article class="card guest-result-card">
+          <div class="guest-result-main">
+            <div class="guest-avatar">{{ guest.guest_name[:1]|upper }}</div>
+            <div>
+              <h3>{{ guest.guest_name }}</h3>
+              <p>{{ guest.guest_email }}{% if guest.guest_phone %} · {{ guest.guest_phone }}{% endif %}</p>
+              <small>{{ guest.property_name }} · {{ guest.room_type_names or "Room" }}</small>
+            </div>
+          </div>
+          <div class="guest-result-stay">
+            <span><small>Stay</small><strong>{{ guest.check_in }} → {{ guest.check_out }}</strong></span>
+            <span><small>Reservation</small><strong>{{ guest.reference }}</strong></span>
+            <span><small>Status</small><strong>{{ guest.status|replace("_"," ")|title }}</strong></span>
+          </div>
+          <div class="guest-result-actions">
+            <a class="button button-small button-secondary" href="/partner/reservations/{{ guest.id }}">Open reservation</a>
+            {{ reservation_actions(guest) }}
+            {% if guest.member_role not in ["owner","manager","reservations"] %}<span class="muted">View only</span>{% endif %}
+          </div>
+        </article>
+      {% else %}
+        <div class="card operations-empty">
+          <strong>No matching guest found.</strong>
+          <span>Try another spelling, phone number, email address or reservation reference.</span>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+</section>
+{% else %}
+<section class="shell guests-active-grid">
+  <article class="card guests-active-card">
+    <div class="hotel-ops-card-head">
+      <div><div class="eyebrow">Right now</div><h2>In-house</h2></div>
+      <span class="status-pill">{{ workspace.in_house|length }}</span>
+    </div>
+    <div class="guest-active-list">
+      {% for guest in workspace.in_house %}
+        <div class="guest-active-row">
+          <div class="guest-avatar">{{ guest.guest_name[:1]|upper }}</div>
+          <div class="guest-active-main">
+            <strong>{{ guest.guest_name }}</strong>
+            <span>{{ guest.property_name }} · {{ guest.room_type_names or "Room" }}</span>
+            <small>{{ guest.guest_phone or guest.guest_email }} · due out {{ guest.check_out }}</small>
+          </div>
+          <div class="guest-active-actions">
+            <a class="button button-small button-secondary" href="/partner/reservations/{{ guest.id }}">Open</a>
+            {{ reservation_actions(guest) }}
+          </div>
+        </div>
+      {% else %}
+        <div class="operations-empty"><strong>No guests currently checked in.</strong><span>Checked-in stays will appear here.</span></div>
+      {% endfor %}
+    </div>
+  </article>
+
+  <article class="card guests-active-card">
+    <div class="hotel-ops-card-head">
+      <div><div class="eyebrow">Today</div><h2>Arriving</h2></div>
+      <span class="status-pill">{{ workspace.arrivals|length }}</span>
+    </div>
+    <div class="guest-active-list">
+      {% for guest in workspace.arrivals %}
+        <div class="guest-active-row">
+          <div class="guest-avatar">{{ guest.guest_name[:1]|upper }}</div>
+          <div class="guest-active-main">
+            <strong>{{ guest.guest_name }}</strong>
+            <span>{{ guest.property_name }} · {{ guest.room_type_names or "Room" }}</span>
+            <small>{{ guest.guest_phone or guest.guest_email }} · {{ guest.reference }}</small>
+          </div>
+          <div class="guest-active-actions">
+            <a class="button button-small button-secondary" href="/partner/reservations/{{ guest.id }}">Open</a>
+            {{ reservation_actions(guest) }}
+          </div>
+        </div>
+      {% else %}
+        <div class="operations-empty"><strong>No arrivals waiting today.</strong><span>Confirmed arrivals for today will appear here.</span></div>
+      {% endfor %}
+    </div>
+  </article>
+</section>
+
+<section class="shell guest-finder-hint">
+  <div class="card">
+    <strong>Looking for someone else?</strong>
+    <span>Use the search above for past, future, cancelled or completed reservations.</span>
+  </div>
+</section>
+{% endif %}
+{% endblock %}
