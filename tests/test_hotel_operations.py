@@ -210,6 +210,7 @@ def test_partner_dashboard_front_desk_actions_render():
         "payment_status":"paid",
         "source_channel":"direct_booking",
         "status":"confirmed",
+        "member_role":"owner",
     }]
     snapshot["departures"]=[{
         "id":str(uuid4()),
@@ -219,6 +220,7 @@ def test_partner_dashboard_front_desk_actions_render():
         "payment_status":"paid",
         "check_out":"2026-10-07",
         "status":"checked_in",
+        "member_role":"reservations",
     }]
     snapshot["overdue"]=[{
         "id":str(uuid4()),
@@ -229,6 +231,7 @@ def test_partner_dashboard_front_desk_actions_render():
         "check_in":"2026-10-05",
         "check_out":"2026-10-06",
         "status":"confirmed",
+        "member_role":"manager",
         "overdue_type":"arrival",
     }]
     app=create_app({"TESTING":True,"WTF_CSRF_ENABLED":False,"DATABASE_URL":""})
@@ -247,3 +250,30 @@ def test_partner_dashboard_front_desk_actions_render():
     assert "RYA-ARRIVE" in html
     assert "RYA-LEAVE" in html
     assert "RYA-LATE" in html
+
+
+
+def test_front_desk_actions_hidden_for_read_only_role():
+    snapshot=_snapshot()
+    snapshot["arrivals"]=[{
+        "id":str(uuid4()),
+        "reference":"RYA-READONLY",
+        "guest_name":"Finance User View",
+        "property_name":"Example Hotel",
+        "payment_status":"paid",
+        "source_channel":"direct_booking",
+        "status":"confirmed",
+        "member_role":"finance",
+    }]
+    app=create_app({"TESTING":True,"WTF_CSRF_ENABLED":False,"DATABASE_URL":""})
+    with app.test_request_context("/partner"):
+        html=render_template(
+            "partner/dashboard.html",
+            organizations=[{"id":str(uuid4()),"name":"Example Group","role":"finance"}],
+            properties=[],pending_reservations=[],partner_reservations=[],partner_refunds=[],
+            team_members=[],pending_invites=[],manageable_organizations=[],
+            finance_organizations=[{"id":str(uuid4()),"name":"Example Group","role":"finance"}],
+            hotel_operations=snapshot,
+        )
+    assert "RYA-READONLY" in html
+    assert 'data-reservation-status="checked_in"' not in html
