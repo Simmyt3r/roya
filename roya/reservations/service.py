@@ -213,6 +213,25 @@ class ReservationService:
                 """select r.*,p.name property_name,p.check_in_time,
                           rt.name room_type_name,rp.name rate_plan_name,
                           rp.refundable,rp.cancellation_policy,
+                          coalesce((
+                            select count(*)>0 and bool_and(
+                              (select count(*) from physical_rooms pr where pr.room_type_id=ri2.room_type_id)>=rt2.total_inventory
+                            )
+                            from reservation_items ri2
+                            join room_types rt2 on rt2.id=ri2.room_type_id
+                            where ri2.reservation_id=r.id
+                          ),false) room_readiness_tracked,
+                          coalesce((
+                            select bool_and(
+                              (select count(*) from physical_rooms pr
+                               where pr.room_type_id=ri2.room_type_id
+                                 and pr.status='active'
+                                 and pr.housekeeping_status='ready'
+                                 and pr.current_reservation_id is null)>=ri2.quantity
+                            )
+                            from reservation_items ri2
+                            where ri2.reservation_id=r.id
+                          ),true) rooms_ready,
                           (select rf.status from refunds rf where rf.reservation_id=r.id order by rf.created_at desc limit 1) refund_status,
                           (select rf.amount_minor from refunds rf where rf.reservation_id=r.id order by rf.created_at desc limit 1) refund_amount_minor
                    from reservations r join properties p on p.id=r.property_id
@@ -233,10 +252,21 @@ class ReservationService:
                    limit 30""",
                 (reservation_id,user_id),
             ).fetchall()) if row else []
+            prearrival=conn.execute(
+                """select eta_time,arrival_details,guest_updated_at
+                   from private.reservation_prearrival
+                   where reservation_id=%s""",
+                (reservation_id,),
+            ).fetchone() if row else None
         if not row:
             raise RoyaError("NOT_FOUND","Reservation not found.",404)
         result=dict(row)
         result["guest_requests"]=[dict(item) for item in guest_requests]
+        result["prearrival"]=dict(prearrival) if prearrival else {
+            "eta_time":None,
+            "arrival_details":None,
+            "guest_updated_at":None,
+        }
         result["cancellation_policy_view"]=cancellation_policy_view(
             refundable=bool(row["refundable"]),
             policy=row["cancellation_policy"] or {},
@@ -244,6 +274,44 @@ class ReservationService:
             check_in_time=row["check_in_time"],
         )
         return result
+
+    def update_guest_prearrival(self,reservation_id,user_id,payload,idempotency_key):
+        if not idempotency_key or len(idempotency_key)<8 or len(idempotency_key)>160:
+            raise RoyaError("IDEMPOTENCY_KEY_REQUIRED","A valid Idempotency-Key header is required.",400)
+        try:
+            with db_connection() as conn:
+                with conn.transaction():
+                    row=conn.execute(
+                        """select * from private.upsert_guest_prearrival(
+                             %s::uuid,%s::uuid,%s::time,%s::text,%s::text
+                           )""",
+                        (
+                            user_id,reservation_id,payload.eta_time,
+                            payload.arrival_details or "",idempotency_key,
+                        ),
+                    ).fetchone()
+        except RoyaError:
+            raise
+        except Exception as exc:
+            message=str(exc)
+            if "ETA_REQUIRED" in message or "VALIDATION_ERROR" in message:
+                raise RoyaError("VALIDATION_ERROR","Enter a valid arrival time and optional details.",422) from exc
+            if "PREARRIVAL_NOT_ALLOWED" in message:
+                raise RoyaError(
+                    "PREARRIVAL_NOT_ALLOWED",
+                    "Arrival details can only be updated before check-in.",
+                    409,
+                ) from exc
+            if "IDEMPOTENCY_KEY_REQUIRED" in message:
+                raise RoyaError("IDEMPOTENCY_KEY_REQUIRED","A valid Idempotency-Key header is required.",400) from exc
+            if "FORBIDDEN" in message:
+                raise RoyaError("NOT_FOUND","Reservation not found.",404) from exc
+            raise
+        result=dict(row) if row else None
+        if result and not result.get("idempotent"):
+            NotificationService().notify_prearrival_updated(reservation_id)
+        return result
+
 
     def add_guest_request(self,reservation_id,user_id,body,idempotency_key):
         body=(body or "").strip()
@@ -754,6 +822,16 @@ class ReservationService:
                 (reservation_id,),
             ).fetchall())
 
+            prearrival=conn.execute(
+                """select
+                     eta_time,arrival_details,guest_updated_at,
+                     guest_details_checked,payment_checked,requests_reviewed,arrival_prepared,
+                     staff_note,checklist_updated_at
+                   from private.reservation_prearrival
+                   where reservation_id=%s""",
+                (reservation_id,),
+            ).fetchone()
+
             assigned_rooms=list(conn.execute(
                 """select pr.id,pr.room_number,pr.floor,pr.housekeeping_status,rt.name room_type_name
                    from physical_rooms pr
@@ -801,6 +879,26 @@ class ReservationService:
                 "tracked":readiness_tracked,
                 "ready":readiness_ready,
                 "items":readiness_items,
+            },
+            "prearrival":{
+                **(dict(prearrival) if prearrival else {
+                    "eta_time":None,
+                    "arrival_details":None,
+                    "guest_updated_at":None,
+                    "guest_details_checked":False,
+                    "payment_checked":False,
+                    "requests_reviewed":False,
+                    "arrival_prepared":False,
+                    "staff_note":None,
+                    "checklist_updated_at":None,
+                }),
+                "ready_to_check_in":bool(
+                    readiness_ready
+                    and (prearrival or {}).get("guest_details_checked",False)
+                    and (prearrival or {}).get("payment_checked",False)
+                    and (prearrival or {}).get("requests_reviewed",False)
+                    and (prearrival or {}).get("arrival_prepared",False)
+                ),
             },
         }
 
@@ -868,6 +966,41 @@ class ReservationService:
         if result and result.get("kind")=="guest_request" and not result.get("idempotent"):
             NotificationService().notify_guest_request_resolved(str(result["note_id"]))
         return result
+
+
+    def update_partner_prearrival(self,reservation_id,user_id,payload):
+        try:
+            with db_connection() as conn:
+                with conn.transaction():
+                    row=conn.execute(
+                        """select * from private.update_partner_prearrival(
+                             %s::uuid,%s::uuid,%s::time,%s::text,
+                             %s::boolean,%s::boolean,%s::boolean,%s::boolean,%s::text
+                           )""",
+                        (
+                            user_id,reservation_id,payload.eta_time,
+                            payload.arrival_details,
+                            payload.guest_details_checked,payload.payment_checked,
+                            payload.requests_reviewed,payload.arrival_prepared,
+                            payload.staff_note,
+                        ),
+                    ).fetchone()
+        except RoyaError:
+            raise
+        except Exception as exc:
+            message=str(exc)
+            if "PREARRIVAL_NOT_ALLOWED" in message:
+                raise RoyaError(
+                    "PREARRIVAL_NOT_ALLOWED",
+                    "Pre-arrival preparation is only available before check-in.",
+                    409,
+                ) from exc
+            if "VALIDATION_ERROR" in message:
+                raise RoyaError("VALIDATION_ERROR","Pre-arrival details are invalid.",422) from exc
+            if "FORBIDDEN" in message:
+                raise RoyaError("FORBIDDEN","Your hotel role cannot update pre-arrival preparation.",403) from exc
+            raise
+        return dict(row) if row else None
 
 
     def amendment_options_for_partner(self,user_id,property_id):
