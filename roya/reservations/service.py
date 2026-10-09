@@ -220,9 +220,23 @@ class ReservationService:
                    join room_types rt on rt.id=ri.room_type_id join rate_plans rp on rp.id=ri.rate_plan_id
                    where r.id=%s and r.user_id=%s""",(reservation_id,user_id)
             ).fetchone()
+            guest_requests=list(conn.execute(
+                """select rn.id,rn.body,rn.status,rn.origin,rn.created_at,rn.resolved_at
+                   from private.reservation_notes rn
+                   join reservations r on r.id=rn.reservation_id
+                   where rn.reservation_id=%s
+                     and r.user_id=%s
+                     and rn.kind='guest_request'
+                   order by
+                     case when rn.status='open' then 0 else 1 end,
+                     rn.created_at desc
+                   limit 30""",
+                (reservation_id,user_id),
+            ).fetchall()) if row else []
         if not row:
             raise RoyaError("NOT_FOUND","Reservation not found.",404)
         result=dict(row)
+        result["guest_requests"]=[dict(item) for item in guest_requests]
         result["cancellation_policy_view"]=cancellation_policy_view(
             refundable=bool(row["refundable"]),
             policy=row["cancellation_policy"] or {},
@@ -230,6 +244,52 @@ class ReservationService:
             check_in_time=row["check_in_time"],
         )
         return result
+
+    def add_guest_request(self,reservation_id,user_id,body,idempotency_key):
+        body=(body or "").strip()
+        if not body or len(body)>2000:
+            raise RoyaError("VALIDATION_ERROR","Enter a request between 1 and 2,000 characters.",422)
+        if not idempotency_key or len(idempotency_key)<8 or len(idempotency_key)>160:
+            raise RoyaError("IDEMPOTENCY_KEY_REQUIRED","A valid Idempotency-Key header is required.",400)
+
+        try:
+            with db_connection() as conn:
+                with conn.transaction():
+                    row=conn.execute(
+                        """select * from private.add_guest_reservation_request(
+                             %s::uuid,%s::uuid,%s::text,%s::text
+                           )""",
+                        (user_id,reservation_id,body,idempotency_key),
+                    ).fetchone()
+        except RoyaError:
+            raise
+        except Exception as exc:
+            message=str(exc)
+            if "REQUEST_NOT_ALLOWED" in message:
+                raise RoyaError(
+                    "REQUEST_NOT_ALLOWED",
+                    "Special requests are available only before or during an active stay.",
+                    409,
+                ) from exc
+            if "TOO_MANY_OPEN_REQUESTS" in message:
+                raise RoyaError(
+                    "TOO_MANY_OPEN_REQUESTS",
+                    "This reservation already has several open requests. Wait for the hotel to resolve one before adding another.",
+                    409,
+                ) from exc
+            if "VALIDATION_ERROR" in message:
+                raise RoyaError("VALIDATION_ERROR","The special request is invalid.",422) from exc
+            if "IDEMPOTENCY_KEY_REQUIRED" in message:
+                raise RoyaError("IDEMPOTENCY_KEY_REQUIRED","A valid Idempotency-Key header is required.",400) from exc
+            if "FORBIDDEN" in message:
+                raise RoyaError("NOT_FOUND","Reservation not found.",404) from exc
+            raise
+
+        result=dict(row) if row else None
+        if result and not result.get("idempotent"):
+            NotificationService().notify_guest_request(str(result["note_id"]))
+        return result
+
 
     def cancel(self,reservation_id,user_id,reason):
         with db_connection() as conn:
@@ -678,7 +738,7 @@ class ReservationService:
 
             notes=list(conn.execute(
                 """select
-                     rn.id,rn.kind,rn.body,rn.status,rn.created_at,rn.resolved_at,
+                     rn.id,rn.kind,rn.body,rn.status,rn.origin,rn.created_at,rn.resolved_at,
                      coalesce(nullif(trim(cp.name),''),cu.email,'Hotel teammate') created_by_name,
                      coalesce(nullif(trim(rp.name),''),ru.email,'Hotel teammate') resolved_by_name
                    from private.reservation_notes rn
