@@ -29,8 +29,9 @@ class _Result:
 
 
 class _RoomReadinessConnection:
-    def __init__(self,occupied=False):
+    def __init__(self,occupied=False,role="owner"):
         self.occupied=occupied
+        self.role=role
         self.created=[]
         self.deleted=False
         self.updated_status=None
@@ -45,7 +46,7 @@ class _RoomReadinessConnection:
                 "property_id":"property-1",
                 "total_inventory":3,
                 "organization_id":"org-1",
-                "role":"owner",
+                "role":self.role,
             })
         if "select room_number from physical_rooms" in sql:
             return _Result(rows=[])
@@ -152,6 +153,20 @@ def test_room_readiness_can_move_to_cleaning(monkeypatch):
 
     assert response.status_code==200
     assert response.get_json()["data"]["readiness_status"]=="cleaning"
+    assert connection.updated_status=="cleaning"
+
+
+def test_staff_can_update_room_readiness(monkeypatch):
+    connection=_RoomReadinessConnection(role="staff")
+    client=_client(monkeypatch,connection)
+    room_id=uuid4()
+
+    response=client.put(
+        f"/api/v1/physical-rooms/{room_id}/readiness",
+        json={"status":"cleaning"},
+    )
+
+    assert response.status_code==200
     assert connection.updated_status=="cleaning"
 
 
