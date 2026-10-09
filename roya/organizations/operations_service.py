@@ -33,6 +33,9 @@ def scope_action_links(tasks,property_id,horizon_days):
             item["href"]+=f"&property_id={property_id}"
         elif item["href"].startswith("/partner/rooms?"):
             item["href"]+=f"&property_id={property_id}"
+        elif item["href"].startswith("/partner/housekeeping"):
+            separator="&" if "?" in item["href"] else "?"
+            item["href"]+=f"{separator}property_id={property_id}"
         elif item["href"].startswith("/partner/finance?"):
             item["href"]+=f"&property_id={property_id}"
         scoped.append(item)
@@ -119,7 +122,7 @@ def build_daily_actions(summary,low_inventory,channel_errors,not_ready_arrivals=
             "warning",
             f"{not_ready_arrivals} arrival{'s' if not_ready_arrivals != 1 else ''} waiting on room readiness",
             "One or more tracked room types do not yet have enough ready rooms for check-in.",
-            "/partner/rooms?focus=readiness",
+            "/partner/housekeeping",
         ))
     if low_inventory:
         tasks.append(_task(
