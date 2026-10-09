@@ -484,6 +484,70 @@ class NotificationService:
         except Exception:
             return {"created":0,"error":"notification_write_failed"}
 
+    def notify_prearrival_updated(self,reservation_id):
+        email_ids=[]
+        try:
+            with db_connection() as conn:
+                with conn.transaction():
+                    row=conn.execute(
+                        """select r.id,r.reference,r.organization_id,r.guest_name,p.name property_name,
+                                  pa.eta_time
+                           from reservations r
+                           join properties p on p.id=r.property_id
+                           join private.reservation_prearrival pa on pa.reservation_id=r.id
+                           where r.id=%s""",
+                        (reservation_id,),
+                    ).fetchone()
+                    if not row:
+                        return {"created":0}
+
+                    members=list(conn.execute(
+                        """select om.user_id,u.email
+                           from organization_members om
+                           join auth.users u on u.id=om.user_id
+                           where om.organization_id=%s
+                             and om.status='active'
+                             and om.role in ('owner','manager','reservations','staff')""",
+                        (row["organization_id"],),
+                    ).fetchall())
+
+                    eta=row["eta_time"].strftime("%H:%M") if row["eta_time"] else "not set"
+                    title="Guest arrival details updated"
+                    body=f"{row['guest_name']} expects to arrive around {eta} for {row['reference']} at {row['property_name']}."
+                    href=f"/partner/reservations/{row['id']}"
+                    event_type="partner.prearrival_updated"
+
+                    for member in members:
+                        self._insert_in_app(
+                            conn,
+                            user_id=member["user_id"],
+                            reservation_id=row["id"],
+                            event_type=event_type,
+                            title=title,
+                            body=body,
+                            href=href,
+                        )
+                        if member["email"]:
+                            email_ids.append(self._queue_email(
+                                conn,
+                                user_id=member["user_id"],
+                                reservation_id=row["id"],
+                                event_type=event_type,
+                                recipient=member["email"],
+                                subject=f"iRoya hotel: Arrival update · {row['reference']}",
+                                body=f"{body}\n\nOpen reservation: {self._absolute_url(href)}",
+                                href=href,
+                            ))
+            delivery=self._deliver_new(email_ids)
+            return {
+                "created":len(members),
+                "emails_queued":len([item for item in email_ids if item]),
+                "delivery":delivery,
+            }
+        except Exception:
+            return {"created":0,"error":"notification_write_failed"}
+
+
     def notify_guest_request(self,note_id):
         email_ids=[]
         try:
