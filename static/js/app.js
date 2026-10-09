@@ -2212,3 +2212,39 @@ document.querySelectorAll('[data-partner-prearrival-form]').forEach(function(for
     }
   });
 });
+
+
+document.querySelectorAll('[data-housekeeping-room]').forEach(function(card){
+  const roomId=card.dataset.housekeepingRoom;
+  const message=card.querySelector('.form-message');
+  const buttons=card.querySelectorAll('[data-housekeeping-status]');
+
+  buttons.forEach(function(button){
+    button.addEventListener('click',async function(){
+      const status=button.dataset.housekeepingStatus;
+      buttons.forEach(function(item){item.disabled=true;});
+      if(message){
+        message.textContent=status==='cleaning'?'Starting cleaning…':
+          status==='ready'?'Marking room ready…':
+          status==='dirty'?'Marking room dirty…':'Taking room out of service…';
+      }
+      try{
+        const response=await fetch('/api/v1/physical-rooms/'+roomId+'/readiness',{
+          method:'PUT',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({status:status})
+        });
+        const body=await response.json().catch(function(){return {};});
+        if(!response.ok){
+          if(message)message.textContent=(body.error&&body.error.message)||'Room status could not be updated.';
+          buttons.forEach(function(item){item.disabled=false;});
+          return;
+        }
+        window.location.reload();
+      }catch(_error){
+        if(message)message.textContent='Room status could not be updated.';
+        buttons.forEach(function(item){item.disabled=false;});
+      }
+    });
+  });
+});
