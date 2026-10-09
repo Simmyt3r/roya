@@ -14,7 +14,7 @@
     <article class="card notification-card {% if not item.read_at %}notification-unread{% endif %}" data-notification-id="{{ item.id }}">
       <div class="notification-dot" aria-hidden="true"></div>
       <div class="notification-copy">
-        <div class="eyebrow">{{ item.event_type|replace("_"," ")|replace("."," · ")|title }}</div>
+        <div class="eyebrow">{% if item.event_type.startswith("partner.guest_request.") %}Hotel · Guest request{% else %}{{ item.event_type|replace("_"," ")|replace("."," · ")|title }}{% endif %}</div>
         <h2>{{ item.payload.get("title","iRoya update") }}</h2>
         <p>{{ item.payload.get("body","") }}</p>
         <small class="muted">{{ item.created_at }}</small>
