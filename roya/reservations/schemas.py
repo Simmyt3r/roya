@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date,time
 from typing import Literal
 from uuid import UUID
 
@@ -99,3 +99,18 @@ class PartnerReservationNoteCreate(BaseModel):
 
 class GuestReservationRequestCreate(BaseModel):
     body: str = Field(min_length=1,max_length=2000)
+
+
+class GuestPrearrivalUpdate(BaseModel):
+    eta_time: time
+    arrival_details: str | None = Field(default=None,max_length=1000)
+
+
+class PartnerPrearrivalUpdate(BaseModel):
+    eta_time: time | None = None
+    arrival_details: str | None = Field(default=None,max_length=1000)
+    guest_details_checked: bool = False
+    payment_checked: bool = False
+    requests_reviewed: bool = False
+    arrival_prepared: bool = False
+    staff_note: str | None = Field(default=None,max_length=1000)
