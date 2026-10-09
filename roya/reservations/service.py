@@ -520,6 +520,8 @@ class ReservationService:
                           r.id,r.reference,r.property_id,r.guest_name,r.guest_email,r.guest_phone,
                           r.check_in,r.check_out,r.status,r.payment_status,r.currency,r.total_price_minor,
                           p.name property_name,om.role member_role,
+                          pa.eta_time,pa.guest_details_checked,pa.payment_checked,
+                          pa.requests_reviewed,pa.arrival_prepared,
                           coalesce((
                             select string_agg(distinct rt.name, ', ' order by rt.name)
                             from reservation_items ri
@@ -548,6 +550,7 @@ class ReservationService:
                        from reservations r
                        join properties p on p.id=r.property_id
                        join organization_members om on om.organization_id=r.organization_id
+                       left join private.reservation_prearrival pa on pa.reservation_id=r.id
                        where {' and '.join(base_where)}
                          and (
                            r.status='checked_in'
@@ -563,6 +566,14 @@ class ReservationService:
 
         in_house=[row for row in active_rows if row["status"]=="checked_in"]
         arrivals=[row for row in active_rows if row["status"]=="confirmed"]
+        for row in arrivals:
+            row["prearrival_ready"]=bool(
+                row.get("guest_details_checked")
+                and row.get("payment_checked")
+                and row.get("requests_reviewed")
+                and row.get("arrival_prepared")
+                and (not row.get("room_readiness_tracked") or row.get("rooms_ready"))
+            )
         results=[]
         query_too_short=False
         if query:
