@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}Housekeeping · Hotel · iRoya{% endblock %}
+{% block content %}
+<section class="shell page-head housekeeping-head">
+  <div>
+    <div class="eyebrow">Hotel operations</div>
+    <h1>Housekeeping</h1>
+    <p>Work the rooms that matter first. Arrival pressure is shown automatically.</p>
+  </div>
+  <a class="button button-secondary" href="/partner/rooms?focus=readiness{% if workspace.selected_property_id %}&property_id={{ workspace.selected_property_id }}{% endif %}">Room setup</a>
+</section>
+
+<section class="shell housekeeping-toolbar">
+  <form method="get" action="/partner/housekeeping">
+    <label for="housekeeping-property">Property
+      <select id="housekeeping-property" name="property_id" onchange="this.form.submit()">
+        <option value="">All properties</option>
+        {% for property in workspace.properties %}
+          <option value="{{ property.id }}" {% if workspace.selected_property_id == property.id|string %}selected{% endif %}>{{ property.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+  </form>
+  <div>
+    {% if workspace.selected_property %}
+      <strong>{{ workspace.selected_property.name }}</strong>
+      <span class="muted">Housekeeping board</span>
+    {% else %}
+      <strong>{{ workspace.properties|length }} propert{% if workspace.properties|length == 1 %}y{% else %}ies{% endif %}</strong>
+      <span class="muted">Portfolio housekeeping</span>
+    {% endif %}
+  </div>
+</section>
+
+<section class="shell housekeeping-summary">
+  <article class="card">
+    <span>Dirty</span>
+    <strong>{{ workspace.summary.dirty }}</strong>
+    <small>needs cleaning</small>
+  </article>
+  <article class="card">
+    <span>Cleaning</span>
+    <strong>{{ workspace.summary.cleaning }}</strong>
+    <small>being worked</small>
+  </article>
+  <article class="card">
+    <span>Ready</span>
+    <strong>{{ workspace.summary.ready }}</strong>
+    <small>available for assignment</small>
+  </article>
+  <article class="card">
+    <span>Arrival priority</span>
+    <strong>{{ workspace.summary.arrival_priority }}</strong>
+    <small>room types short for today</small>
+  </article>
+</section>
+
+{% macro room_card(room) %}
+  <article class="housekeeping-room card is-{{ room.display_status|replace('_','-') }} {% if room.arrival_pressure %}is-priority{% endif %}" data-housekeeping-room="{{ room.id }}">
+    <div class="housekeeping-room-top">
+      <div>
+        <div class="housekeeping-room-number">Room {{ room.room_number }}</div>
+        <small>{{ room.property_name }} · {{ room.room_type_name }}{% if room.floor %} · Floor {{ room.floor }}{% endif %}</small>
+      </div>
+      <span class="room-readiness-chip is-{{ room.display_status|replace('_','-') }}">{{ room.display_status|replace("_"," ")|title }}</span>
+    </div>
+
+    <div class="housekeeping-room-signals">
+      {% if room.departure_due_today %}
+        <span class="housekeeping-signal is-departure">Departure due today</span>
+      {% endif %}
+      {% if room.arrival_pressure %}
+        <span class="housekeeping-signal is-priority">Arrival priority</span>
+      {% endif %}
+      {% if room.arrivals_today %}
+        <span class="housekeeping-signal">{{ room.arrivals_today }} arrival room{% if room.arrivals_today != 1 %}s{% endif %} needed today</span>
+      {% endif %}
+      {% if room.arrivals_tomorrow %}
+        <span class="housekeeping-signal">{{ room.arrivals_tomorrow }} tomorrow</span>
+      {% endif %}
+    </div>
+
+    {% if room.display_status == "occupied" %}
+      <div class="housekeeping-occupancy">
+        <strong>{{ room.current_guest_name or "Occupied" }}</strong>
+        <span>{{ room.current_reservation_reference or "" }}{% if room.current_check_out %} · leaves {{ room.current_check_out }}{% endif %}</span>
+      </div>
+    {% elif room.display_status != "out_of_service" %}
+      <div class="housekeeping-actions">
+        {% if room.display_status == "dirty" %}
+          <button class="button button-small" type="button" data-housekeeping-status="cleaning">Start cleaning</button>
+          <button class="button button-small button-secondary" type="button" data-housekeeping-status="ready">Mark ready</button>
+        {% elif room.display_status == "cleaning" %}
+          <button class="button button-small" type="button" data-housekeeping-status="ready">Mark ready</button>
+          <button class="button button-small button-secondary" type="button" data-housekeeping-status="dirty">Back to dirty</button>
+        {% elif room.display_status == "ready" %}
+          <button class="button button-small button-secondary" type="button" data-housekeeping-status="dirty">Mark dirty</button>
+        {% endif %}
+        <button class="housekeeping-more" type="button" data-housekeeping-status="out_of_service">Out of service</button>
+      </div>
+    {% else %}
+      <div class="housekeeping-actions">
+        <button class="button button-small" type="button" data-housekeeping-status="ready">Return to ready</button>
+      </div>
+    {% endif %}
+    <p class="form-message" aria-live="polite"></p>
+  </article>
+{% endmacro %}
+
+<section class="shell housekeeping-board">
+  <section class="housekeeping-lane is-dirty">
+    <header>
+      <div><span class="eyebrow">Needs attention</span><h2>Dirty</h2></div>
+      <span class="status-pill status-error">{{ workspace.groups.dirty|length }}</span>
+    </header>
+    <div class="housekeeping-lane-list">
+      {% for room in workspace.groups.dirty %}{{ room_card(room) }}{% else %}
+        <div class="housekeeping-empty">No dirty rooms.</div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="housekeeping-lane is-cleaning">
+    <header>
+      <div><span class="eyebrow">In progress</span><h2>Cleaning</h2></div>
+      <span class="status-pill">{{ workspace.groups.cleaning|length }}</span>
+    </header>
+    <div class="housekeeping-lane-list">
+      {% for room in workspace.groups.cleaning %}{{ room_card(room) }}{% else %}
+        <div class="housekeeping-empty">Nothing currently being cleaned.</div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="housekeeping-lane is-ready">
+    <header>
+      <div><span class="eyebrow">Available</span><h2>Ready</h2></div>
+      <span class="status-pill">{{ workspace.groups.ready|length }}</span>
+    </header>
+    <div class="housekeeping-lane-list">
+      {% for room in workspace.groups.ready %}{{ room_card(room) }}{% else %}
+        <div class="housekeeping-empty">No ready rooms.</div>
+      {% endfor %}
+    </div>
+  </section>
+</section>
+
+<section class="shell housekeeping-secondary">
+  <details class="card">
+    <summary><strong>Occupied rooms</strong><span>{{ workspace.groups.occupied|length }}</span></summary>
+    <div class="housekeeping-secondary-list">
+      {% for room in workspace.groups.occupied %}{{ room_card(room) }}{% else %}<p class="muted">No occupied rooms.</p>{% endfor %}
+    </div>
+  </details>
+  <details class="card">
+    <summary><strong>Out of service</strong><span>{{ workspace.groups.out_of_service|length }}</span></summary>
+    <div class="housekeeping-secondary-list">
+      {% for room in workspace.groups.out_of_service %}{{ room_card(room) }}{% else %}<p class="muted">No rooms out of service.</p>{% endfor %}
+    </div>
+  </details>
+</section>
+
+{% if not workspace.rooms %}
+<section class="shell">
+  <div class="card operations-empty">
+    <strong>No physical rooms configured for this scope.</strong>
+    <span>Add room numbers from Rooms to enable room-by-room housekeeping.</span>
+    <a class="button button-small" href="/partner/rooms?focus=readiness{% if workspace.selected_property_id %}&property_id={{ workspace.selected_property_id }}{% endif %}">Configure rooms</a>
+  </div>
+</section>
+{% endif %}
+{% endblock %}
