@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Reservation {{ reservation.reference }} · iRoya{% endblock %}
 {% block content %}
+{% set prearrival = reservation.get("prearrival", {}) %}
 <section class="shell page-head reservation-head"><div><div class="eyebrow">Reservation {{ reservation.reference }}</div><h1>{{ reservation.property_name }}</h1><p>{{ reservation.room_type_name }} · {{ reservation.rate_plan_name }}</p></div><span class="reservation-status reservation-status-{{ reservation.status }}">{{ reservation.status|replace('_',' ')|title }}</span></section>
 <section class="shell reservation-layout">
 <article class="card reservation-card"><div class="eyebrow">Stay</div><h2>{{ reservation.check_in }} → {{ reservation.check_out }}</h2><p>{{ reservation.nights }} night{% if reservation.nights != 1 %}s{% endif %} · {{ reservation.adults }} adult{% if reservation.adults != 1 %}s{% endif %}{% if reservation.children %} · {{ reservation.children }} child{% if reservation.children != 1 %}ren{% endif %}{% endif %}</p><p class="muted">{{ reservation.guest_name }} · {{ reservation.guest_email }} · {{ reservation.guest_phone }}</p><div class="reservation-meta"><span>Guarantee</span><strong>{{ reservation.guarantee_type|replace('_',' ')|title }}</strong><span>Reservation</span><strong>{{ reservation.status|replace('_',' ')|title }}</strong><span>Cancellation</span><strong>{{ reservation.cancellation_policy_view.summary }}</strong>{% if reservation.cancellation_policy_view.free_until %}<span>Free until</span><strong>{{ reservation.cancellation_policy_view.free_until }}</strong>{% endif %}</div>{% if reservation.status == "pending_confirmation" %}<div class="notice-card"><strong>Waiting for hotel approval.</strong><span>The room is held while the property reviews your request.</span></div>{% elif reservation.status == "held" %}<div class="notice-card"><strong>Room temporarily held.</strong><span>Complete the required payment before the hold expires.</span></div>{% endif %}</article>
@@ -13,6 +14,46 @@
   {% elif reservation.cancellation_policy_view.refund_eligible %}<button class="button button-secondary" type="button" data-refund-request="{{ reservation.id }}">Request cancellation & refund</button>{% else %}<div class="notice-card"><strong>Automatic refund unavailable.</strong><span>{{ reservation.cancellation_policy_view.summary }} Contact the hotel or iRoya support for an exception review.</span></div>{% endif %}
 {% endif %}
 <p class="form-message" data-reservation-message aria-live="polite"></p></aside>
+</section>
+
+<section class="shell guest-prearrival-section">
+  <article class="card guest-prearrival-card">
+    <div class="guest-request-head">
+      <div>
+        <div class="eyebrow">Before arrival</div>
+        <h2>Arrival plan</h2>
+        <p class="muted">Tell the hotel roughly when to expect you. You can add a short arrival detail too.</p>
+      </div>
+      {% if reservation.get("room_readiness_tracked") %}
+        <span class="status-pill {{ '' if reservation.get('rooms_ready') else 'status-error' }}">{{ "Room ready" if reservation.get("rooms_ready") else "Room being prepared" }}</span>
+      {% else %}
+        <span class="status-pill status-muted">Hotel preparing</span>
+      {% endif %}
+    </div>
+
+    {% if prearrival.get("eta_time") %}
+      <div class="guest-prearrival-current">
+        <span><small>Expected arrival</small><strong>{{ prearrival.eta_time.strftime("%H:%M") if prearrival.eta_time.strftime is defined else prearrival.eta_time }}</strong></span>
+        {% if prearrival.get("arrival_details") %}<p>{{ prearrival.arrival_details }}</p>{% endif %}
+      </div>
+    {% endif %}
+
+    {% if reservation.status in ["held","pending_confirmation","confirmed"] %}
+      <form class="guest-prearrival-form" data-guest-prearrival-form data-reservation-id="{{ reservation.id }}">
+        <label>Expected arrival time
+          <input name="eta_time" type="time" value="{{ prearrival.eta_time.strftime('%H:%M') if prearrival.get('eta_time') and prearrival.eta_time.strftime is defined else (prearrival.get('eta_time') or '') }}" required>
+        </label>
+        <label>Arrival details <span class="muted">(optional)</span>
+          <textarea name="arrival_details" rows="3" maxlength="1000" placeholder="e.g. Our bus should arrive around 9:30 PM.">{{ prearrival.get("arrival_details") or "" }}</textarea>
+        </label>
+        <div class="guest-request-submit">
+          <small class="muted">The hotel will see this in its arrival checklist.</small>
+          <button class="button button-small" type="submit">{{ "Update arrival plan" if prearrival.get("eta_time") else "Share arrival time" }}</button>
+        </div>
+        <p class="form-message" aria-live="polite"></p>
+      </form>
+    {% endif %}
+  </article>
 </section>
 
 <section class="shell guest-request-section">
