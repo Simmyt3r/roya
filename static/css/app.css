@@ -2627,3 +2627,121 @@ html{-webkit-text-size-adjust:100%}body{min-width:0;overflow-x:hidden}button,a,i
   .prearrival-signal-grid,.prearrival-edit-grid,.prearrival-checks{grid-template-columns:1fr}
   .prearrival-checklist-form .button{width:100%}
 }
+
+
+/* Dedicated housekeeping workspace */
+.housekeeping-head{padding-bottom:14px}
+.housekeeping-head h1{margin:.15rem 0;font-size:clamp(2rem,5vw,3.7rem);letter-spacing:-.05em}
+.housekeeping-head p{margin:0;color:var(--muted)}
+.housekeeping-toolbar{
+  display:flex;
+  align-items:end;
+  justify-content:space-between;
+  gap:14px;
+  padding-bottom:14px
+}
+.housekeeping-toolbar form{min-width:min(320px,100%)}
+.housekeeping-toolbar label{display:grid;gap:5px}
+.housekeeping-toolbar>div{display:grid;justify-items:end;gap:2px}
+.housekeeping-summary{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:10px;
+  padding-bottom:16px
+}
+.housekeeping-summary article{display:grid;gap:2px;padding:14px}
+.housekeeping-summary span,.housekeeping-summary small{color:var(--muted);font-size:.68rem}
+.housekeeping-summary strong{font-size:1.45rem}
+.housekeeping-board{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+  align-items:start;
+  padding-bottom:16px
+}
+.housekeeping-lane{
+  min-width:0;
+  border:1px solid #e3ebe8;
+  border-radius:16px;
+  background:#f8faf9;
+  overflow:hidden
+}
+.housekeeping-lane>header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  padding:14px;
+  border-bottom:1px solid #e3ebe8;
+  background:#fff
+}
+.housekeeping-lane h2{margin:.15rem 0 0;font-size:1.15rem}
+.housekeeping-lane-list{display:grid;gap:9px;padding:9px}
+.housekeeping-room{display:grid;gap:10px;padding:13px;box-shadow:none}
+.housekeeping-room.is-priority{border-color:#d3a25d;box-shadow:inset 3px 0 0 #d3a25d}
+.housekeeping-room-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.housekeeping-room-number{font-weight:900;font-size:1rem}
+.housekeeping-room-top small{color:var(--muted);font-size:.68rem;line-height:1.4}
+.housekeeping-room-signals{display:flex;gap:5px;flex-wrap:wrap}
+.housekeeping-signal{
+  padding:4px 7px;
+  border-radius:999px;
+  background:#edf2f1;
+  color:var(--muted);
+  font-size:.62rem;
+  font-weight:800
+}
+.housekeeping-signal.is-priority{background:#fff0df;color:#8b5a20}
+.housekeeping-signal.is-departure{background:#f4e9e7;color:#8c4439}
+.housekeeping-occupancy{display:grid;gap:2px;padding:9px;border-radius:9px;background:#f4f6f5}
+.housekeeping-occupancy span{font-size:.68rem;color:var(--muted)}
+.housekeeping-actions{display:flex;gap:7px;flex-wrap:wrap}
+.housekeeping-more{
+  border:0;
+  background:transparent;
+  color:var(--muted);
+  text-decoration:underline;
+  text-underline-offset:3px;
+  font:inherit;
+  font-size:.68rem;
+  cursor:pointer
+}
+.housekeeping-room .form-message{margin:0}
+.housekeeping-empty{
+  padding:18px 12px;
+  text-align:center;
+  color:var(--muted);
+  font-size:.74rem
+}
+.housekeeping-secondary{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+  padding-bottom:56px
+}
+.housekeeping-secondary details{padding:0;overflow:hidden}
+.housekeeping-secondary summary{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  padding:14px 16px;
+  cursor:pointer
+}
+.housekeeping-secondary-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;padding:0 9px 9px}
+@media(max-width:980px){
+  .housekeeping-board{grid-template-columns:1fr}
+  .housekeeping-lane-list{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:700px){
+  .housekeeping-toolbar{align-items:stretch;flex-direction:column}
+  .housekeeping-toolbar>div{justify-items:start}
+  .housekeeping-summary{grid-template-columns:1fr 1fr}
+  .housekeeping-lane-list,.housekeeping-secondary-list{grid-template-columns:1fr}
+  .housekeeping-secondary{grid-template-columns:1fr}
+}
+@media(max-width:460px){
+  .housekeeping-summary{grid-template-columns:1fr 1fr}
+  .housekeeping-room-top{align-items:stretch;flex-direction:column}
+  .housekeeping-actions{display:grid}
+  .housekeeping-actions .button{width:100%}
+}
