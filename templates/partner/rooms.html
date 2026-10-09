@@ -120,14 +120,14 @@
                               <small>{% if unit.floor %}Floor {{ unit.floor }} · {% endif %}{% if occupied %}{{ unit.current_reservation_reference or "Occupied" }}{% else %}{{ display_status|replace("_"," ")|title }}{% endif %}</small>
                             </div>
                             <span class="room-readiness-chip is-{{ display_status|replace("_","-") }}">{{ display_status|replace("_"," ")|title }}</span>
-                            {% if room.member_role in ["owner","manager","reservations"] and not occupied %}
+                            {% if room.member_role in ["owner","manager","reservations","staff"] and not occupied %}
                               <select data-room-readiness-select aria-label="Readiness for room {{ unit.room_number }}">
                                 <option value="ready" {% if display_status == "ready" %}selected{% endif %}>Ready</option>
                                 <option value="cleaning" {% if display_status == "cleaning" %}selected{% endif %}>Cleaning</option>
                                 <option value="dirty" {% if display_status == "dirty" %}selected{% endif %}>Dirty</option>
                                 <option value="out_of_service" {% if display_status == "out_of_service" %}selected{% endif %}>Out of service</option>
                               </select>
-                              <button class="button button-small button-secondary" type="button" data-physical-room-delete>Remove</button>
+                              {% if room.member_role in ["owner","manager","reservations"] %}<button class="button button-small button-secondary" type="button" data-physical-room-delete>Remove</button>{% endif %}
                             {% endif %}
                             <p class="form-message"></p>
                           </div>
