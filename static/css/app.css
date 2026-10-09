@@ -2543,3 +2543,51 @@ html{-webkit-text-size-adjust:100%}body{min-width:0;overflow-x:hidden}button,a,i
   .reservation-note-form{grid-template-columns:1fr}
   .reservation-note-form .button{width:100%}
 }
+
+
+/* Guest special requests */
+.guest-request-section{margin-top:14px;margin-bottom:26px}
+.guest-request-card{display:grid;gap:14px}
+.guest-request-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px
+}
+.guest-request-head h2{margin:.15rem 0 .35rem}
+.guest-request-head p{margin:0;max-width:620px}
+.guest-request-list{display:grid;gap:8px}
+.guest-request-item{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  padding:12px;
+  border:1px solid #e4ece9;
+  border-radius:12px;
+  background:#fbfdfc
+}
+.guest-request-item>div{display:grid;gap:4px}
+.guest-request-item strong{line-height:1.45}
+.guest-request-item small{color:var(--muted);font-size:.68rem}
+.guest-request-item.is-resolved{opacity:.68;background:#f7f9f8}
+.guest-request-form{
+  display:grid;
+  gap:10px;
+  padding-top:13px;
+  border-top:1px solid var(--line)
+}
+.guest-request-form label{display:grid;gap:6px}
+.guest-request-form textarea{resize:vertical;min-height:84px}
+.guest-request-submit{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px
+}
+.guest-request-submit small{max-width:520px;line-height:1.45}
+.guest-request-form .form-message,.guest-request-closed{margin:0}
+@media(max-width:620px){
+  .guest-request-head,.guest-request-item,.guest-request-submit{align-items:stretch;flex-direction:column}
+  .guest-request-submit .button{width:100%}
+}
