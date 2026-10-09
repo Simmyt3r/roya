@@ -95,3 +95,7 @@ class PartnerReservationAmend(BaseModel):
 class PartnerReservationNoteCreate(BaseModel):
     kind: Literal["guest_request","staff_note"]
     body: str = Field(min_length=1,max_length=2000)
+
+
+class GuestReservationRequestCreate(BaseModel):
+    body: str = Field(min_length=1,max_length=2000)
