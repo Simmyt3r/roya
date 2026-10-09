@@ -5,7 +5,7 @@ from pydantic import ValidationError
 from roya.auth.service import current_identity, login_required
 from roya.common.errors import RoyaError
 from roya.common.response import ok
-from .schemas import GuestReservationRequestCreate, PartnerReservationAmend, PartnerReservationCancel, PartnerReservationCreate, PartnerReservationDecision, PartnerReservationNoteCreate, PartnerReservationStatusChange, ReservationCreate
+from .schemas import GuestPrearrivalUpdate, GuestReservationRequestCreate, PartnerPrearrivalUpdate, PartnerReservationAmend, PartnerReservationCancel, PartnerReservationCreate, PartnerReservationDecision, PartnerReservationNoteCreate, PartnerReservationStatusChange, ReservationCreate
 from .service import ReservationService
 from roya.reviews.service import ReviewService
 
@@ -39,6 +39,29 @@ def create_reservation_route():
 def get_reservation(reservation_id):
     identity=current_identity(required=True)
     return ok(service.get_for_user(str(reservation_id),identity.user_id))
+
+
+@bp.put("/api/v1/reservations/<uuid:reservation_id>/prearrival")
+@login_required
+def update_guest_prearrival(reservation_id):
+    try:
+        payload=GuestPrearrivalUpdate.model_validate(request.get_json(silent=True) or {})
+    except ValidationError as exc:
+        raise RoyaError(
+            "VALIDATION_ERROR",
+            "Invalid arrival details.",
+            422,
+            {"errors":exc.errors()},
+        ) from exc
+    identity=current_identity(required=True)
+    return ok(
+        service.update_guest_prearrival(
+            str(reservation_id),
+            identity.user_id,
+            payload,
+            request.headers.get("Idempotency-Key",""),
+        )
+    )
 
 
 @bp.post("/api/v1/reservations/<uuid:reservation_id>/requests")
@@ -211,6 +234,28 @@ def amend_partner_reservation(reservation_id):
     if result:
         result["redirect_to"]=f"/partner/reservations/{reservation_id}"
     return ok(result)
+
+
+@bp.put("/api/v1/partner/reservations/<uuid:reservation_id>/prearrival")
+@login_required
+def update_partner_prearrival(reservation_id):
+    try:
+        payload=PartnerPrearrivalUpdate.model_validate(request.get_json(silent=True) or {})
+    except ValidationError as exc:
+        raise RoyaError(
+            "VALIDATION_ERROR",
+            "Invalid pre-arrival checklist.",
+            422,
+            {"errors":exc.errors()},
+        ) from exc
+    identity=current_identity(required=True)
+    return ok(
+        service.update_partner_prearrival(
+            str(reservation_id),
+            identity.user_id,
+            payload,
+        )
+    )
 
 
 @bp.post("/api/v1/partner/reservations/<uuid:reservation_id>/notes")
