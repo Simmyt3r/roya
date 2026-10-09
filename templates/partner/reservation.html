@@ -2,6 +2,7 @@
 {% set r = workspace.reservation %}
 {% set room_readiness = workspace.get("room_readiness", {"tracked": false, "ready": true}) %}
 {% set assigned_rooms = workspace.get("assigned_rooms", []) %}
+{% set prearrival = workspace.get("prearrival", {}) %}
 {% set refunded_minor = r.get("amount_refunded_minor", 0) or 0 %}
 {% set net_paid_minor = [((r.amount_paid_minor or 0)-refunded_minor),0]|max %}
 {% set outstanding_minor = [((r.total_price_minor or 0)-(r.amount_paid_minor or 0)),0]|max %}
@@ -66,6 +67,63 @@
           <strong>{{ "Rooms ready for check-in" if room_readiness.ready else "Room readiness needs attention" }}</strong>
           <span>{{ "iRoya will assign the ready room numbers automatically at check-in." if room_readiness.ready else "Open Rooms and finish cleaning the required room type before check-in." }}</span>
         </div>
+      {% endif %}
+    </article>
+
+    <article class="card reservation-workspace-card prearrival-workspace-card">
+      <div class="prearrival-workspace-head">
+        <div>
+          <div class="eyebrow">Pre-arrival</div>
+          <h2>Prepare for check-in</h2>
+          <p class="muted">Confirm the essentials before the guest reaches the desk.</p>
+        </div>
+        <span class="status-pill {{ '' if prearrival.get('ready_to_check_in') else 'status-error' }}">{{ "Ready to check in" if prearrival.get("ready_to_check_in") else "Preparation needed" }}</span>
+      </div>
+
+      <div class="prearrival-signal-grid">
+        <div>
+          <span>ETA</span>
+          <strong>{{ prearrival.eta_time.strftime("%H:%M") if prearrival.get("eta_time") and prearrival.eta_time.strftime is defined else (prearrival.get("eta_time") or "Not shared") }}</strong>
+        </div>
+        <div>
+          <span>Room</span>
+          <strong>{{ "Ready" if room_readiness.ready else "Needs preparation" }}</strong>
+        </div>
+        <div>
+          <span>Payment</span>
+          <strong>{{ r.payment_status|replace("_"," ")|title }}</strong>
+        </div>
+      </div>
+
+      {% if prearrival.get("arrival_details") %}
+        <div class="prearrival-guest-detail">
+          <small>Guest arrival detail</small>
+          <p>{{ prearrival.arrival_details }}</p>
+        </div>
+      {% endif %}
+
+      {% if r.member_role in ["owner","manager","reservations","staff"] and r.status in ["held","pending_confirmation","confirmed"] %}
+        <form class="prearrival-checklist-form" data-partner-prearrival-form data-reservation-id="{{ r.id }}">
+          <div class="prearrival-edit-grid">
+            <label>Expected arrival
+              <input name="eta_time" type="time" value="{{ prearrival.eta_time.strftime('%H:%M') if prearrival.get('eta_time') and prearrival.eta_time.strftime is defined else '' }}">
+            </label>
+            <label>Arrival detail
+              <input name="arrival_details" maxlength="1000" value="{{ prearrival.get('arrival_details') or '' }}" placeholder="Optional guest arrival detail">
+            </label>
+          </div>
+          <div class="prearrival-checks">
+            <label><input type="checkbox" name="guest_details_checked" {% if prearrival.get("guest_details_checked") %}checked{% endif %}> Guest details checked</label>
+            <label><input type="checkbox" name="payment_checked" {% if prearrival.get("payment_checked") %}checked{% endif %}> Payment plan checked</label>
+            <label><input type="checkbox" name="requests_reviewed" {% if prearrival.get("requests_reviewed") %}checked{% endif %}> Requests reviewed</label>
+            <label><input type="checkbox" name="arrival_prepared" {% if prearrival.get("arrival_prepared") %}checked{% endif %}> Arrival preparation complete</label>
+          </div>
+          <label>Reception note <span class="muted">(internal)</span>
+            <textarea name="staff_note" rows="2" maxlength="1000" placeholder="Optional internal handover note">{{ prearrival.get("staff_note") or "" }}</textarea>
+          </label>
+          <button class="button button-small" type="submit">Save preparation</button>
+          <p class="form-message" aria-live="polite"></p>
+        </form>
       {% endif %}
     </article>
 
