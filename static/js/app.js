@@ -2131,3 +2131,84 @@ document.querySelectorAll('[data-guest-request-form]').forEach(function(form){
     }
   });
 });
+
+
+document.querySelectorAll('[data-guest-prearrival-form]').forEach(function(form){
+  const submit=form.querySelector('button[type="submit"]');
+  const message=form.querySelector('.form-message');
+  form.addEventListener('submit',async function(event){
+    event.preventDefault();
+    if(!form.reportValidity())return;
+    const data=Object.fromEntries(new FormData(form).entries());
+    if(!form.dataset.idempotencyKey){
+      form.dataset.idempotencyKey=requestKey('guest-prearrival');
+    }
+    submit.disabled=true;
+    message.textContent='Saving arrival plan…';
+    try{
+      const response=await fetch(
+        '/api/v1/reservations/'+form.dataset.reservationId+'/prearrival',
+        {
+          method:'PUT',
+          headers:{
+            'Content-Type':'application/json',
+            'Idempotency-Key':form.dataset.idempotencyKey
+          },
+          body:JSON.stringify({
+            eta_time:data.eta_time,
+            arrival_details:(data.arrival_details||'').trim()||null
+          })
+        }
+      );
+      const body=await response.json().catch(function(){return {};});
+      if(!response.ok){
+        message.textContent=(body.error&&body.error.message)||'Arrival plan could not be saved.';
+        return;
+      }
+      window.location.reload();
+    }catch(_error){
+      message.textContent='Arrival plan could not be saved. You can retry safely.';
+    }finally{
+      submit.disabled=false;
+    }
+  });
+});
+
+document.querySelectorAll('[data-partner-prearrival-form]').forEach(function(form){
+  const submit=form.querySelector('button[type="submit"]');
+  const message=form.querySelector('.form-message');
+  form.addEventListener('submit',async function(event){
+    event.preventDefault();
+    const data=new FormData(form);
+    submit.disabled=true;
+    message.textContent='Saving preparation…';
+    try{
+      const response=await fetch(
+        '/api/v1/partner/reservations/'+form.dataset.reservationId+'/prearrival',
+        {
+          method:'PUT',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({
+            eta_time:data.get('eta_time')||null,
+            arrival_details:(data.get('arrival_details')||'').trim()||null,
+            guest_details_checked:data.has('guest_details_checked'),
+            payment_checked:data.has('payment_checked'),
+            requests_reviewed:data.has('requests_reviewed'),
+            arrival_prepared:data.has('arrival_prepared'),
+            staff_note:(data.get('staff_note')||'').trim()||null
+          })
+        }
+      );
+      const body=await response.json().catch(function(){return {};});
+      if(!response.ok){
+        message.textContent=(body.error&&body.error.message)||'Preparation could not be saved.';
+        return;
+      }
+      window.location.reload();
+    }catch(_error){
+      message.textContent='Preparation could not be saved.';
+    }finally{
+      submit.disabled=false;
+    }
+  });
+});
