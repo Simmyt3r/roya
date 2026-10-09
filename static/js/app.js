@@ -2089,3 +2089,45 @@ document.querySelectorAll('[data-reservation-note-resolve]').forEach(function(bu
     }
   });
 });
+
+
+document.querySelectorAll('[data-guest-request-form]').forEach(function(form){
+  const submit=form.querySelector('button[type="submit"]');
+  const message=form.querySelector('.form-message');
+
+  form.addEventListener('submit',async function(event){
+    event.preventDefault();
+    if(!form.reportValidity())return;
+
+    const data=Object.fromEntries(new FormData(form).entries());
+    if(!form.dataset.idempotencyKey){
+      form.dataset.idempotencyKey=requestKey('guest-request');
+    }
+
+    submit.disabled=true;
+    message.textContent='Sending request…';
+    try{
+      const response=await fetch(
+        '/api/v1/reservations/'+form.dataset.reservationId+'/requests',
+        {
+          method:'POST',
+          headers:{
+            'Content-Type':'application/json',
+            'Idempotency-Key':form.dataset.idempotencyKey
+          },
+          body:JSON.stringify({body:(data.body||'').trim()})
+        }
+      );
+      const body=await response.json().catch(function(){return {};});
+      if(!response.ok){
+        message.textContent=(body.error&&body.error.message)||'Your request could not be sent.';
+        return;
+      }
+      window.location.reload();
+    }catch(_error){
+      message.textContent='Your request could not be sent. You can retry safely.';
+    }finally{
+      submit.disabled=false;
+    }
+  });
+});
