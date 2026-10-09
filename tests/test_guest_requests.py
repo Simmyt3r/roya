@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-from datetime import date,timedelta
+from datetime import date,time,timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -203,7 +203,7 @@ class _GuestReservationConnection:
                 "reference":"RYA-GUEST123",
                 "user_id":"60000000-0000-4000-8000-000000000001",
                 "property_name":"Example Hotel",
-                "check_in_time":"14:00",
+                "check_in_time":time(14,0),
                 "room_type_name":"Deluxe",
                 "rate_plan_name":"Standard",
                 "refundable":True,
