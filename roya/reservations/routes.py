@@ -5,7 +5,7 @@ from pydantic import ValidationError
 from roya.auth.service import current_identity, login_required
 from roya.common.errors import RoyaError
 from roya.common.response import ok
-from .schemas import PartnerReservationAmend, PartnerReservationCancel, PartnerReservationCreate, PartnerReservationDecision, PartnerReservationNoteCreate, PartnerReservationStatusChange, ReservationCreate
+from .schemas import GuestReservationRequestCreate, PartnerReservationAmend, PartnerReservationCancel, PartnerReservationCreate, PartnerReservationDecision, PartnerReservationNoteCreate, PartnerReservationStatusChange, ReservationCreate
 from .service import ReservationService
 from roya.reviews.service import ReviewService
 
@@ -39,6 +39,30 @@ def create_reservation_route():
 def get_reservation(reservation_id):
     identity=current_identity(required=True)
     return ok(service.get_for_user(str(reservation_id),identity.user_id))
+
+
+@bp.post("/api/v1/reservations/<uuid:reservation_id>/requests")
+@login_required
+def add_guest_reservation_request(reservation_id):
+    try:
+        payload=GuestReservationRequestCreate.model_validate(request.get_json(silent=True) or {})
+    except ValidationError as exc:
+        raise RoyaError(
+            "VALIDATION_ERROR",
+            "Invalid special request.",
+            422,
+            {"errors":exc.errors()},
+        ) from exc
+    identity=current_identity(required=True)
+    return ok(
+        service.add_guest_request(
+            str(reservation_id),
+            identity.user_id,
+            payload.body,
+            request.headers.get("Idempotency-Key",""),
+        ),
+        201,
+    )
 
 
 @bp.post("/api/v1/reservations/<uuid:reservation_id>/cancel")
