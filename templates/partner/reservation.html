@@ -86,7 +86,7 @@
               </div>
               <p>{{ note.body }}</p>
               <div class="reservation-note-meta">
-                <span>{{ note.created_by_name }} · {{ note.created_at }}</span>
+                <span>{% if note.origin == "guest" %}Guest submitted{% else %}{{ note.created_by_name }}{% endif %} · {{ note.created_at }}</span>
                 {% if note.status == "resolved" and note.resolved_at %}
                   <span>Resolved{% if note.resolved_by_name %} by {{ note.resolved_by_name }}{% endif %} · {{ note.resolved_at }}</span>
                 {% elif r.member_role in ["owner","manager","reservations","staff"] %}
