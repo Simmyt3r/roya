@@ -206,10 +206,12 @@
             <span><strong>{{ stay.guest_name }}</strong><small><a class="reservation-reference-link" href="/partner/reservations/{{ stay.id }}">{{ stay.reference }}</a> · {{ stay.property_name }}</small></span>
             <span class="hotel-ops-stay-status">
               <strong>{{ stay.payment_status|replace('_',' ')|title }}</strong>
+              {% if stay.eta_time %}<small>ETA {{ stay.eta_time.strftime("%H:%M") if stay.eta_time.strftime is defined else stay.eta_time }}</small>{% endif %}
+              <small class="stay-readiness {{ 'is-ready' if stay.prearrival_ready else 'is-warning' }}">{{ "Ready to check in" if stay.prearrival_ready else "Prep needed" }}</small>
               {% if stay.room_readiness_tracked %}
-                <small class="stay-readiness {{ 'is-ready' if stay.rooms_ready else 'is-warning' }}">{{ "Room ready" if stay.rooms_ready else "Needs cleaning" }}</small>
+                <small>{{ "Room ready" if stay.rooms_ready else "Room needs preparation" }}</small>
               {% else %}
-                <small>Readiness not tracked</small>
+                <small>Room readiness not tracked</small>
               {% endif %}
               {{ reservation_actions(stay) }}
             </span>
