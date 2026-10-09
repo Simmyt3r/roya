@@ -14,6 +14,55 @@
 {% endif %}
 <p class="form-message" data-reservation-message aria-live="polite"></p></aside>
 </section>
+
+<section class="shell guest-request-section">
+  <article class="card guest-request-card">
+    <div class="guest-request-head">
+      <div>
+        <div class="eyebrow">Guest care</div>
+        <h2>Special requests</h2>
+        <p class="muted">Send the hotel useful stay details such as late arrival, airport pickup, dietary or accessibility needs.</p>
+      </div>
+      {% set open_requests = reservation.guest_requests|selectattr("status","equalto","open")|list %}
+      <span class="status-pill {{ 'status-error' if open_requests else 'status-muted' }}">{{ open_requests|length }} open</span>
+    </div>
+
+    {% if reservation.guest_requests %}
+      <div class="guest-request-list">
+        {% for item in reservation.guest_requests %}
+          <div class="guest-request-item {{ 'is-resolved' if item.status == 'resolved' else '' }}">
+            <div>
+              <strong>{{ item.body }}</strong>
+              <small>{{ "Sent by you" if item.origin == "guest" else "Recorded by the hotel" }} · {{ item.created_at }}</small>
+            </div>
+            <span class="status-pill {{ 'status-muted' if item.status == 'resolved' else '' }}">{{ item.status|title }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty compact-empty">
+        <strong>No special requests yet</strong>
+        <span>Only requests intended for the hotel appear here.</span>
+      </div>
+    {% endif %}
+
+    {% if reservation.status in ["held","pending_confirmation","confirmed","checked_in"] %}
+      <form class="guest-request-form" data-guest-request-form data-reservation-id="{{ reservation.id }}">
+        <label>Your request
+          <textarea name="body" rows="3" maxlength="2000" placeholder="e.g. We expect to arrive around 10:30 PM." required></textarea>
+        </label>
+        <div class="guest-request-submit">
+          <small class="muted">Requests are sent to the hotel but are not guaranteed until the hotel confirms them.</small>
+          <button class="button button-small" type="submit">Send request</button>
+        </div>
+        <p class="form-message" aria-live="polite"></p>
+      </form>
+    {% else %}
+      <p class="muted guest-request-closed">New requests are closed for this reservation.</p>
+    {% endif %}
+  </article>
+</section>
+
 {% if reservation.status == "checked_out" %}
 <section class="shell reservation-review">
   <div class="section-heading"><div><div class="eyebrow">Your stay</div><h2>Review {{ reservation.property_name }}</h2></div></div>
