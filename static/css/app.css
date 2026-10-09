@@ -2591,3 +2591,39 @@ html{-webkit-text-size-adjust:100%}body{min-width:0;overflow-x:hidden}button,a,i
   .guest-request-head,.guest-request-item,.guest-request-submit{align-items:stretch;flex-direction:column}
   .guest-request-submit .button{width:100%}
 }
+
+
+/* Pre-arrival preparation */
+.guest-prearrival-section{margin-top:14px}
+.guest-prearrival-card,.prearrival-workspace-card{display:grid;gap:14px}
+.guest-prearrival-current{
+  display:grid;
+  gap:7px;
+  padding:12px;
+  border-radius:12px;
+  background:#f7faf9;
+  border:1px solid #e4ece9
+}
+.guest-prearrival-current span{display:grid;gap:2px}
+.guest-prearrival-current small,.prearrival-signal-grid span,.prearrival-guest-detail small{
+  color:var(--muted);font-size:.66rem;text-transform:uppercase;font-weight:800;letter-spacing:.04em
+}
+.guest-prearrival-current p,.prearrival-guest-detail p{margin:0;line-height:1.5}
+.guest-prearrival-form,.prearrival-checklist-form{display:grid;gap:10px}
+.guest-prearrival-form label,.prearrival-checklist-form label{display:grid;gap:5px}
+.prearrival-workspace-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
+.prearrival-workspace-head h2{margin:.15rem 0 .3rem}
+.prearrival-signal-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.prearrival-signal-grid>div{display:grid;gap:3px;padding:10px;border:1px solid #e6eeec;border-radius:10px;background:#fbfdfc}
+.prearrival-guest-detail{padding:11px;border-left:3px solid #cadbd6;background:#f8fbfa;border-radius:8px}
+.prearrival-edit-grid{display:grid;grid-template-columns:minmax(130px,.35fr) 1fr;gap:9px}
+.prearrival-checks{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.prearrival-checks label{
+  display:flex;align-items:center;gap:8px;padding:10px;border:1px solid #e4ece9;border-radius:10px;background:#fbfdfc
+}
+.prearrival-checks input{width:auto;margin:0}
+@media(max-width:700px){
+  .prearrival-workspace-head{flex-direction:column}
+  .prearrival-signal-grid,.prearrival-edit-grid,.prearrival-checks{grid-template-columns:1fr}
+  .prearrival-checklist-form .button{width:100%}
+}
