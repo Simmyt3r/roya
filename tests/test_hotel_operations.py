@@ -63,6 +63,7 @@ def test_daily_actions_prioritize_operational_exceptions():
         },
         [{"room_type_name":"Suite"}],
         [{"channel":"direct_booking"}],
+        not_ready_arrivals=1,
     )
     assert tasks[0]["priority"]=="critical"
     assert "overdue arrival" in tasks[0]["title"]
@@ -73,6 +74,7 @@ def test_daily_actions_prioritize_operational_exceptions():
     assert any(task["href"]=="/partner/finance?focus=refunds" for task in tasks)
     assert any(task["href"]=="/partner/distribution" for task in tasks)
     assert any(task["href"]=="/partner#guest-requests" for task in tasks)
+    assert any(task["href"]=="/partner/housekeeping" for task in tasks)
 
 
 def test_daily_actions_empty_when_nothing_needs_attention():
@@ -206,6 +208,7 @@ def test_scope_action_links_preserves_selected_property_and_external_routes():
         {"href":"/partner/finance?focus=refunds","title":"Refunds"},
         {"href":"/partner/distribution","title":"Distribution"},
         {"href":"/partner#guest-requests","title":"Guest requests"},
+        {"href":"/partner/housekeeping","title":"Housekeeping"},
     ]
     scoped=scope_action_links(tasks,property_id,14)
     assert scoped[0]["href"]==f"/partner?property_id={property_id}&days=14#operations-overdue"
@@ -214,6 +217,7 @@ def test_scope_action_links_preserves_selected_property_and_external_routes():
     assert scoped[3]["href"]==f"/partner/finance?focus=refunds&property_id={property_id}"
     assert scoped[4]["href"]=="/partner/distribution"
     assert scoped[5]["href"]==f"/partner?property_id={property_id}&days=14#guest-requests"
+    assert scoped[6]["href"]==f"/partner/housekeeping?property_id={property_id}"
     assert tasks[0]["href"]=="/partner#operations-overdue"
     assert tasks[1]["href"]=="/partner/reservations?tab=pending"
     assert tasks[2]["href"]=="/partner/rooms?focus=inventory"
