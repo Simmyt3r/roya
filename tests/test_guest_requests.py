@@ -223,6 +223,8 @@ class _GuestReservationConnection:
                     "resolved_at":None,
                 }
             ])
+        if "from private.reservation_prearrival" in sql:
+            return _Result(row=None)
         raise AssertionError(sql)
 
 
