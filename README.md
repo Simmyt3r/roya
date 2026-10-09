@@ -32,7 +32,7 @@ A property cannot be verified for public sale until it has at least one active r
 
 ## Guest workflow
 
-Guests can search verified active properties, inspect live sellable rooms for selected dates, reserve with atomic inventory protection, use pay-now/deposit/pay-at-property/hotel-approval guarantees, manage reservations in **My Stays**, continue required payments, cancel unpaid eligible reservations, and request refund review for paid cancellations.
+Guests can search verified active properties, inspect live sellable rooms for selected dates, reserve with atomic inventory protection, use pay-now/deposit/pay-at-property/hotel-approval guarantees, manage reservations in **My Stays**, submit and track hotel special requests, continue required payments, cancel unpaid eligible reservations, and request refund review for paid cancellations.
 
 Browser redirects never mark a Paystack transaction successful. iRoya verifies Paystack responses and signed webhooks before changing payment state.
 
