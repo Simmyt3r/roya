@@ -67,6 +67,14 @@ def _db(connection):
     return _connection
 
 
+class _ResolvedRequestNotifier:
+    calls=[]
+
+    def notify_guest_request_resolved(self,note_id):
+        self.__class__.calls.append(note_id)
+        return {"created":1}
+
+
 def test_add_partner_note_calls_private_atomic_function(monkeypatch):
     connection=_NoteConnection()
     monkeypatch.setattr(reservation_service,"db_connection",lambda:_db(connection)())
@@ -119,6 +127,8 @@ def test_add_partner_note_maps_database_failures(monkeypatch,db_error,code,statu
 def test_resolve_partner_note_calls_private_function(monkeypatch):
     connection=_NoteConnection()
     monkeypatch.setattr(reservation_service,"db_connection",lambda:_db(connection)())
+    monkeypatch.setattr(reservation_service,"NotificationService",_ResolvedRequestNotifier)
+    _ResolvedRequestNotifier.calls=[]
 
     result=ReservationService().resolve_partner_note(
         "50000000-0000-4000-8000-000000000001",
@@ -134,6 +144,7 @@ def test_resolve_partner_note_calls_private_function(monkeypatch):
         "50000000-0000-4000-8000-000000000001",
         "70000000-0000-4000-8000-000000000001",
     )
+    assert _ResolvedRequestNotifier.calls==["70000000-0000-4000-8000-000000000001"]
 
 
 def test_note_routes_forward_member_identity(monkeypatch):
