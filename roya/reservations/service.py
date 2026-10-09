@@ -864,7 +864,10 @@ class ReservationService:
                     403,
                 ) from exc
             raise
-        return dict(row) if row else None
+        result=dict(row) if row else None
+        if result and result.get("kind")=="guest_request" and not result.get("idempotent"):
+            NotificationService().notify_guest_request_resolved(str(result["note_id"]))
+        return result
 
 
     def amendment_options_for_partner(self,user_id,property_id):
