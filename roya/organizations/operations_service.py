@@ -76,6 +76,7 @@ def build_daily_actions(summary,low_inventory,channel_errors,not_ready_arrivals=
     arrivals=int(summary.get("arrivals_today") or 0)
     departures=int(summary.get("departures_today") or 0)
     refund_attention=int(summary.get("refund_attention") or 0)
+    prearrival_attention=int(summary.get("prearrival_attention") or 0)
 
     if overdue_arrivals:
         tasks.append(_task(
@@ -105,6 +106,13 @@ def build_daily_actions(summary,low_inventory,channel_errors,not_ready_arrivals=
             f"{open_guest_requests} open guest request{'s' if open_guest_requests != 1 else ''}",
             "Review guest requests that still need hotel attention.",
             "/partner#guest-requests",
+        ))
+    if prearrival_attention:
+        tasks.append(_task(
+            "warning",
+            f"{prearrival_attention} arrival{'s' if prearrival_attention != 1 else ''} still need preparation",
+            "Complete the pre-arrival checklist before the guest reaches reception.",
+            "/partner#operations-arrivals",
         ))
     if not_ready_arrivals:
         tasks.append(_task(
@@ -220,6 +228,8 @@ def hotel_operations_snapshot(user_id,horizon_days=DEFAULT_HORIZON_DAYS,property
         arrivals=[dict(row) for row in conn.execute(
             """select r.id,r.organization_id,r.reference,r.guest_name,r.guest_email,r.check_in,r.check_out,r.status,
                       r.payment_status,r.guarantee_type,r.source_channel,p.name property_name,
+                      pa.eta_time,pa.guest_details_checked,pa.payment_checked,
+                      pa.requests_reviewed,pa.arrival_prepared,
                       coalesce((
                         select count(*)>0 and bool_and(
                           (select count(*) from physical_rooms pr where pr.room_type_id=ri.room_type_id)>=rt.total_inventory
@@ -241,6 +251,7 @@ def hotel_operations_snapshot(user_id,horizon_days=DEFAULT_HORIZON_DAYS,property
                       ),true) rooms_ready
                from reservations r
                join properties p on p.id=r.property_id
+               left join private.reservation_prearrival pa on pa.reservation_id=r.id
                where r.organization_id=any(%s::uuid[])
                  and (%s::uuid is null or r.property_id=%s::uuid)
                  and r.status='confirmed'
@@ -372,6 +383,7 @@ def hotel_operations_snapshot(user_id,horizon_days=DEFAULT_HORIZON_DAYS,property
         "arrivals_today","departures_today","in_house","pending_approvals",
         "overdue_arrivals","overdue_departures","active_next_24h","refund_attention",
         "open_guest_requests",
+        "prearrival_attention",
     ):
         summary[key]=int(summary.get(key) or 0)
 
@@ -383,6 +395,17 @@ def hotel_operations_snapshot(user_id,horizon_days=DEFAULT_HORIZON_DAYS,property
         1 for stay in arrivals
         if stay.get("room_readiness_tracked") and not stay.get("rooms_ready")
     )
+    for stay in arrivals:
+        checklist_ready=all([
+            bool(stay.get("guest_details_checked")),
+            bool(stay.get("payment_checked")),
+            bool(stay.get("requests_reviewed")),
+            bool(stay.get("arrival_prepared")),
+        ])
+        stay["prearrival_ready"]=bool(checklist_ready and (
+            not stay.get("room_readiness_tracked") or stay.get("rooms_ready")
+        ))
+    summary["prearrival_attention"]=sum(1 for stay in arrivals if not stay.get("prearrival_ready"))
     tasks=scope_action_links(
         build_daily_actions(summary,low_inventory,channel_errors,not_ready_arrivals),
         selected_property_id,
