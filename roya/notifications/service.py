@@ -491,7 +491,7 @@ class NotificationService:
                 with conn.transaction():
                     row=conn.execute(
                         """select r.id,r.reference,r.organization_id,r.guest_name,p.name property_name,
-                                  pa.eta_time
+                                  pa.eta_time,pa.guest_updated_at
                            from reservations r
                            join properties p on p.id=r.property_id
                            join private.reservation_prearrival pa on pa.reservation_id=r.id
@@ -515,7 +515,8 @@ class NotificationService:
                     title="Guest arrival details updated"
                     body=f"{row['guest_name']} expects to arrive around {eta} for {row['reference']} at {row['property_name']}."
                     href=f"/partner/reservations/{row['id']}"
-                    event_type="partner.prearrival_updated"
+                    update_token=str(row["guest_updated_at"]).replace(" ","T").replace(":","").replace(".","").replace("+","")
+                    event_type=f"partner.prearrival_updated.{update_token}"
 
                     for member in members:
                         self._insert_in_app(
