@@ -2,7 +2,7 @@ import json
 import uuid as uuidlib
 from typing import Literal
 from uuid import UUID
-from flask import Blueprint, current_app, request
+from flask import Blueprint, current_app, render_template, request
 from pydantic import BaseModel, Field, ValidationError
 
 from roya.auth.service import current_identity, login_required
@@ -48,6 +48,148 @@ class PhysicalRoomBatchCreate(BaseModel):
 
 class PhysicalRoomReadinessUpdate(BaseModel):
     status: Literal["dirty","cleaning","ready","out_of_service"]
+
+
+def housekeeping_workspace(user_id,property_id=None):
+    requested_property=(property_id or "").strip()
+    with db_connection() as conn:
+        properties=[
+            dict(row) for row in conn.execute(
+                """select p.id,p.name,p.city,p.state,o.name organization_name,om.role member_role
+                   from properties p
+                   join organizations o on o.id=p.organization_id
+                   join organization_members om on om.organization_id=p.organization_id
+                   where om.user_id=%s
+                     and om.status='active'
+                     and om.role in ('owner','manager','reservations','staff')
+                   order by p.name""",
+                (user_id,),
+            ).fetchall()
+        ]
+        selected_property=next(
+            (item for item in properties if str(item["id"])==requested_property),
+            None,
+        ) if requested_property else None
+        if requested_property and not selected_property:
+            raise RoyaError("NOT_FOUND","Property not found.",404)
+
+        property_ids=[
+            str(selected_property["id"])
+        ] if selected_property else [str(item["id"]) for item in properties]
+        if not property_ids:
+            return {
+                "properties":[],
+                "selected_property_id":None,
+                "selected_property":None,
+                "rooms":[],
+                "groups":{"dirty":[],"cleaning":[],"ready":[],"occupied":[],"out_of_service":[]},
+                "summary":{"dirty":0,"cleaning":0,"ready":0,"occupied":0,"out_of_service":0,"arrival_priority":0},
+            }
+
+        rows=[
+            dict(row) for row in conn.execute(
+                """select
+                     pr.id,pr.room_type_id,pr.room_number,pr.floor,pr.status,
+                     pr.housekeeping_status,pr.current_reservation_id,
+                     pr.housekeeping_updated_at,
+                     rt.name room_type_name,rt.total_inventory,
+                     p.id property_id,p.name property_name,om.role member_role,
+                     r.reference current_reservation_reference,
+                     r.guest_name current_guest_name,
+                     r.check_out current_check_out,
+                     (r.status='checked_in' and r.check_out=current_date) departure_due_today,
+                     coalesce((
+                       select sum(ri.quantity)
+                       from reservation_items ri
+                       join reservations ar on ar.id=ri.reservation_id
+                       where ri.room_type_id=pr.room_type_id
+                         and ar.status='confirmed'
+                         and ar.check_in=current_date
+                     ),0)::bigint arrivals_today,
+                     coalesce((
+                       select sum(ri.quantity)
+                       from reservation_items ri
+                       join reservations ar on ar.id=ri.reservation_id
+                       where ri.room_type_id=pr.room_type_id
+                         and ar.status='confirmed'
+                         and ar.check_in=current_date+1
+                     ),0)::bigint arrivals_tomorrow,
+                     (select count(*)
+                        from physical_rooms rr
+                        where rr.room_type_id=pr.room_type_id
+                          and rr.status='active'
+                          and rr.housekeeping_status='ready'
+                          and rr.current_reservation_id is null)::bigint ready_for_type
+                   from physical_rooms pr
+                   join room_types rt on rt.id=pr.room_type_id
+                   join properties p on p.id=rt.property_id
+                   join organization_members om on om.organization_id=p.organization_id
+                   left join reservations r on r.id=pr.current_reservation_id
+                   where p.id=any(%s::uuid[])
+                     and om.user_id=%s
+                     and om.status='active'
+                     and om.role in ('owner','manager','reservations','staff')
+                   order by p.name,rt.name,coalesce(pr.floor,''),pr.room_number""",
+                (property_ids,user_id),
+            ).fetchall()
+        ]
+
+    groups={"dirty":[],"cleaning":[],"ready":[],"occupied":[],"out_of_service":[]}
+    for room in rows:
+        occupied=room.get("current_reservation_id") is not None
+        if occupied:
+            state="occupied"
+        elif room.get("status")=="out_of_service":
+            state="out_of_service"
+        else:
+            state=room.get("housekeeping_status") or "dirty"
+        room["display_status"]=state
+        room["arrival_pressure"]=bool(
+            not occupied
+            and state in {"dirty","cleaning"}
+            and int(room.get("arrivals_today") or 0)>int(room.get("ready_for_type") or 0)
+        )
+        room["priority_rank"]=(
+            0 if room.get("departure_due_today")
+            else 1 if room["arrival_pressure"]
+            else 2 if state=="dirty"
+            else 3 if state=="cleaning"
+            else 4 if state=="ready"
+            else 5
+        )
+        groups[state].append(room)
+
+    for group in groups.values():
+        group.sort(key=lambda room:(
+            room["priority_rank"],
+            room["property_name"],
+            room["room_type_name"],
+            room.get("floor") or "",
+            room["room_number"],
+        ))
+
+    summary={key:len(value) for key,value in groups.items()}
+    summary["arrival_priority"]=sum(1 for row in rows if row["arrival_pressure"])
+
+    return {
+        "properties":properties,
+        "selected_property_id":str(selected_property["id"]) if selected_property else None,
+        "selected_property":selected_property,
+        "rooms":rows,
+        "groups":groups,
+        "summary":summary,
+    }
+
+
+@bp.get("/partner/housekeeping")
+@login_required
+def partner_housekeeping_page():
+    identity=current_identity(required=True)
+    workspace=housekeeping_workspace(
+        identity.user_id,
+        property_id=request.args.get("property_id"),
+    )
+    return render_template("partner/housekeeping.html",workspace=workspace)
 
 
 @bp.post("/api/v1/room-types")
@@ -248,7 +390,7 @@ def update_physical_room_readiness(physical_room_id):
             ).fetchone()
             if not room:
                 raise RoyaError("ROOM_NOT_FOUND","Room not found.",404)
-            if room["role"] not in {"owner","manager","reservations"}:
+            if room["role"] not in {"owner","manager","reservations","staff"}:
                 raise RoyaError("FORBIDDEN","Your hotel role cannot update room readiness.",403)
             if room["status"]=="inactive":
                 raise RoyaError("ROOM_INACTIVE","Inactive rooms cannot be updated.",409)
