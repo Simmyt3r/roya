@@ -1,18 +1,27 @@
-name: Roya v3 CI
+name: iRoya Release CI
 on:
   push:
-    branches: [v3-flask, main]
+    branches: [v3-flask, main, "release/v1.0-hardening"]
   pull_request:
     branches: [main]
+
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
           cache: pip
+      - run: python -m pip install --upgrade pip
       - run: pip install -r requirements-dev.txt
+      - run: pip check
       - run: python -m compileall app.py roya scripts tests
-      - run: pytest
+      # Baseline measured at 54.37% on the v1.0 RC. Fail if coverage regresses.
+      - run: pytest --cov=roya --cov-report=term-missing --cov-fail-under=54
+      - run: pip-audit -r requirements.txt

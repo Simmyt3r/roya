@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from roya.common.db import db_connection, supabase_anon_client
 from roya.common.errors import RoyaError
+from roya.common.rate_limit import enforce_rate_limit
 from roya.common.response import ok
 from .schemas import LoginInput, RegisterInput
 from .service import (
@@ -72,6 +73,7 @@ def register_page():
 @bp.post("/api/v1/auth/register")
 def register():
     body = _payload(RegisterInput)
+    enforce_rate_limit("auth.register",limit=8,window_seconds=3600)
     client = supabase_anon_client()
     try:
         result = client.auth.sign_up(
@@ -103,6 +105,7 @@ def register():
 @bp.post("/api/v1/auth/login")
 def login():
     body = _payload(LoginInput)
+    enforce_rate_limit("auth.login",limit=20,window_seconds=900)
     try:
         result = supabase_anon_client().auth.sign_in_with_password(
             {"email": str(body.email), "password": body.password}

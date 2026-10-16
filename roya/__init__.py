@@ -17,6 +17,13 @@ def create_app(test_config=None):
     if test_config:
         app.config.update(test_config)
 
+    if not app.config.get("TESTING") and app.config.get("ENVIRONMENT") == "production":
+        invalid = Config.validate_production()
+        if invalid:
+            raise RuntimeError(
+                "Production configuration is incomplete or unsafe: " + ", ".join(sorted(set(invalid)))
+            )
+
     csrf.init_app(app)
     register_error_handlers(app)
 
@@ -34,8 +41,16 @@ def create_app(test_config=None):
     def response_headers(response):
         response.headers["X-Request-ID"] = getattr(request, "request_id", "")
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=(self)")
+        response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; "
+            "form-action 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; "
+            "script-src 'self' 'unsafe-inline'; connect-src 'self'",
+        )
         if session.get("sid") or request.path.startswith(("/api/v1/auth/","/api/v1/admin/","/admin")):
             response.headers["Cache-Control"] = "private, no-store"
             response.headers["Pragma"] = "no-cache"
