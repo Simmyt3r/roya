@@ -3,7 +3,10 @@ from datetime import timedelta
 
 
 class Config:
-    SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "dev-only-change-me")
+    ENVIRONMENT = os.getenv("FLASK_ENV", "development").strip().lower()
+    SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "") or (
+        "dev-only-change-me" if ENVIRONMENT != "production" else ""
+    )
     APP_URL = os.getenv("APP_URL", "http://localhost:5000")
     HOTEL_DOMAIN_BASE = os.getenv("HOTEL_DOMAIN_BASE", "iroya.ng")
 
@@ -30,16 +33,33 @@ class Config:
     PERMANENT_SESSION_LIFETIME = timedelta(days=SESSION_TTL_DAYS)
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
-    SESSION_COOKIE_SECURE = os.getenv("FLASK_ENV") == "production"
+    SESSION_COOKIE_SECURE = ENVIRONMENT == "production"
     WTF_CSRF_TIME_LIMIT = None
     JSON_SORT_KEYS = False
 
     @classmethod
     def validate_production(cls):
         missing = []
-        for name in ("FLASK_SECRET_KEY", "SUPABASE_URL", "DATABASE_URL", "CRON_SECRET"):
+        for name in (
+            "FLASK_SECRET_KEY",
+            "APP_URL",
+            "SUPABASE_URL",
+            "SUPABASE_SERVICE_ROLE_KEY",
+            "DATABASE_URL",
+            "CRON_SECRET",
+        ):
             if not os.getenv(name):
                 missing.append(name)
+
         if not (os.getenv("SUPABASE_PUBLISHABLE_KEY") or os.getenv("SUPABASE_ANON_KEY")):
             missing.append("SUPABASE_PUBLISHABLE_KEY")
+
+        app_url = (os.getenv("APP_URL") or "").strip().lower()
+        if app_url and not app_url.startswith("https://"):
+            missing.append("APP_URL_HTTPS")
+
+        secret = os.getenv("FLASK_SECRET_KEY") or ""
+        if secret and (secret == "dev-only-change-me" or len(secret) < 32):
+            missing.append("FLASK_SECRET_KEY_STRONG")
+
         return missing
