@@ -4,6 +4,6 @@ pydantic==2.11.9
 psycopg[binary]==3.2.10
 requests==2.33.1
 supabase==2.18.1
-python-dotenv==1.1.1
+python-dotenv==1.2.2
 gunicorn==26.2.0
 email-validator==2.2.0
