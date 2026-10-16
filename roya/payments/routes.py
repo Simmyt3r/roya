@@ -3,6 +3,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, ValidationError
 from roya.auth.service import current_identity, login_required
 from roya.common.errors import RoyaError
+from roya.common.rate_limit import enforce_rate_limit
 from roya.common.response import ok
 from .service import PaymentService
 
@@ -27,6 +28,12 @@ class PartnerRefundRecord(BaseModel):
 def initiate_payment():
     body=request.get_json(silent=True) or {}
     identity=current_identity(required=True)
+    enforce_rate_limit(
+        "payments.initiate",
+        limit=30,
+        window_seconds=600,
+        subject=identity.user_id,
+    )
     return ok(service.initialize(body.get("reservation_id",""),identity.user_id,request.headers.get("Idempotency-Key","")),201)
 
 
