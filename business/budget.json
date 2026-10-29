@@ -1,0 +1,16 @@
+{
+  "date": "29 October 2026",
+  "currency": "NGN",
+  "staff_count": 2,
+  "staff_monthly_each": 25000,
+  "annual_staff": 600000,
+  "vercel_monthly_usd": 20,
+  "supabase_monthly_usd": 25,
+  "fx_planning_ngn_per_usd": 1500,
+  "annual_hosting": 810000,
+  "annual_operations": 1000000,
+  "funding_total": 2410000,
+  "equity_percent": 10,
+  "post_money": 24100000,
+  "pre_money": 21690000
+}

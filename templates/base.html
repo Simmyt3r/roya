@@ -16,13 +16,14 @@
   <title>{% block title %}iRoya{% endblock %}</title>
 </head>
 <body id="top">
+  <a class="skip-link" href="#main-content">Skip to content</a>
   <header class="topbar">
     <a class="brand brand-lockup" href="/" aria-label="iRoya home">
       <img src="/static/brand/iroya-logo.svg" alt="" width="44" height="44">
       <span>iRoya</span>
     </a>
 
-    <button class="nav-toggle" type="button" data-nav-toggle aria-expanded="false" aria-controls="main-navigation">
+    <button aria-label="Open menu" class="nav-toggle" type="button" data-nav-toggle aria-expanded="false" aria-controls="main-navigation">
       <span></span><span></span><span></span><span class="sr-only">Menu</span>
     </button>
 
@@ -36,36 +37,36 @@
       </div>
       {% if session.get("sid") %}
         {% if session.get("account_type") == "hotel" %}
-          <a href="/partner">Home</a>
-          <a href="/partner/reservations">Reservations</a>
-          <a href="/partner/rooms">Rooms</a>
-          <a href="/partner/housekeeping">Housekeeping</a>
-          <a href="/partner/guests">Guests</a>
-          {% if session.get("can_view_hotel_reports") %}<a href="/partner/analytics">Reports</a>{% endif %}
-          <a href="/partner/settings">Settings</a>
+          <a href="/partner"{% if request.path == "/partner" %} aria-current="page"{% endif %}>Home</a>
+          <a href="/partner/reservations"{% if request.path == "/partner/reservations" or request.path.startswith("/partner/reservations/") %} aria-current="page"{% endif %}>Reservations</a>
+          <a href="/partner/rooms"{% if request.path == "/partner/rooms" or request.path.startswith("/partner/rooms/") %} aria-current="page"{% endif %}>Rooms</a>
+          <a href="/partner/housekeeping"{% if request.path == "/partner/housekeeping" or request.path.startswith("/partner/housekeeping/") %} aria-current="page"{% endif %}>Housekeeping</a>
+          <a href="/partner/guests"{% if request.path == "/partner/guests" or request.path.startswith("/partner/guests/") %} aria-current="page"{% endif %}>Guests</a>
+          {% if session.get("can_view_hotel_reports") %}<a href="/partner/analytics"{% if request.path == "/partner/analytics" or request.path.startswith("/partner/analytics/") %} aria-current="page"{% endif %}>Reports</a>{% endif %}
+          <a href="/partner/settings"{% if request.path == "/partner/settings" or request.path.startswith("/partner/settings/") %} aria-current="page"{% endif %}>Settings</a>
           <span class="account-role account-role-hotel">Hotel</span>
         {% else %}
-          <a href="/search">Find a stay</a>
-          <a href="/account">My stays</a>
-          <a href="/partner/start">List your hotel</a>
+          <a href="/search"{% if request.path == "/search" or request.path.startswith("/search/") %} aria-current="page"{% endif %}>Find a stay</a>
+          <a href="/account"{% if request.path == "/account" or request.path.startswith("/account/") %} aria-current="page"{% endif %}>My stays</a>
+          <a href="/partner/start"{% if request.path == "/partner/start" or request.path.startswith("/partner/start/") %} aria-current="page"{% endif %}>List your hotel</a>
           <span class="account-role">Guest</span>
         {% endif %}
-        <a href="/notifications">Notifications</a>
-        {% if session.get("platform_role") == "admin" %}<a href="/admin">Admin</a>{% endif %}
-        {% if session.get("platform_role") == "support" %}<a href="/support">Support</a>{% endif %}
-        {% if session.get("platform_role") in ["admin","finance"] %}<a href="/admin/finance">Platform finance</a>{% endif %}
+        <a href="/notifications"{% if request.path == "/notifications" or request.path.startswith("/notifications/") %} aria-current="page"{% endif %}>Notifications</a>
+        {% if session.get("platform_role") == "admin" %}<a href="/admin"{% if request.path == "/admin" or (request.path.startswith("/admin/") and not request.path.startswith("/admin/finance")) %} aria-current="page"{% endif %}>Admin</a>{% endif %}
+        {% if session.get("platform_role") == "support" %}<a href="/support"{% if request.path == "/support" or request.path.startswith("/support/") %} aria-current="page"{% endif %}>Support</a>{% endif %}
+        {% if session.get("platform_role") in ["admin","finance"] %}<a href="/admin/finance"{% if request.path == "/admin/finance" or request.path.startswith("/admin/finance/") %} aria-current="page"{% endif %}>Platform finance</a>{% endif %}
         <button class="install-app-button" type="button" data-install-app hidden>Install app</button>
         <button class="nav-signout" type="button" data-logout>Sign out</button>
       {% else %}
-        <a href="/search">Find a stay</a>
-        <a href="/register?account_type=hotel">For hotels</a>
+        <a href="/search"{% if request.path == "/search" or request.path.startswith("/search/") %} aria-current="page"{% endif %}>Find a stay</a>
+        <a href="/register?account_type=hotel"{% if request.path == "/register" and request.args.get("account_type") == "hotel" %} aria-current="page"{% endif %}>For hotels</a>
         <button class="install-app-button" type="button" data-install-app hidden>Install app</button>
-        <a class="button button-small" href="/login">Sign in</a>
+        <a class="button button-small" href="/login"{% if request.path == "/login" %} aria-current="page"{% endif %}>Sign in</a>
       {% endif %}
     </nav>
   </header>
 
-  <main>{% block content %}{% endblock %}</main>
+  <main id="main-content" tabindex="-1">{% block content %}{% endblock %}</main>
   <footer class="footer">iRoya · Thoughtful stays, clearer booking.</footer>
   <script src="/static/js/app.js" defer></script>
 </body>
