@@ -1,3 +1,10 @@
+// Announce asynchronous feedback without moving keyboard focus.
+document.querySelectorAll('.form-message').forEach(function(message){
+  if(!message.hasAttribute('role'))message.setAttribute('role','status');
+  if(!message.hasAttribute('aria-live'))message.setAttribute('aria-live','polite');
+  message.setAttribute('aria-atomic','true');
+});
+
 
 (function initSearchLocation(){
   const form=document.querySelector('[data-search-filters]');
@@ -23,6 +30,7 @@
 
   if(!button)return;
   button.addEventListener('click',function(){
+    if(!form.reportValidity())return;
     if(!navigator.geolocation){
       if(msg)msg.textContent='Location search is not supported by this browser.';
       return;
@@ -37,7 +45,7 @@
         if(distanceOption)distanceOption.disabled=false;
         if(sort)sort.value='distance';
         if(msg)msg.textContent='Location received. Searching nearby hotels…';
-        form.submit();
+        form.requestSubmit();
       },
       function(error){
         const messages={
@@ -418,6 +426,7 @@ document.querySelectorAll('[data-property-verification]').forEach(function(row){
   const toggle=document.querySelector('[data-nav-toggle]');
   const nav=document.querySelector('[data-main-nav]');
   const closeButton=document.querySelector('[data-nav-close]');
+  const mobileMenu=window.matchMedia('(max-width: 1200px)');
   if(toggle&&nav){
     const closeNav=function(){
       nav.classList.remove('is-open');
@@ -425,6 +434,7 @@ document.querySelectorAll('[data-property-verification]').forEach(function(row){
       toggle.setAttribute('aria-expanded','false');
       toggle.setAttribute('aria-label','Open menu');
       document.body.classList.remove('mobile-nav-open');
+      document.querySelectorAll('main,body>footer').forEach(function(region){region.inert=false;});
     };
     const openNav=function(){
       nav.classList.add('is-open');
@@ -432,6 +442,8 @@ document.querySelectorAll('[data-property-verification]').forEach(function(row){
       toggle.setAttribute('aria-expanded','true');
       toggle.setAttribute('aria-label','Close menu');
       document.body.classList.add('mobile-nav-open');
+      document.querySelectorAll('main,body>footer').forEach(function(region){region.inert=true;});
+      if(closeButton)closeButton.focus({preventScroll:true});
     };
 
     toggle.addEventListener('click',function(event){
@@ -452,11 +464,17 @@ document.querySelectorAll('[data-property-verification]').forEach(function(row){
 
     nav.querySelectorAll('a,button').forEach(function(item){
       item.addEventListener('click',function(){
-        if(window.innerWidth<=860)closeNav();
+        if(mobileMenu.matches)closeNav();
       });
     });
 
     document.addEventListener('keydown',function(event){
+      if(event.key==='Tab'&&mobileMenu.matches&&nav.classList.contains('is-open')){
+        const items=[toggle,...nav.querySelectorAll('a[href],button:not(:disabled)')].filter(function(item){return item.getClientRects().length>0;});
+        const first=items[0],last=items[items.length-1];
+        if(event.shiftKey&&(document.activeElement===first||!items.includes(document.activeElement))){event.preventDefault();last.focus();}
+        else if(!event.shiftKey&&(document.activeElement===last||!items.includes(document.activeElement))){event.preventDefault();first.focus();}
+      }
       if(event.key==='Escape'&&nav.classList.contains('is-open')){
         closeNav();
         toggle.focus();
@@ -464,13 +482,14 @@ document.querySelectorAll('[data-property-verification]').forEach(function(row){
     });
 
     document.addEventListener('pointerdown',function(event){
-      if(window.innerWidth>860||!nav.classList.contains('is-open'))return;
+      if(!mobileMenu.matches||!nav.classList.contains('is-open'))return;
       if(nav.contains(event.target)||toggle.contains(event.target))return;
       closeNav();
+      toggle.focus({preventScroll:true});
     });
 
     window.addEventListener('resize',function(){
-      if(window.innerWidth>860)closeNav();
+      if(!mobileMenu.matches)closeNav();
     });
   }
 
@@ -862,45 +881,6 @@ document.querySelectorAll('[data-reservation-approval]').forEach(function(row){
       revealItems.forEach(function(item){observer.observe(item);});
     }else{
       revealItems.forEach(function(item){item.classList.add('is-visible');});
-    }
-  }
-
-  const form=document.querySelector('[data-home-search]');
-  if(form){
-    const checkIn=form.querySelector('[data-check-in]');
-    const checkOut=form.querySelector('[data-check-out]');
-    const formatDate=function(date){
-      const y=date.getFullYear();
-      const m=String(date.getMonth()+1).padStart(2,'0');
-      const d=String(date.getDate()).padStart(2,'0');
-      return y+'-'+m+'-'+d;
-    };
-    const addDays=function(date,days){
-      const copy=new Date(date.getFullYear(),date.getMonth(),date.getDate());
-      copy.setDate(copy.getDate()+days);
-      return copy;
-    };
-    const today=new Date();
-    const tomorrow=addDays(today,1);
-    const dayAfter=addDays(today,2);
-    const todayValue=formatDate(today);
-
-    if(checkIn){
-      checkIn.min=todayValue;
-      if(!checkIn.value)checkIn.value=formatDate(tomorrow);
-    }
-    if(checkOut){
-      checkOut.min=checkIn&&checkIn.value?checkIn.value:todayValue;
-      if(!checkOut.value)checkOut.value=formatDate(dayAfter);
-    }
-
-    if(checkIn&&checkOut){
-      checkIn.addEventListener('change',function(){
-        const selected=new Date(checkIn.value+'T00:00:00');
-        const next=formatDate(addDays(selected,1));
-        checkOut.min=next;
-        if(!checkOut.value||checkOut.value<=checkIn.value)checkOut.value=next;
-      });
     }
   }
 
@@ -2248,3 +2228,46 @@ document.querySelectorAll('[data-housekeeping-room]').forEach(function(card){
     });
   });
 });
+
+
+(function initStaySearchForms(){
+  const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Lagos',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+  const part=function(type){return parts.find(function(item){return item.type===type;}).value;};
+  const today=part('year')+'-'+part('month')+'-'+part('day');
+  function nextDay(value){
+    const dateParts=value.split('-').map(Number);
+    return new Date(Date.UTC(dateParts[0],dateParts[1]-1,dateParts[2]+1)).toISOString().slice(0,10);
+  }
+  document.querySelectorAll('[data-home-search],[data-search-filters]').forEach(function(form){
+    const checkIn=form.querySelector('[name="check_in"]');
+    const checkOut=form.querySelector('[name="check_out"]');
+    if(!checkIn||!checkOut)return;
+    const home=form.hasAttribute('data-home-search');
+    checkIn.min=today;
+    if(home&&!checkIn.value)checkIn.value=nextDay(today);
+    if(home&&!checkOut.value)checkOut.value=nextDay(checkIn.value);
+    function syncDates(){
+      checkIn.required=home||Boolean(checkOut.value);
+      checkOut.required=home||Boolean(checkIn.value);
+      checkOut.min=checkIn.value?nextDay(checkIn.value):nextDay(today);
+      checkOut.setCustomValidity(checkIn.value&&checkOut.value&&checkOut.value<=checkIn.value?'Choose a check-out date after check-in.':'');
+    }
+    checkIn.addEventListener('input',syncDates);
+    checkOut.addEventListener('input',syncDates);
+    syncDates();
+    const minPrice=form.querySelector('[name="min_price_ngn"]');
+    const maxPrice=form.querySelector('[name="max_price_ngn"]');
+    if(minPrice&&maxPrice){
+      function syncPrice(){
+        maxPrice.setCustomValidity(minPrice.value!==''&&maxPrice.value!==''&&Number(minPrice.value)>Number(maxPrice.value)?'Maximum price must be at least the minimum price.':'');
+      }
+      minPrice.addEventListener('input',syncPrice);
+      maxPrice.addEventListener('input',syncPrice);
+      syncPrice();
+    }
+    form.addEventListener('submit',function(event){
+      syncDates();
+      if(!form.checkValidity()){event.preventDefault();form.reportValidity();}
+    });
+  });
+})();
