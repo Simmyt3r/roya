@@ -56,7 +56,7 @@ def test_static_pwa_assets_are_served_with_expected_content():
     sw=client.get("/static/js/sw.js")
     assert sw.status_code==200
     sw_text=sw.get_data(as_text=True)
-    assert "iroya-shell-v32" in sw_text
+    assert "iroya-shell-v33" in sw_text
     assert "'/api/'" in sw_text
     assert "'/partner'" in sw_text
     assert "'/account'" in sw_text
@@ -67,9 +67,12 @@ def test_static_pwa_assets_are_served_with_expected_content():
     assert "cacheControl.includes('no-store')" in sw_text
 
     css=client.get("/static/css/app.css")
+    refresh_css=client.get("/static/css/ui-refresh.css")
     js=client.get("/static/js/app.js")
     logo=client.get("/static/brand/iroya-logo.svg")
     assert css.status_code==200
+    assert refresh_css.status_code==200
+    assert b".hotel-dashboard-actions" in refresh_css.data
     assert js.status_code==200
     assert logo.status_code==200
     assert "image/svg+xml" in (logo.content_type or "")
