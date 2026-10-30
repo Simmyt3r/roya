@@ -95,7 +95,7 @@
 <section class="shell property-grid search-results" aria-label="Hotel search results">
 {% for hotel in properties %}
   <a class="property-card" href="/hotels/{{ hotel.slug }}{% if check_in %}?check_in={{ check_in }}&check_out={{ check_out }}&guests={{ guests }}{% endif %}">
-    <div class="property-image">{% if hotel.cover_image %}<img src="{{ hotel.cover_image }}" alt="{{ hotel.name }}" loading="lazy" decoding="async" width="640" height="400">{% else %}<span>R</span>{% endif %}</div>
+    <div class="property-image">{% if hotel.cover_image %}<img src="{{ hotel.cover_image }}" alt="{{ hotel.name }}" loading="lazy" decoding="async" width="640" height="400">{% else %}<span class="property-photo-placeholder"><strong>iRoya</strong><small>Hotel photos coming soon</small></span>{% endif %}</div>
     <div class="property-body">
       <div class="muted">{{ hotel.city }}, {{ hotel.state }}{% if hotel.distance_km is not none %} · {{ '%.1f'|format(hotel.distance_km) }} km away{% endif %}</div>
       <h2>{{ hotel.name }}</h2>
@@ -103,6 +103,7 @@
         {% if hotel.rating %}<span aria-label="Guest rating {{ hotel.rating }}">★ {{ hotel.rating }}</span>{% else %}<span class="muted">No reviews yet</span>{% endif %}
         {% if hotel.from_price_minor is not none %}<span class="search-price"><strong>From ₦{{ '{:,.2f}'.format(hotel.from_price_minor/100) }}</strong><small>per room / night</small></span>{% else %}<span class="muted">Choose dates to see rates</span>{% endif %}
       </div>
+      <span class="property-card-action">View hotel &amp; rooms <span aria-hidden="true">→</span></span>
     </div>
   </a>
 {% else %}

@@ -1,5 +1,5 @@
-const CACHE='iroya-shell-v32';
-const SHELL=['/','/static/css/app.css','/static/js/app.js','/static/manifest.json','/static/brand/iroya-logo.svg'];
+const CACHE='iroya-shell-v33';
+const SHELL=['/','/static/css/app.css','/static/css/ui-refresh.css','/static/js/app.js','/static/manifest.json','/static/brand/iroya-logo.svg'];
 const PRIVATE_PREFIXES=['/api/','/reservation/','/partner','/account','/notifications','/book','/invite/','/payment/'];
 
 function isPrivatePath(pathname){
