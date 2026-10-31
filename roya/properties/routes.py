@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, time
 from decimal import Decimal
 from typing import Literal
 import json
@@ -511,6 +511,22 @@ def manage_property_page(property_id):
     )
 
 
+def _property_json_data(row):
+    """Turn database-specific property values into safe API JSON.
+
+    PostgreSQL TIME columns are returned as datetime.time objects, which
+    Flask's default JSON provider cannot serialize. Exclude the raw PostGIS
+    location value: latitude/longitude already carry the usable coordinates.
+    """
+    data = dict(row)
+    data.pop("location", None)
+    for field in ("check_in_time", "check_out_time"):
+        value = data.get(field)
+        if isinstance(value, time):
+            data[field] = value.isoformat()
+    return data
+
+
 class MiniDomainUpdate(BaseModel):
     mini_domain: str = Field(min_length=2,max_length=63)
 
@@ -573,7 +589,7 @@ def create_property_api():
              body.latitude,body.longitude,body.longitude,body.latitude,body.longitude,body.latitude,body.check_in_time,body.check_out_time,identity.user_id),
         ).fetchone()
         conn.commit()
-    return ok({**dict(row),"redirect_to":f"/partner/properties/{row['id']}"},201)
+    return ok({**_property_json_data(row),"redirect_to":f"/partner/properties/{row['id']}"},201)
 
 
 @bp.put("/api/v1/properties/<uuid:property_id>")
@@ -628,7 +644,7 @@ def update_property_api(property_id):
                  json.dumps(dict(before),default=str),json.dumps(dict(row),default=str)),
             )
 
-    return ok({**dict(row),"requires_reverification":needs_reverify})
+    return ok({**_property_json_data(row),"requires_reverification":needs_reverify})
 
 
 @bp.put("/api/v1/properties/<uuid:property_id>/mini-domain")
