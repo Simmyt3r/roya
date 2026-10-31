@@ -16,13 +16,14 @@
   <link rel="stylesheet" href="/static/css/ui-refresh.css">
   <title>{% block title %}iRoya{% endblock %}</title>
 </head>
-<body id="top">
+<body id="top"{% if session.get("sid") and session.get("account_type") == "hotel" %} class="hotel-workspace"{% endif %}>
   <a class="skip-link" href="#main-content">Skip to content</a>
   <header class="topbar">
     <a class="brand brand-lockup" href="/" aria-label="iRoya home">
       <img src="/static/brand/iroya-logo.svg" alt="" width="44" height="44">
       <span>iRoya</span>
     </a>
+    {% if session.get("sid") and session.get("account_type") == "hotel" %}<span class="workspace-label">Hotel workspace</span>{% endif %}
 
     <button aria-label="Open menu" class="nav-toggle" type="button" data-nav-toggle aria-expanded="false" aria-controls="main-navigation">
       <span></span><span></span><span></span><span class="sr-only">Menu</span>
@@ -30,7 +31,7 @@
 
     <nav id="main-navigation" class="main-nav" data-main-nav aria-label="Primary navigation">
       <div class="nav-mobile-head">
-        <strong>Menu</strong>
+        <strong>{% if session.get("account_type") == "hotel" %}Hotel menu{% else %}Menu{% endif %}</strong>
         <button class="nav-close" type="button" data-nav-close aria-label="Close menu">
           <span aria-hidden="true">×</span>
           <span>Close</span>
@@ -38,14 +39,17 @@
       </div>
       {% if session.get("sid") %}
         {% if session.get("account_type") == "hotel" %}
-          <a href="/partner"{% if request.path == "/partner" %} aria-current="page"{% endif %}>Home</a>
+          <span class="hotel-nav-heading">Manage your hotel</span>
+          <a href="/partner"{% if request.path == "/partner" %} aria-current="page"{% endif %}>Overview</a>
           <a href="/partner/reservations"{% if request.path == "/partner/reservations" or request.path.startswith("/partner/reservations/") %} aria-current="page"{% endif %}>Reservations</a>
           <a href="/partner/rooms"{% if request.path == "/partner/rooms" or request.path.startswith("/partner/rooms/") %} aria-current="page"{% endif %}>Rooms</a>
           <a href="/partner/housekeeping"{% if request.path == "/partner/housekeeping" or request.path.startswith("/partner/housekeeping/") %} aria-current="page"{% endif %}>Housekeeping</a>
           <a href="/partner/guests"{% if request.path == "/partner/guests" or request.path.startswith("/partner/guests/") %} aria-current="page"{% endif %}>Guests</a>
           {% if session.get("can_view_hotel_reports") %}<a href="/partner/analytics"{% if request.path == "/partner/analytics" or request.path.startswith("/partner/analytics/") %} aria-current="page"{% endif %}>Reports</a>{% endif %}
           <a href="/partner/settings"{% if request.path == "/partner/settings" or request.path.startswith("/partner/settings/") %} aria-current="page"{% endif %}>Settings</a>
-          <span class="account-role account-role-hotel">Hotel</span>
+          <span class="hotel-nav-heading">Personal</span>
+          <a href="/search"{% if request.path == "/search" %} aria-current="page"{% endif %}>Find a stay</a>
+          <a href="/account"{% if request.path == "/account" %} aria-current="page"{% endif %}>My stays</a>
         {% else %}
           <a href="/search"{% if request.path == "/search" or request.path.startswith("/search/") %} aria-current="page"{% endif %}>Find a stay</a>
           <a href="/account"{% if request.path == "/account" or request.path.startswith("/account/") %} aria-current="page"{% endif %}>My stays</a>
