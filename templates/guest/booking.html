@@ -109,8 +109,8 @@
     </div>
 
     <div class="booking-submit-panel">
-      <span class="booking-submit-eyebrow">Final step</span>
       <div>
+        <span class="booking-submit-eyebrow">Final step</span>
         <small>{{ rate.currency }} {{ '%.2f'|format(rate.total_price_minor/100) }} total</small>
         {% if rate.amount_due_minor > 0 %}
           <strong>{{ rate.currency }} {{ '%.2f'|format(rate.amount_due_minor/100) }} due now</strong>
