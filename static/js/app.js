@@ -510,6 +510,16 @@ document.querySelectorAll('[data-property-verification]').forEach(function(row){
   }
 })();
 
+function hotelCreationFailure(res,data,fallback){
+  const error=data&&data.error;
+  let message=(error&&error.message)||fallback;
+  if(res.status>=500){
+    message='The server could not confirm this request. Your hotel may already have been saved. Check the hotel dashboard before trying again.';
+  }
+  const requestId=(data&&data.meta&&data.meta.request_id)||res.headers.get('X-Request-ID');
+  return message+(requestId?' Reference: '+requestId:'');
+}
+
 const organizationForm=document.querySelector('[data-organization-form]');
 if(organizationForm){
   organizationForm.addEventListener('submit',async function(event){
@@ -519,18 +529,23 @@ if(organizationForm){
     msg.textContent='Creating your hotel workspace…';
     submit.disabled=true;
     const body=Object.fromEntries(new FormData(organizationForm).entries());
-    const res=await fetch('/api/v1/organizations',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(body)
-    });
-    const data=await res.json().catch(function(){return {};});
-    if(!res.ok){
-      msg.textContent=(data.error&&data.error.message)||'Hotel workspace could not be created.';
+    try{
+      const res=await fetch('/api/v1/organizations',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(body)
+      });
+      const data=await res.json().catch(function(){return {};});
+      if(!res.ok){
+        msg.textContent=hotelCreationFailure(res,data,'Hotel workspace could not be created.');
+        submit.disabled=false;
+        return;
+      }
+      window.location.href=(data.data&&data.data.redirect_to)||'/partner';
+    }catch(_error){
+      msg.textContent='Unable to confirm the result. Check your hotel dashboard before submitting again.';
       submit.disabled=false;
-      return;
     }
-    window.location.href=(data.data&&data.data.redirect_to)||'/partner';
   });
 }
 
@@ -540,24 +555,30 @@ if(propertyForm){
     event.preventDefault();
     const msg=propertyForm.querySelector('.form-message');
     const submit=propertyForm.querySelector('button[type="submit"]');
-    msg.textContent='Creating property…';
+    msg.textContent='Creating hotel…';
     submit.disabled=true;
     const raw=Object.fromEntries(new FormData(propertyForm).entries());
-    Object.keys(raw).forEach(function(key){
+    // Keep empty descriptions as strings; only nullable inputs become null.
+    ['phone','email','latitude','longitude'].forEach(function(key){
       if(raw[key]==='')raw[key]=null;
     });
-    const res=await fetch('/api/v1/properties',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(raw)
-    });
-    const data=await res.json().catch(function(){return {};});
-    if(!res.ok){
-      msg.textContent=(data.error&&data.error.message)||'Property could not be created.';
+    try{
+      const res=await fetch('/api/v1/properties',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(raw)
+      });
+      const data=await res.json().catch(function(){return {};});
+      if(!res.ok){
+        msg.textContent=hotelCreationFailure(res,data,'Hotel could not be created.');
+        submit.disabled=false;
+        return;
+      }
+      window.location.href=(data.data&&data.data.redirect_to)||'/partner/rooms';
+    }catch(_error){
+      msg.textContent='Unable to confirm the result. Check your hotel dashboard before submitting again.';
       submit.disabled=false;
-      return;
     }
-    window.location.href=(data.data&&data.data.redirect_to)||'/partner/rooms';
   });
 }
 
