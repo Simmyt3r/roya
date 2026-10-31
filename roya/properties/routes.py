@@ -4,7 +4,7 @@ from typing import Literal
 import json
 import uuid as uuidlib
 from flask import Blueprint, current_app, redirect, render_template, request
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from roya.auth.service import account_type_for_user, current_identity, login_required
 from roya.common.db import db_connection, supabase_admin_client
@@ -535,6 +535,13 @@ class PropertyCreate(BaseModel):
     organization_id: str
     name: str = Field(min_length=2,max_length=180)
     description: str = Field(default="",max_length=5000)
+
+    @field_validator("description", mode="before")
+    @classmethod
+    def default_empty_description(cls, value):
+        # Older PWA clients submit null when the optional field is blank.
+        return "" if value is None else value
+
     address: str = Field(min_length=3,max_length=300)
     city: str = Field(min_length=2,max_length=100)
     state: str = Field(min_length=2,max_length=100)
