@@ -8,17 +8,17 @@
   <p>{{ room.name }} · {{ rate.name }}</p>
 </section>
 
-<section class="shell booking-progress" aria-label="Booking progress">
+<nav class="shell booking-progress" aria-label="Booking progress">
   <div class="is-done"><span>✓</span><strong>Stay selected</strong></div>
-  <div class="is-current"><span>2</span><strong>Guest details</strong></div>
+  <div class="is-current" aria-current="step"><span>2</span><strong>Guest details</strong></div>
   <div><span>3</span><strong>{% if rate.amount_due_minor > 0 %}Payment{% else %}Confirmation{% endif %}</strong></div>
-</section>
+</nav>
 
 <section class="shell booking-layout">
   <article class="card booking-summary">
     <div class="booking-summary-head">
       <div>
-        <div class="eyebrow">Your stay</div>
+        <div class="eyebrow">Booking summary</div>
         <h2>{{ room.name }}</h2>
       </div>
       <span class="status-pill">{{ nights }} night{% if nights != 1 %}s{% endif %}</span>
@@ -29,7 +29,7 @@
       <span><small>Check out</small><strong>{{ check_out.strftime('%d %b %Y') if check_out.strftime is defined else check_out }}</strong></span>
     </div>
 
-    <div class="booking-price-box">
+    <div class="booking-price-box" aria-label="Stay pricing">
       <span>
         <small>Total stay</small>
         <strong>{{ rate.currency }} {{ '%.2f'|format(rate.total_price_minor/100) }}</strong>
@@ -47,7 +47,7 @@
       {% endif %}
     </div>
 
-    <div class="booking-plain-terms">
+    <div class="booking-plain-terms" aria-label="Payment and cancellation terms">
       {% if rate.guarantee_type == "pay_now" %}
         <div><strong>Payment</strong><span>Pay the full stay online to confirm this reservation.</span></div>
       {% elif rate.guarantee_type == "deposit" %}
@@ -81,7 +81,7 @@
     <div>
       <div class="eyebrow">Guest details</div>
       <h2>Who is staying?</h2>
-      <p class="muted">We use these details for the reservation and hotel contact.</p>
+      <p class="muted">Confirm your contact details so the hotel can prepare for your arrival.</p>
     </div>
 
     <label>Full name
@@ -93,7 +93,7 @@
         <input type="email" name="guest_email" value="{{ guest.email }}" autocomplete="email" required>
       </label>
       <label>Phone
-        <input name="guest_phone" value="{{ guest.phone }}" autocomplete="tel" required>
+        <input type="tel" name="guest_phone" value="{{ guest.phone }}" autocomplete="tel" inputmode="tel" required>
       </label>
     </div>
 
@@ -110,6 +110,7 @@
 
     <div class="booking-submit-panel">
       <div>
+        <span class="booking-submit-eyebrow">Final step</span>
         <small>{{ rate.currency }} {{ '%.2f'|format(rate.total_price_minor/100) }} total</small>
         {% if rate.amount_due_minor > 0 %}
           <strong>{{ rate.currency }} {{ '%.2f'|format(rate.amount_due_minor/100) }} due now</strong>
@@ -129,9 +130,9 @@
   </form>
 </section>
 
-<section class="shell booking-trust-note">
-  <span>Live availability checked</span>
-  <span>Your reservation is created only after you submit</span>
-  <span>No hidden iRoya booking fee shown here</span>
+<section class="shell booking-trust-note" aria-label="Booking reassurance">
+  <span>Review payment and cancellation terms before confirming</span>
+  <span>Payment status is verified before a stay is marked paid</span>
+  <span>Manage your reservation under My stays</span>
 </section>
 {% endblock %}

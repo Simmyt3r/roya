@@ -246,4 +246,4 @@ def test_public_hotel_page_uses_choose_review_confirm_language():
     assert "Pay at hotel" in html
     assert "Free cancellation available" in html
     assert "Review booking" in html
-    assert "Only rooms available for your selected dates are shown." in html
+    assert "Compare room options and payment terms for your selected dates." in html

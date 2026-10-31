@@ -288,7 +288,7 @@ def test_hotel_navigation_uses_task_language():
         session["can_view_hotel_reports"]=True
         html=render_template("base.html")
 
-    for label in ("Home","Reservations","Rooms","Guests","Reports","Settings"):
+    for label in ("Overview","Reservations","Rooms","Guests","Reports","Settings"):
         assert f">{label}<" in html
     assert ">Dashboard<" not in html
 

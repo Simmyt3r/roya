@@ -2,7 +2,7 @@
 {% block title %}My stays · iRoya{% endblock %}
 {% block content %}
 <section class="shell page-head account-head">
-  <div><div class="eyebrow">Personal workspace</div><h1>My stays</h1><p>{{ profile.name or email }} · {{ email }}</p></div>
+  <div><div class="eyebrow">Your account</div><h1>My stays</h1><p>Manage your reservations and keep your booking details up to date.</p></div>
   <a class="button" href="/search">Find a stay</a>
 </section>
 <section class="shell account-layout">
@@ -20,11 +20,34 @@
       <button class="button button-secondary" type="submit">Save profile</button><p class="form-message"></p>
     </form>
   </aside>
-  <section class="stay-list">
+  <section class="stay-list" aria-label="Your reservations">
+    <div class="stay-list-heading">
+      <div>
+        <div class="eyebrow">Reservations</div>
+        <h2>Your bookings</h2>
+      </div>
+      <span class="stay-list-count">{{ reservations|length }} booking{% if reservations|length != 1 %}s{% endif %}</span>
+    </div>
     {% for r in reservations %}
-      <a class="card stay-card" href="/reservation/{{ r.id }}"><div><div class="eyebrow">{{ r.reference }}</div><h2>{{ r.property_name }}</h2><p class="muted">{{ r.check_in }} → {{ r.check_out }} · {{ r.nights }} night{% if r.nights != 1 %}s{% endif %}</p></div><div class="stay-status"><span>{{ r.status|replace("_"," ")|title }}</span><strong>{{ r.currency }} {{ '%.2f'|format(r.total_price_minor / 100) }}</strong><small>{{ r.payment_status|replace("_"," ")|title }}</small></div></a>
+      <a class="card stay-card" href="/reservation/{{ r.id }}">
+        <div class="stay-card-main">
+          <div class="eyebrow">{{ r.reference }}</div>
+          <h3>{{ r.property_name }}</h3>
+          <p class="muted">{{ r.check_in }} → {{ r.check_out }} · {{ r.nights }} night{% if r.nights != 1 %}s{% endif %}</p>
+        </div>
+        <div class="stay-status">
+          <span class="stay-status-badge is-{{ r.status|replace('_','-') }}">{{ r.status|replace("_"," ")|title }}</span>
+          <strong>{{ r.currency }} {{ '%.2f'|format(r.total_price_minor / 100) }}</strong>
+          <small>Payment: {{ r.payment_status|replace("_"," ")|title }}</small>
+          <span class="stay-card-action">View booking <span aria-hidden="true">→</span></span>
+        </div>
+      </a>
     {% else %}
-      <div class="empty"><h2>No stays yet</h2><p class="muted">When you reserve a room, it will appear here with its confirmation and payment status.</p><a class="button" href="/search">Explore stays</a></div>
+      <div class="empty stay-empty">
+        <h3>No stays yet</h3>
+        <p class="muted">Your bookings, confirmations and payment updates will appear here.</p>
+        <a class="button" href="/search">Explore hotels</a>
+      </div>
     {% endfor %}
   </section>
 </section>

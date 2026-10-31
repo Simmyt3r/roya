@@ -94,7 +94,7 @@ def test_landing_page_renders_without_database():
     response=app.test_client().get("/")
     assert response.status_code==200
     html=response.get_data(as_text=True)
-    assert "A warmer way to find your" in html
+    assert "Discover a stay that" in html
     assert "data-home-search" in html
     assert 'href="/register?account_type=hotel"' in html
     assert "Pending reservation approvals" not in html

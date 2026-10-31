@@ -2238,17 +2238,18 @@ document.querySelectorAll('[data-housekeeping-room]').forEach(function(card){
     const dateParts=value.split('-').map(Number);
     return new Date(Date.UTC(dateParts[0],dateParts[1]-1,dateParts[2]+1)).toISOString().slice(0,10);
   }
-  document.querySelectorAll('[data-home-search],[data-search-filters]').forEach(function(form){
+  document.querySelectorAll('[data-home-search],[data-search-filters],[data-stay-dates]').forEach(function(form){
     const checkIn=form.querySelector('[name="check_in"]');
     const checkOut=form.querySelector('[name="check_out"]');
     if(!checkIn||!checkOut)return;
     const home=form.hasAttribute('data-home-search');
+    const requireDates=home||form.hasAttribute('data-stay-dates');
     checkIn.min=today;
     if(home&&!checkIn.value)checkIn.value=nextDay(today);
     if(home&&!checkOut.value)checkOut.value=nextDay(checkIn.value);
     function syncDates(){
-      checkIn.required=home||Boolean(checkOut.value);
-      checkOut.required=home||Boolean(checkIn.value);
+      checkIn.required=requireDates||Boolean(checkOut.value);
+      checkOut.required=requireDates||Boolean(checkIn.value);
       checkOut.min=checkIn.value?nextDay(checkIn.value):nextDay(today);
       checkOut.setCustomValidity(checkIn.value&&checkOut.value&&checkOut.value<=checkIn.value?'Choose a check-out date after check-in.':'');
     }

@@ -1,20 +1,36 @@
 {% extends "base.html" %}
 {% block title %}{{ property.name }} · iRoya{% endblock %}
 {% block content %}
+<nav class="shell property-breadcrumb" aria-label="Breadcrumb">
+  <a href="/search">Explore hotels</a>
+  <span aria-hidden="true">/</span>
+  <span>{{ property.city }}</span>
+</nav>
 <section class="shell page-head property-public-head">
   <div>
-    <div class="eyebrow">Verified hotel</div>
+    <div class="eyebrow">Verified hotel on iRoya</div>
     <h1>{{ property.name }}</h1>
-    <p>{{ property.address }}, {{ property.city }}, {{ property.state }}</p>
+    <p class="property-address">{{ property.address }}, {{ property.city }}, {{ property.state }}</p>
   </div>
-  <div class="rating">★ {{ review_summary.average_rating }} <small>({{ review_summary.review_count }})</small></div>
+  {% if review_summary.review_count %}
+    <a class="rating property-rating" href="#guest-reviews-heading" aria-label="Rated {{ review_summary.average_rating }} out of 5 from {{ review_summary.review_count }} reviews">
+      <span aria-hidden="true">★</span> {{ review_summary.average_rating }} <small>({{ review_summary.review_count }} review{% if review_summary.review_count != 1 %}s{% endif %})</small>
+    </a>
+  {% else %}
+    <span class="property-new-badge">New on iRoya</span>
+  {% endif %}
 </section>
 
-<section class="shell gallery">
-  {% for image in images[:4] %}
-    <img src="{{ image.path }}" alt="{{ image.alt_text or property.name }}">
+<section class="shell gallery property-gallery" data-count="{{ [images|length, 5]|min }}" aria-label="Photos of {{ property.name }}">
+  {% for image in images[:5] %}
+    <div class="property-gallery-item{% if loop.first %} is-primary{% endif %}">
+      <img src="{{ image.path }}" alt="{{ image.alt_text or (property.name ~ ' hotel photo ' ~ loop.index) }}" loading="{% if loop.first %}eager{% else %}lazy{% endif %}" decoding="async">
+    </div>
   {% else %}
-    <div class="gallery-placeholder">iRoya</div>
+    <div class="gallery-placeholder property-gallery-empty">
+      <strong>{{ property.name }}</strong>
+      <span>Hotel photos will appear here when available.</span>
+    </div>
   {% endfor %}
 </section>
 
@@ -23,7 +39,11 @@
     <div class="eyebrow">About the hotel</div>
     <h2>{{ property.name }}</h2>
     <p>{{ property.description }}</p>
-    <p class="muted">Check-in {{ property.check_in_time }} · Check-out {{ property.check_out_time }}</p>
+    <div class="property-stay-highlights" aria-label="Hotel details">
+      <span><strong>Check-in</strong> {{ property.check_in_time }}</span>
+      <span><strong>Check-out</strong> {{ property.check_out_time }}</span>
+      <span><strong>Listing</strong> Verified</span>
+    </div>
     {% if amenities %}
       <div class="public-amenities">
         {% for amenity in amenities %}<span>{{ amenity.name }}</span>{% endfor %}
@@ -31,7 +51,7 @@
     {% endif %}
   </article>
 
-  <aside class="card property-booking-card">
+  <aside class="card property-booking-card" id="check-availability" aria-label="Check room availability">
     <div>
       <div class="eyebrow">Your stay</div>
       <h3>{% if check_in and check_out %}Change dates{% else %}Choose dates{% endif %}</h3>
@@ -39,7 +59,7 @@
         <p class="muted">{{ check_in }} → {{ check_out }} · {{ guests }} guest{% if guests != 1 %}s{% endif %}</p>
       {% endif %}
     </div>
-    <form action="/hotels/{{ property.slug }}" method="get">
+    <form action="/hotels/{{ property.slug }}" method="get" data-stay-dates>
       <div class="property-stay-fields">
         <label>Check in<input type="date" name="check_in" value="{{ check_in or '' }}" required></label>
         <label>Check out<input type="date" name="check_out" value="{{ check_out or '' }}" required></label>
@@ -47,6 +67,7 @@
       </div>
       <button class="button" type="submit">{% if check_in and check_out %}Update availability{% else %}See available rooms{% endif %}</button>
     </form>
+    <p class="property-booking-hint">No payment is taken when checking availability.</p>
   </aside>
 </section>
 
@@ -55,7 +76,7 @@
     <div>
       <div class="eyebrow">{% if check_in and check_out %}Available now{% else %}Stay options{% endif %}</div>
       <h2>{% if check_in and check_out %}Choose your room{% else %}Rooms & rates{% endif %}</h2>
-      {% if check_in and check_out %}<p class="muted">Only rooms available for your selected dates are shown.</p>{% endif %}
+      {% if check_in and check_out %}<p class="muted">Compare room options and payment terms for your selected dates.</p>{% else %}<p class="muted">Choose your dates to check current availability and continue to booking.</p>{% endif %}
     </div>
   </div>
 
@@ -63,7 +84,9 @@
     {% for room in rooms %}
       <article class="room-card room-card-with-media public-room-card">
         {% if room.cover_image %}
-          <img class="room-card-image" src="{{ room.cover_image }}" alt="{{ room.cover_alt or room.name }}">
+          <img class="room-card-image" src="{{ room.cover_image }}" alt="{{ room.cover_alt or room.name }}" loading="lazy" decoding="async">
+        {% else %}
+          <div class="room-photo-placeholder" aria-label="Room photo not available"><span>Room photo coming soon</span></div>
         {% endif %}
         <div class="public-room-main">
           <div class="muted">{{ room.rate_plan_name }}{% if room.meal_plan != "room_only" %} · {{ room.meal_plan|replace('_',' ')|title }}{% endif %}</div>
@@ -87,7 +110,7 @@
           {% if check_in and check_out %}
             <a class="button button-small" href="{{ booking_origin }}/book?room_type_id={{ room.id }}&rate_plan_id={{ room.rate_plan_id }}&check_in={{ check_in }}&check_out={{ check_out }}">Review booking</a>
           {% else %}
-            <small class="muted">Choose dates above to book</small>
+            <a class="button button-secondary button-small" href="#check-availability">Choose dates to book</a>
           {% endif %}
         </div>
       </article>
@@ -108,7 +131,7 @@
 <section class="shell property-reviews" aria-labelledby="guest-reviews-heading">
   <div class="section-heading">
     <div><div class="eyebrow">Verified stays</div><h2 id="guest-reviews-heading">Guest reviews</h2></div>
-    <div class="review-summary"><strong>★ {{ review_summary.average_rating }}</strong><span>{{ review_summary.review_count }} review{% if review_summary.review_count != 1 %}s{% endif %}</span></div>
+    <div class="review-summary">{% if review_summary.review_count %}<strong>★ {{ review_summary.average_rating }}</strong><span>{{ review_summary.review_count }} review{% if review_summary.review_count != 1 %}s{% endif %}</span>{% else %}<strong>Not rated yet</strong><span>Be among the first guests to review</span>{% endif %}</div>
   </div>
   {% if reviews %}
     <div class="review-grid">
