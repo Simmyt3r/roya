@@ -128,3 +128,37 @@ def test_booking_ui_exposes_step_semantics_and_typed_phone():
     assert 'type="tel" name="guest_phone"' in html
     assert "Booking summary" in html
     assert "Review payment and cancellation terms before confirming" in html
+
+
+def test_guest_stays_have_visible_status_and_a_clear_details_link():
+    app = _app()
+    with app.test_request_context("/account"):
+        html = render_template(
+            "guest/account.html",
+            profile={"name": "Guest One", "phone": "08000000000", "account_type": "guest"},
+            email="guest@example.com",
+            reservations=[{
+                "id": "booking-1", "reference": "RYA-EXAMPLE",
+                "property_name": "Example Hotel", "check_in": "2026-11-07",
+                "check_out": "2026-11-09", "nights": 2,
+                "status": "confirmed", "payment_status": "paid",
+                "currency": "NGN", "total_price_minor": 1500000,
+            }],
+        )
+    assert 'aria-label="Your reservations"' in html
+    assert 'href="/reservation/booking-1"' in html
+    assert 'class="stay-status-badge is-confirmed"' in html
+    assert "Payment: Paid" in html
+    assert "View booking" in html
+
+
+def test_design_stylesheet_and_manifest_share_the_same_theme():
+    app = _app()
+    client = app.test_client()
+    homepage = client.get("/").get_data(as_text=True)
+    manifest = client.get("/static/manifest.json").get_json()
+    stylesheet = client.get("/static/css/ui-refresh.css").get_data(as_text=True)
+    assert 'name="theme-color" content="#145c50"' in homepage
+    assert manifest["theme_color"] == "#145c50"
+    assert ".hotel-workspace .topbar" in stylesheet
+    assert ".property-gallery-item" in stylesheet
