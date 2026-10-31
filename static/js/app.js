@@ -558,7 +558,8 @@ if(propertyForm){
     msg.textContent='Creating hotel…';
     submit.disabled=true;
     const raw=Object.fromEntries(new FormData(propertyForm).entries());
-    Object.keys(raw).forEach(function(key){
+    // Keep empty descriptions as strings; only nullable inputs become null.
+    ['phone','email','latitude','longitude'].forEach(function(key){
       if(raw[key]==='')raw[key]=null;
     });
     try{
