@@ -107,7 +107,9 @@ def test_hotel_creation_succeeds_even_when_sql_returns_time_objects(monkeypatch)
     conn = FakeConnection(_record(org_id, property_id))
     client, _ = _client(monkeypatch, conn)
 
-    response = client.post("/api/v1/properties", json=_payload(org_id))
+    payload = _payload(org_id)
+    payload["description"] = None  # Previously submitted by installed PWA clients.
+    response = client.post("/api/v1/properties", json=payload)
 
     assert response.status_code == 201
     data = response.get_json()["data"]
@@ -118,6 +120,8 @@ def test_hotel_creation_succeeds_even_when_sql_returns_time_objects(monkeypatch)
     assert "location" not in data
     assert conn.commit_calls == 1
     assert any("insert into properties" in sql for sql, _ in conn.executed)
+    insert_params = next(params for sql, params in conn.executed if "insert into properties" in sql)
+    assert insert_params[4] == ""  # Null description is normalized before persistence.
 
 
 def test_hotel_update_succeeds_and_remains_json_serializable(monkeypatch):
@@ -142,3 +146,14 @@ def test_hotel_update_succeeds_and_remains_json_serializable(monkeypatch):
     assert data["requires_reverification"] is False
     assert "location" not in data
     assert any("insert into audit_logs" in sql for sql, _ in conn.executed)
+
+
+def test_hotel_form_keeps_blank_description_as_string():
+    from pathlib import Path
+
+    js = (Path(__file__).resolve().parents[1] / "static/js/app.js").read_text()
+    handler = js.split("const propertyForm=document.querySelector('[data-property-form]');", 1)[1]
+    handler = handler.split("const memberForm=document.querySelector", 1)[0]
+    assert "['phone','email','latitude','longitude']" in handler
+    assert "Object.keys(raw).forEach" not in handler
+    assert "hotelCreationFailure" in js
